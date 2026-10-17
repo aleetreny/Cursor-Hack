@@ -19,7 +19,11 @@ interface Step {
   slide?: () => ReactNode;
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+let epoch = 0;
+class Stale extends Error {}
+/** Sleep that aborts (throws) if the presenter moved to another chapter meanwhile. */
+const sleep = async (ms: number) => { const e = epoch; await new Promise((r) => setTimeout(r, ms)); if (e !== epoch) throw new Stale(); };
+const later = (ms: number, fn: () => void) => { const e = epoch; setTimeout(() => { if (e === epoch) fn(); }, ms); };
 const st = () => useStore.getState();
 const sc = () => sceneRef.current!;
 const V3 = (x: number, y: number, z: number) => { const v = sc().focusPoint().clone(); v.set(x, y, z); return v; };
@@ -28,7 +32,7 @@ function shot(dx: number, dy: number, dz: number, ms = 3200, rotate = 0) {
   const s = sc(); const t = s.focusPoint();
   s.controls.autoRotate = false;
   s.flyTo(t, undefined, ms, V3(dx, dy, dz));
-  if (rotate) setTimeout(() => { s.controls.autoRotate = true; s.controls.autoRotateSpeed = rotate; }, ms);
+  if (rotate) later(ms, () => { s.controls.autoRotate = true; s.controls.autoRotateSpeed = rotate; });
 }
 function base(extra: Record<string, unknown> = {}) {
   const s = st();
@@ -53,7 +57,7 @@ const STEPS: Step[] = [
       <div className="pz-title">
         <div className="pz-logo"><Logo /> FireScope 3D</div>
         <div className="pz-sub">Turning wildfire drone footage into a time-aware 3D picture of the fire.</div>
-        <div className="pz-hint">Space pause · → next · ← back · Esc exit</div>
+        <div className="pz-hint">→ or Space next · ← back · H hide bar · Esc exit</div>
       </div>
     ),
   },
@@ -91,11 +95,10 @@ const STEPS: Step[] = [
     body: <>Terrain, aerial imagery, burned area, active fire, change since the previous frame, hotspots, drone footprint, burn-cell boundary and ground truth. Each one has visibility and opacity controls.</>,
     enter: () => {
       const s = st(); base({ mode: 'incident', panel: 'layers', feedOpen: false }); s.setTime(s.t0 + 6 * 60000); sc().flyFrame(260, 30, 0.5, 2400);
-      const live = () => document.querySelector('.pz')?.getAttribute('data-step') === 'layers';
-      setTimeout(() => live() && st().setLayer('burned', 0), 3000);
-      setTimeout(() => live() && st().setLayer('burned', 0.95), 5200);
-      setTimeout(() => live() && st().setLayer('imagery', 0.75), 7200);
-      setTimeout(() => { st().setLayer('imagery', 0.18); st().setLayer('burned', 0.95); }, 10200);
+      later(3000, () => st().setLayer('burned', 0));
+      later(5200, () => st().setLayer('burned', 0.95));
+      later(7200, () => st().setLayer('imagery', 0.75));
+      later(9000, () => { st().setLayer('imagery', 0.18); st().setLayer('burned', 0.95); });
     },
   },
   {
@@ -174,26 +177,14 @@ const STEPS: Step[] = [
     enter: () => { const s = st(); base({ mode: 'incident', panel: 'layers', feedOpen: false, speed: 40, playing: true }); s.setLayer('projection', true); s.setTime(s.t0 + (s.t1 - s.t0) * 0.06); shot(-3600, 1650, 2600, 3000, 0.45); },
   },
   {
-    id: 'fleet', title: 'Drone fleet', dur: 11, spot: '.feed', at: 'bl',
-    kicker: 'A fleet, not a feed', head: 'Six drones, one shared picture', tags: ['REAL', 'SIMULATED'],
-    body: <>UAV-01 is real recorded footage. FT-02 to FT-06 are simulated, with camera views rendered from the 3D twin (EO and IR* looks).</>,
-    enter: async () => { const s = st(); sc().controls.autoRotate = false; s.setLayer('projection', false); s.set({ playing: false, mode: 'drones', feedOpen: true }); await sleep(300); st().set({ selectedUnitId: 'FT-02', feedOpen: true }); await sleep(1700); sc().flyFrame(420, 30, 0.9, 2200); await click('.feed-bar button', 'IR*', 400); },
-  },
-  {
     id: 'resources', title: 'Response operations', dur: 13, at: 'tl',
     kicker: 'Coordinate the response', head: 'Chase the tankers, follow the line', tags: ['SIMULATED'],
     body: <>Air tankers, helicopters, engines and crews on the same timeline. Chase an aircraft, watch the retardant drops and the fire line being cut.</>,
     enter: async () => { const s = st(); s.setLayer('projection', false); s.set({ mode: 'resources', feedOpen: false, playing: false }); s.setTime(s.t0 + 7.2 * 60000); s.set({ selectedUnitId: 'T-910' }); await sleep(1100); st().set({ follow: { id: 'T-910', mode: 'chase' }, playing: true, speed: 3 }); },
   },
   {
-    id: 'trust', title: 'Trust', dur: 10, spot: '.right', at: 'bl',
-    kicker: 'Built to be trusted', head: 'Every number shows where it came from', tags: ['MEASURED', 'MODEL', 'EXTERNAL', 'SIMULATED'],
-    body: <>Provenance chips on every metric, live integration status, and honest limits: RGB measures no temperature, and georeferencing is approximate.</>,
-    enter: () => { base({ mode: 'incident', panel: 'notes', playing: false, feedOpen: false }); sc().flyFrame(320, 32, 0.4); },
-  },
-  {
     id: 'close', title: 'FireScope 3D', dur: 0, kind: 'slide',
-    enter: () => { const s = st(); s.set({ panel: 'layers', speed: 30, playing: true }); s.setLayer('projection', true); s.setTime(s.t0 + (s.t1 - s.t0) * 0.5); shot(3000, 1500, 3000, 2500, -0.35); },
+    enter: () => { const s = st(); base({ mode: 'incident', panel: 'layers', feedOpen: false, selectedUnitId: null, speed: 30, playing: true }); s.setLayer('projection', true); s.setTime(s.t0 + (s.t1 - s.t0) * 0.5); shot(3000, 1500, 3000, 2500, -0.35); },
     slide: () => (
       <div className="pz-title">
         <div className="pz-kicker" style={{ textAlign: 'center' }}>From raw drone video to spatial intelligence</div>
@@ -234,15 +225,13 @@ function ProblemSlide() {
 export function Presenter() {
   const set = useStore((s) => s.set);
   const [i, setI] = useState(0);
-  const [paused, setPaused] = useState(false);
   const [hideBar, setHideBar] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const step = STEPS[i];
   const card = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ x: number; y: number; k: string } | null>(null);
 
-  const go = useCallback((n: number) => { const k = Math.max(0, Math.min(STEPS.length - 1, n)); setI(k); setElapsed(0); }, []);
+  const go = useCallback((n: number) => { const k = Math.max(0, Math.min(STEPS.length - 1, n)); setI(k); }, []);
   const exit = useCallback(() => {
     const s = st(), scene = sceneRef.current;
     if (scene) scene.controls.autoRotate = false;
@@ -250,13 +239,12 @@ export function Presenter() {
     s.setLayer('projection', false); s.setLayer('groundTruth', false);
   }, []);
 
-  useEffect(() => { void step.enter(); }, [i]);   // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {   // step timer (pausable)
-    if (paused || !step.dur) return;
-    const t = setInterval(() => setElapsed((e) => { const n = e + 0.1; if (n >= step.dur) { go(i + 1); return 0; } return n; }), 100);
-    return () => clearInterval(t);
-  }, [paused, i, step.dur, go]);
+  useEffect(() => {
+    epoch++;
+    const sc0 = sceneRef.current; if (sc0) sc0.controls.autoRotate = false;
+    if (step.id !== 'layers') { const s0 = st(); if (s0.layers.burned < 0.5) s0.setLayer('burned', 0.95); if (s0.layers.imagery > 0.3) s0.setLayer('imagery', 0.18); }
+    Promise.resolve().then(step.enter).catch((e) => { if (!(e instanceof Stale)) console.warn(e); });
+  }, [i]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {   // follow spotlight target + map pane
     const upd = () => {
@@ -295,7 +283,7 @@ export function Presenter() {
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT') return;
-      const map: Record<string, () => void> = { ' ': () => setPaused((p) => !p), ArrowRight: () => go(i + 1), ArrowLeft: () => go(i - 1), Escape: exit, h: () => setHideBar((h) => !h), H: () => setHideBar((h) => !h) };
+      const map: Record<string, () => void> = { ' ': () => go(i + 1), Enter: () => go(i + 1), PageDown: () => go(i + 1), PageUp: () => go(i - 1), ArrowRight: () => go(i + 1), ArrowLeft: () => go(i - 1), Escape: exit, h: () => setHideBar((h) => !h), H: () => setHideBar((h) => !h) };
       if (map[e.key]) { e.preventDefault(); e.stopPropagation(); map[e.key](); }
     };
     window.addEventListener('keydown', k, true);
@@ -315,20 +303,19 @@ export function Presenter() {
           {rect && <div className="pz-spot" style={{ left: rect.left - pad, top: rect.top - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 }} />}
           {!rect && <div className="pz-dim" />}
           <div className="pz-caption" key={step.id} ref={card} style={cardPos}>
-            <div className="pz-kicker">{String(i - 2).padStart(2, '0')} · {step.kicker}</div>
+            <div className="pz-kicker"><span className="pz-no">{i + 1}</span>{step.kicker}</div>
             <div className="pz-head">{step.head}</div>
             <div className="pz-body">{step.body}</div>
             {step.tags && <div className="pz-tags">{step.tags.map((t) => <span key={t} className={'pz-tag t-' + t.split(' ')[0].toLowerCase()}>{t}</span>)}</div>}
           </div>
         </>
       )}
-      <div className={'pz-bar' + (hideBar ? ' hidden' : '') + (rect && rect.bottom > innerHeight - 140 ? ' top' : '')}>
+      <div className={'pz-bar' + (hideBar ? ' hidden' : '') + (rect && rect.top > innerHeight * 0.55 ? ' top' : '')}>
         <button onClick={() => go(i - 1)} title="Previous (←)">‹</button>
-        <button className="pp" onClick={() => setPaused(!paused)} title="Pause / resume (Space)">{paused ? '▶' : '❚❚'}</button>
-        <button onClick={() => go(i + 1)} title="Next (→)">›</button>
+        <button className="pp" onClick={() => go(i + 1)} title="Next chapter (→ / Space)" disabled={i === STEPS.length - 1}>Next ›</button>
         <div className="pz-meta">
-          <div className="pz-name"><span>{i + 1} / {STEPS.length}</span>{step.title}{paused && <em>paused</em>}</div>
-          <div className="pz-dots">{STEPS.map((s, k) => <i key={s.id} className={k < i ? 'done' : k === i ? 'cur' : ''} onClick={() => go(k)} title={s.title}>{k === i && step.dur ? <b style={{ width: `${(elapsed / step.dur) * 100}%` }} /> : null}</i>)}</div>
+          <div className="pz-name"><span>{i + 1} / {STEPS.length}</span>{step.title}</div>
+          <div className="pz-dots">{STEPS.map((s, k) => <i key={s.id} className={k < i ? 'done' : k === i ? 'cur' : ''} onClick={() => go(k)} title={s.title} />)}</div>
         </div>
         <button onClick={exit} title="Exit (Esc)">✕</button>
       </div>

@@ -135,7 +135,7 @@ export function Timeline() {
               <div className="bubble" style={{ left: `${pct(time)}%` }}>{fmtDayClock(time)}</div>
               <div className="handle" style={{ left: `${pct(time)}%` }} />
               <div className="ticks">
-                {ticks.map((k) => <div key={k.t} className="tick" style={{ left: `${pct(k.t)}%` }}>{k.day ? <b>{k.day}</b> : <b>&nbsp;</b>}{k.label}</div>)}
+                {ticks.map((k) => <div key={k.t} className="tick" style={{ left: `${pct(k.t)}%` }}>{k.label}</div>)}
               </div>
             </div>
           </div>

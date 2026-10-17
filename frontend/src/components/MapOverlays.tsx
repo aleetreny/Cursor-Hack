@@ -48,7 +48,7 @@ export function MapOverlays() {
         {layers.projection && <span className="pill exp">SIMULATED FIRE SCENARIO · T+{Math.floor(scenario.hours)}h{String(Math.round((scenario.hours % 1) * 60)).padStart(2, '0')} · {Math.round(scenario.ha).toLocaleString()} ha · NOT A FORECAST</span>}
       </div>
 
-      {hover && (
+      {hover && !useStore.getState().presenting && (
         <div className="hovertip" style={{ left: hover.x, top: hover.y, transform: `translate(${hover.x > (document.querySelector('.map')?.clientWidth ?? 9999) - 290 ? 'calc(-100% - 14px)' : '14px'}, ${hover.y > (document.querySelector('.map')?.clientHeight ?? 9999) - 110 ? 'calc(-100% - 14px)' : '14px'})` }}>
           <div><b>{Math.round(hover.elevation).toLocaleString()} m</b> · {Math.round(hover.slope)}° slope · {aspectName(hover.aspect)}-facing</div>
           <div><span className={'dot' + (hover.inBurned ? ' burn' : '')} />{hover.inBurned ? 'Inside observed burned area' : hover.inPerimeter ? 'Inside planned burn cell' : 'Outside burn cell'}</div>
