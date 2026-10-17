@@ -1,6 +1,8 @@
 # FireScope 3D
 
-> 📘 Pitch y explicación completa (ES): [docs/PITCH_Y_FUNCIONAMIENTO.md](docs/PITCH_Y_FUNCIONAMIENTO.md)
+> 🌐 **Demo:** https://aleetreny.github.io/cursor-hack/ — static build, no backend, no keys (GitHub Pages from `main`).
+>
+> 📘 Pitch y explicación completa (ES): [docs/PITCH_Y_FUNCIONAMIENTO.md](docs/PITCH_Y_FUNCIONAMIENTO.md) · 🗺️ Plan de mejora: [docs/PLAN_DE_MEJORA.md](docs/PLAN_DE_MEJORA.md)
 
 **We turn wildfire drone footage into a time-aware 3D operational picture.**
 
@@ -81,7 +83,9 @@ The ground-truth masks can be toggled on the map (Layers → Ground Truth), show
 * **Backend** (`backend/firescope/`): `pipeline.py` (video → masks → polygons → timeline/events/eval), `geo.py` (DEM + camera), `segment.py`, `cosmos_job.py` (Cosmos clip analysis + index), `nvidia.py` (OpenAI-compatible adapters, every call logged to `data/processed/nvidia_calls.jsonl`), `app.py` (API).
 * **Contract**: `docs/api-contract.md` and `frontend/src/api/types.ts`. Coordinates are WGS84 `[lon, lat]`, times are ISO-8601 UTC, and unknown values are `null`.
 
-## Sponsor integrations (production on the workshop K8s cluster)
+## Sponsor integrations (hackathon only — archived)
+
+> These ran live on the workshop Kubernetes cluster during the VAST Builders Challenge. That cluster is gone, and the public demo is a static build that does not call them: Search and Ask run in the browser over the logged events. See [docs/historia-hackathon.md](docs/historia-hackathon.md).
 
 | Sponsor | Service | What FireScope does with it | Code |
 |---|---|---|---|
@@ -96,9 +100,9 @@ Credentials exist **only** server-side (K8s Secret `firescope-env`: `GPU_BEARER_
 
 Local development on a Mac has no GPU token, so Cosmos shows as *not configured* and events come from the measurement pipeline (`provenance: derived`), clearly labelled.
 
-## Deploy (workshop App button → `/app`)
+## Publish (GitHub Pages)
 
-See [`deploy/README.md`](deploy/README.md): `./deploy/build.sh` builds the dashboard (`npm run build`, relative base so it works under `/app/`) and produces ConfigMap-sized tarballs. `deploy/k8s.yaml` runs `python:3.12-slim` with the code mounted, serving API and dashboard same-origin (`/app/api/...`). The video is fetched at boot. Terrain and imagery tiles stream from public tile servers in the browser.
+Every push to `main` runs [`.github/workflows/pages.yml`](.github/workflows/pages.yml). It exports the precomputed incident (`frontend/scripts/export-static.mjs` → `public/data/`: JSON, the 960×540 replay video and the clip thumbnails), builds the dashboard with the repository name as base path, and deploys it to GitHub Pages. Terrain and imagery tiles stream from public tile servers in the browser. The hackathon's Kubernetes deployment is archived in [docs/historia-hackathon.md](docs/historia-hackathon.md).
 
 ## Run it
 
@@ -117,12 +121,12 @@ cp .env.example .env            # add Cosmos endpoint + token (see below)
 
 # 3. frontend
 cd ../frontend && npm install
-VITE_API_BASE=http://localhost:8000 npm run dev     # → http://localhost:5173
-npm run dev                                         # fixtures only (no backend), badged DEV FIXTURES
+npm run dev                                         # static demo (no backend) → http://localhost:5173
+VITE_API_BASE=http://localhost:8000 npm run dev     # same UI against the local backend
 ```
 
-The browser video is a 960×540 H.264 copy at `data/processed/media/drone_replay_01.mp4`:
-`ffmpeg -i <original> -an -vf scale=960:540 -c:v libx264 -crf 27 -movflags +faststart data/processed/media/drone_replay_01.mp4`
+The browser video is a 960×540 H.264 copy at `media/drone_replay_01.mp4` (two-pass ~520 kb/s so it fits GitHub's 100 MB file limit):
+`ffmpeg -i <original> -an -vf "scale=960:540:flags=lanczos,hqdn3d=1.5:1.5:4:4" -c:v libx264 -preset slow -b:v 520k -maxrate 900k -bufsize 1800k -g 100 -pass 1|2 -movflags +faststart media/drone_replay_01.mp4`
 
 ### Environment (`backend/.env`, gitignored)
 

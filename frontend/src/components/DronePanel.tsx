@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useStore, videoSecondsAt } from '../state/store';
-import { api, USE_FIXTURES } from '../api/client';
+import { api, IS_STATIC } from '../api/client';
 import type { ProcessingState } from '../api/types';
 import { loadAll } from '../state/load';
 import { sceneRef } from '../scene/SceneView';
@@ -91,7 +91,7 @@ export function DronePanel() {
           </div>
         </div>
       )}
-      {src && <AnalyzeSection sourceId={src.id} />}
+      {src && !IS_STATIC && <AnalyzeSection sourceId={src.id} />}
     </div>
   );
 }
@@ -132,7 +132,7 @@ function AnalyzeSection({ sourceId }: { sourceId: string }) {
           <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>{st.state} · {st.message}</div>
         </div>
       )}
-      <button className="btn-ghost" disabled={USE_FIXTURES || st?.state === 'processing'} onClick={run}><Icon name="spark" size={12} /> {st?.state === 'processing' ? 'Analyzing…' : 'Run Cosmos analysis'}</button>
+      <button className="btn-ghost" disabled={st?.state === 'processing'} onClick={run}><Icon name="spark" size={12} /> {st?.state === 'processing' ? 'Analyzing…' : 'Run Cosmos analysis'}</button>
       {err && <div className="err">{err}</div>}
     </div>
   );

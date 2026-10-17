@@ -1,5 +1,5 @@
 // Full QA walk of presentation mode: manual-only advance, numbering, per-chapter state, overlaps, stale actions.
-// Usage: node scripts/present-test.mjs outDir [WxH]
+// Usage: URL=http://localhost:5173/?nointro node scripts/present-test.mjs outDir [WxH]
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 const out = process.argv[2] ?? 'present-test'; mkdirSync(out, { recursive: true });
@@ -7,7 +7,7 @@ const [vw, vh] = (process.argv[3] ?? '1920x1080').split('x').map(Number);
 const b = await chromium.launch({ channel: 'chrome', args: ['--use-angle=metal', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
 const p = await b.newPage({ viewport: { width: vw, height: vh } });
 const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => m.type() === 'error' && errs.push(m.text()));
-await p.goto('http://localhost:5174/?nointro');
+await p.goto(process.env.URL ?? 'http://localhost:5173/?nointro');
 await p.waitForFunction(() => window.__scene?.ready && window.__store?.getState().loaded, null, { timeout: 90000 });
 await p.waitForTimeout(1200);
 const EXPECT = { twin: 'incident', layers: 'incident', observed: 'incident', area: 'incident', ros: 'incident', elev: 'incident', weather: 'incident', truth: 'incident', events: 'incident', live: 'drones', agent: 'incident', search: 'incident', scenario: 'incident', resources: 'resources' };

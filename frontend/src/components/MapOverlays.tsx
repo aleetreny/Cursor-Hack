@@ -2,7 +2,6 @@ import { useStore } from '../state/store';
 import { sceneRef } from '../scene/SceneView';
 import { aspectName, formatLat, formatLon } from '../scene/geo';
 import { fmtClock, fmtArea } from '../lib/format';
-import { USE_FIXTURES } from '../api/client';
 import { Icon } from './Icon';
 
 function niceScale(mpp: number) {
@@ -41,7 +40,6 @@ export function MapOverlays() {
       </div>
 
       <div className="banner">
-        {USE_FIXTURES && <span className="pill fx">DEV FIXTURE DATA · synthetic progression</span>}
         {compare.on && compare.before != null && (
           <span className="pill"><Icon name="compare" size={12} /> BEFORE {fmtClock(compare.before)} ┆ CURRENT {fmtClock(time)} · Δ burned <b>{delta != null && delta >= 0 ? '+' : ''}{da.v} {da.u}</b></span>
         )}

@@ -7,7 +7,7 @@ import { AgentPanel, EvidencePanel } from './AgentPanels';
 import { DronePanel } from './DronePanel';
 import { AlertsPanel } from './AlertsPanel';
 import { ResourcesPanel } from './ResourcesPanel';
-import { USE_FIXTURES, API_BASE } from '../api/client';
+import { IS_STATIC, API_BASE } from '../api/client';
 
 type LayerRow = { id: keyof SceneLayers; label: string; sw: string; kind: 'toggle' | 'opacity'; prov?: string; def?: number };
 const LAYERS: LayerRow[] = [
@@ -123,7 +123,7 @@ function NotesSection() {
   return (
     <>
       <div className="section">
-        <div className="section-h">Sponsor Integrations <span className={'mode-chip ' + (USE_FIXTURES ? 'fixture' : 'live')}>{USE_FIXTURES ? 'FIXTURES' : 'LIVE'}</span></div>
+        <div className="section-h">Sponsor Integrations <span className={'mode-chip ' + (IS_STATIC ? 'static' : 'live')}>{IS_STATIC ? 'STATIC' : 'LIVE'}</span></div>
         {!health && <div className="muted">Checking…</div>}
         {health?.integrations.map((i) => (
           <div className="integr" key={i.id}>
@@ -132,7 +132,7 @@ function NotesSection() {
             {(i.model || i.detail || i.latency_ms) && <span className="s">{[i.model, i.endpoint, i.latency_ms ? `${i.latency_ms} ms` : null, i.detail].filter(Boolean).join(' · ')}</span>}
           </div>
         ))}
-        <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>{USE_FIXTURES ? 'Set VITE_API_BASE to connect the backend.' : `Backend ${API_BASE}`}</div>
+        <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>{IS_STATIC ? 'Static demo: precomputed data, no backend.' : `Backend ${API_BASE}`}</div>
       </div>
       <div className="section">
         <div className="section-h">What is real here</div>

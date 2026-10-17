@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react';
-import { api, mediaUrl, USE_FIXTURES } from '../api/client';
+import { api, mediaUrl, IS_STATIC } from '../api/client';
 import type { AskResponse, Citation, SearchResponse } from '../api/types';
 import { useStore } from '../state/store';
 import { seekCitation, selectEvent } from '../scene/SceneView';
@@ -52,7 +52,7 @@ export function AgentPanel() {
       <div className="chat-log" ref={log}>
         <div className="msg bot">
           <b>Video agent</b>: ask about the drone footage. Answers come with clickable evidence clips that move the video and the map to that moment.
-          <div className="meta"><span className="tag">Cosmos Reason</span><span className="tag">Cosmos Embed retrieval</span>{USE_FIXTURES && <span className="prov fixture">fixture</span>}</div>
+          <div className="meta">{IS_STATIC ? <span className="tag">Extractive answers over the logged events</span> : <><span className="tag">Cosmos Reason</span><span className="tag">Cosmos Embed retrieval</span></>}</div>
         </div>
         {!msgs.length && <div className="suggest">{SUGGESTIONS.map((s) => <button key={s} onClick={() => ask(s)}>{s}</button>)}</div>}
         {msgs.map((m, i) => m.role === 'user'
@@ -99,7 +99,7 @@ export function EvidencePanel() {
         {err && <div className="err">Search failed: {err}</div>}
         {res && (
           <div style={{ marginTop: 8 }}>
-            <div className="muted" style={{ fontSize: 11 }}>{res.results.length} clips · {res.model}{res.latency_ms != null ? ` · ${res.latency_ms} ms` : ''} {USE_FIXTURES && <span className="prov fixture">fixture</span>}</div>
+            <div className="muted" style={{ fontSize: 11 }}>{res.results.length} clips · {res.model}{res.latency_ms != null ? ` · ${res.latency_ms} ms` : ''}</div>
             {res.results.map((r) => (
               <div key={r.clip_id} className="result" onClick={() => seekCitation(r.source_id, r.start_seconds, r.event_id)}>
                 <div className="thumb" style={{ backgroundImage: `url(${mediaUrl(r.thumbnail_url ?? thumb)})` }}><span>{fmtVideo(r.start_seconds)}</span></div>

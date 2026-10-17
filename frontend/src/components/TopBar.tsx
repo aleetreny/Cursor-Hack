@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { USE_FIXTURES, API_BASE } from '../api/client';
+import { IS_STATIC, API_BASE } from '../api/client';
 import { useStore, type ModeTab } from '../state/store';
 import { sceneRef } from '../scene/SceneView';
 import { fmtDate } from '../lib/format';
@@ -50,9 +50,9 @@ export function TopBar() {
         <button className="tb-menu" onClick={() => { navigator.clipboard?.writeText(location.href); }}><Icon name="share" size={13} />Share<Icon name="chev" size={11} /></button>
       </div>
       <div className="tb-right">
-        <button className="tb-present" onClick={() => set({ presenting: true })} title="Presentation mode — Space pause · ←/→ chapters · Esc exit"><Icon name="play" size={11} />Present</button>
-        <span className={'mode-chip ' + (USE_FIXTURES ? 'fixture' : 'live')} title={USE_FIXTURES ? 'Rendering development fixtures from /public/fixtures' : `Backend: ${API_BASE}`}>
-          {USE_FIXTURES ? 'DEV FIXTURES' : 'BACKEND CONNECTED'}
+        <button className="tb-present" onClick={() => set({ presenting: true })} title="Presentation mode — → / Space next · ← back · Esc exit"><Icon name="play" size={11} />Present</button>
+        <span className={'mode-chip ' + (IS_STATIC ? 'static' : 'live')} title={IS_STATIC ? 'Precomputed incident data served as static files — no backend' : `Backend: ${API_BASE}`}>
+          {IS_STATIC ? 'STATIC DEMO' : 'BACKEND CONNECTED'}
         </span>
         <button className="tb-menu" onClick={() => set({ panel: 'notes', mode: 'incident' })}><Icon name="gear" size={15} /></button>
       </div>

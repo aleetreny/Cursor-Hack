@@ -13,6 +13,5 @@ data/cache/
 data/uploads/
 backend/.venv/
 __pycache__/
-deploy/out/
-deploy/media/
 demo/*.mp4
+frontend/public/data/
