@@ -4,8 +4,9 @@ set -e
 cd "$(dirname "$0")"
 PY=${PYTHON:-backend/.venv/bin/python}
 [ -x "$PY" ] || PY="$HOME/.local/firescope-venv/bin/python"
-[ -f data/processed/drone_replay_01/timeline.json ] || (cd backend && "$OLDPWD/$PY" -m firescope.pipeline)
-(cd backend && exec "$OLDPWD/$PY" -m uvicorn firescope.app:app --port 8000) &
+PY="$(cd "$(dirname "$PY")" && pwd)/$(basename "$PY")"
+[ -f data/processed/drone_replay_01/timeline.json ] || (cd backend && "$PY" -m firescope.pipeline)
+(cd backend && exec "$PY" -m uvicorn firescope.app:app --port 8000) &
 API=$!
 trap 'kill $API 2>/dev/null' EXIT
 command -v npm >/dev/null || export PATH="$HOME/.local/node/bin:$PATH"
