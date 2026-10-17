@@ -120,14 +120,35 @@ for (const [w, h] of [[1874, 1080], [1920, 1080], [1600, 900], [1440, 900], [136
   await page.locator('.feed-bar button[title="Full camera view"]').click();
   await page.screenshot({ path: `${out}/walk_drones.png` });
 
-  // alerts: acknowledge
-  await page.locator('.seg button', { hasText: 'Alerts' }).click(); await page.waitForTimeout(300);
-  const ack = page.locator('.alert-card button', { hasText: 'Acknowledge' }).first();
-  if (await ack.count()) { await ack.click(); ok('alert acknowledge', (await page.locator('.alert-card button', { hasText: 'Acknowledged' }).count()) > 0); }
-  else ok('alert acknowledge', false, 'no alert raised before cursor');
+  // simulated drone: rendered camera view is non-empty
+  await page.locator('.fleet-row', { hasText: 'FT-02' }).click(); await page.waitForTimeout(1200);
+  const lit = await page.evaluate(() => { const c = document.querySelector('.feed canvas'); if (!c) return 0; const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 400) if (d[i] + d[i + 1] + d[i + 2] > 60) n++; return n; });
+  ok('sim drone camera renders the 3D twin', lit > 100, `${lit} lit samples`);
+  ok('sim drone labelled SIMULATED', /SIMULATED VIEW/.test(await page.locator('.hud').textContent()));
+
+  // resources: select tanker, chase moves the camera, drops logged, ride-along on an engine
+  await page.locator('.seg button', { hasText: 'Resources' }).click(); await page.waitForTimeout(500);
+  await page.evaluate(() => { const s = window.__store.getState(); s.setTime(s.t0 + 8 * 60000); });
+  ok('resources lists 13 units', (await page.locator('.unit-row').count()) === 13);
+  await page.locator('.unit-row', { hasText: 'T-910' }).click(); await page.waitForTimeout(400);
+  await page.locator('.btn-seg', { hasText: 'Chase' }).click();
+  const c0 = await page.evaluate(() => window.__scene.camera.position.toArray());
+  await page.evaluate(() => window.__store.getState().set({ playing: true, speed: 4 })); await page.waitForTimeout(1500);
+  const c1 = await page.evaluate(() => window.__scene.camera.position.toArray());
+  await page.evaluate(() => window.__store.getState().set({ playing: false }));
+  ok('chase camera follows aircraft', Math.hypot(c1[0] - c0[0], c1[2] - c0[2]) > 20, `moved ${Math.hypot(c1[0] - c0[0], c1[2] - c0[2]).toFixed(0)} m`);
+  const logN = await page.locator('.events .ev').count();
+  ok('air ops log has drops', logN > 0, `${logN} entries`);
+  await page.locator('.events .ev').first().click();
+  ok('log entry selects unit + seeks', !!(await st('s.selectedUnitId')));
+  await page.locator('.unit-row', { hasText: 'E-45' }).click(); await page.waitForTimeout(300);
+  await page.locator('.btn-seg', { hasText: 'Ride along' }).click(); await page.waitForTimeout(800);
+  ok('ride along on ground unit', (await st('s.follow && s.follow.mode')) === 'ride');
+  await page.screenshot({ path: `${out}/walk_resources.png` });
 
   // agent
   await page.locator('.seg button', { hasText: 'Incident' }).click();
+  ok('mode switch clears follow', !(await st('s.follow')));
   await page.locator('.tabs button', { hasText: 'Analysis' }).click();
   await page.locator('.suggest button').first().click();
   await page.waitForSelector('.msg.bot .cite', { timeout: 30000 });
@@ -158,6 +179,10 @@ for (const [w, h] of [[1874, 1080], [1920, 1080], [1600, 900], [1440, 900], [136
   await page.mouse.click(m.x + 50, m.y + m.h - 80); await page.waitForTimeout(400);
   ok('tour runs and cancels on click', touring > 0);
 
+  await page.evaluate(() => { window.__store.getState().set({ mode: 'incident', speed: 8, playing: true }); window.__scene.flyHome(); });
+  const fps = await page.evaluate(() => new Promise((r) => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 3000) requestAnimationFrame(f); else r(n / 3); }; requestAnimationFrame(f); }));
+  await page.evaluate(() => window.__store.getState().set({ playing: false }));
+  ok('render FPS during playback (1440x900)', fps >= 30, `${fps.toFixed(1)} fps`);
   ok('walk: no console errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   await page.close();
 }

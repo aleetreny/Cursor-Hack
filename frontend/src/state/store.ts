@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { AnalysisEvent, WeatherResponse, HealthResponse, Hotspot, FireFeature, Incident, TimelineResponse, VideoSource } from '../api/types';
 import type { CameraInfo, HoverInfo, SceneLayers } from '../scene/FireScene';
 
-export type ModeTab = 'incident' | 'drones' | 'alerts';
+export type ModeTab = 'incident' | 'drones' | 'resources' | 'alerts';
 export type PanelTab = 'layers' | 'analysis' | 'evidence' | 'notes';
 
 export interface LayerDef { id: keyof SceneLayers; label: string; swatch: string; opacity?: boolean; provenance?: string }
@@ -26,6 +26,8 @@ interface State {
   exaggeration: number;
   selectedEventId: string | null;
   selectedSourceId: string | null;
+  selectedUnitId: string | null;
+  follow: { id: string; mode: 'chase' | 'overview' | 'ride' } | null;
   feedOpen: boolean;
   compare: { on: boolean; before: number | null };
   hover: HoverInfo | null;
@@ -42,7 +44,7 @@ export const useStore = create<State>((set, get) => ({
   mode: 'incident', panel: 'layers', view: '3d',
   layers: { terrain: true, imagery: 0.18, burned: 0.95, active: 1, change: 0.6, hotspots: true, groundTruth: false, perimeter: true, footprint: true, path: true, projection: false, trees: true, smoke: true },
   exaggeration: 1.8,
-  selectedEventId: null, selectedSourceId: null, feedOpen: false,
+  selectedEventId: null, selectedSourceId: null, selectedUnitId: null, follow: null, feedOpen: false,
   compare: { on: false, before: null },
   hover: null,
   cam: { azimuth: 0, zoom: 1, metersPerPx: 1, polar: 50 },

@@ -15,7 +15,9 @@ export function SceneView() {
       onHover: (h) => useStore.getState().set({ hover: h }),
       onCamera: (c) => useStore.getState().set({ cam: c }),
       onEventClick: (id) => selectEvent(id, true),
-      onDroneClick: (id) => useStore.getState().set({ mode: 'drones', selectedSourceId: id, feedOpen: true }),
+      onDroneClick: (id) => useStore.getState().set({ mode: 'drones', selectedSourceId: id, selectedUnitId: null, feedOpen: true }),
+      onUnitClick: (id) => { const s = useStore.getState(); s.set(id.startsWith('FT-') ? { selectedUnitId: id, feedOpen: true } : { selectedUnitId: id }); },
+      onFollowEnd: () => useStore.getState().set({ follow: null }),
       onProgress: (m) => useStore.getState().set({ loadMsg: m }),
       onReady: () => useStore.getState().set({ loadMsg: '' }),
     });
@@ -32,7 +34,11 @@ export function SceneView() {
     scene.setLayers(s.layers);
     scene.setTime(s.time);
     scene.load(s.incident!, src).then(() => {
-      scene.setEvents(useStore.getState().events);
+      const st = useStore.getState();
+      const ring = (st.incident!.reference_perimeter?.geometry.coordinates[0] ?? []) as [number, number][];
+      scene.setSim({ t0: st.t0, t1: st.t1, center: st.incident!.center as [number, number], cell: ring });
+      scene.setOpsMode(st.mode === 'alerts' ? 'incident' : st.mode);
+      scene.setEvents(st.events);
       scene.setTime(useStore.getState().time);
       updateProfile();
     }).catch((e) => useStore.getState().set({ loadError: String(e) }));
@@ -48,6 +54,9 @@ export function SceneView() {
       if (st.view !== prev.view) scene.set2D(st.view === '2d');
       if (st.events !== prev.events) scene.setEvents(st.events);
       if (st.selectedEventId !== prev.selectedEventId) scene.setSelectedEvent(st.selectedEventId);
+      if (st.mode !== prev.mode) scene.setOpsMode(st.mode === 'alerts' ? 'incident' : st.mode);
+      if (st.selectedUnitId !== prev.selectedUnitId) { scene.setSelectedUnit(st.selectedUnitId); if (st.selectedUnitId && !st.follow) scene.flyToUnit(st.selectedUnitId, st.selectedUnitId.startsWith('FT-') ? 160 : 320); }
+      if (st.follow !== prev.follow) scene.setFollow(st.follow);
       if (st.exaggeration !== prev.exaggeration) scene.setExaggeration(st.exaggeration);
       if (st.compare !== prev.compare) scene.setCompare(st.compare.on ? st.compare.before : null);
     });

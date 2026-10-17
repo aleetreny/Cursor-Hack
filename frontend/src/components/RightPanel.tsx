@@ -6,6 +6,7 @@ import { Icon } from './Icon';
 import { AgentPanel, EvidencePanel } from './AgentPanels';
 import { DronePanel } from './DronePanel';
 import { AlertsPanel } from './AlertsPanel';
+import { ResourcesPanel } from './ResourcesPanel';
 import { USE_FIXTURES, API_BASE } from '../api/client';
 
 type LayerRow = { id: keyof SceneLayers; label: string; sw: string; kind: 'toggle' | 'opacity'; prov?: string; def?: number };
@@ -29,6 +30,7 @@ export function RightPanel() {
   const { mode, panel, set } = useStore();
   if (mode === 'drones') return <aside className="right"><DronePanel /></aside>;
   if (mode === 'alerts') return <aside className="right"><AlertsPanel /></aside>;
+  if (mode === 'resources') return <aside className="right"><ResourcesPanel /></aside>;
   const tab = (id: PanelTab, label: string) => <button className={panel === id ? 'on' : ''} onClick={() => set({ panel: id })}>{label}</button>;
   return (
     <aside className="right">
@@ -139,6 +141,7 @@ function NotesSection() {
           <p style={{ margin: '0 0 6px' }}><b>Real:</b> terrain from a DEM (AWS Terrain Tiles), aerial imagery (Esri), drone pose from the BurnedAreaUAV photo metadata, and the planned burn-cell KML.</p>
           <p style={{ margin: '0 0 6px' }}><b>Model outputs:</b> fire polygons, events and answers come from the backend. Each value carries a provenance chip.</p>
           <p style={{ margin: '0 0 6px' }}><b>Not measured:</b> RGB video cannot give temperature, so hotspots are visible-flame locations. Georeferencing is approximate (pinhole model + DEM).</p>
+          <p style={{ margin: '0 0 6px' }}><b>Simulated:</b> drones FT-02…FT-06, their rendered camera views, and all 13 Resources units, drops and fire lines (an illustrative exercise, tagged SIM). IR* is a false-colour look, not temperature.</p>
           <p style={{ margin: 0 }}><b>Stylized:</b> trees and smoke are rendered for readability. The terrain uses {useStore.getState().exaggeration}× vertical exaggeration.</p>
         </div>
       </div>

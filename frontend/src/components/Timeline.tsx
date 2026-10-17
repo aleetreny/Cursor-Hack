@@ -5,6 +5,9 @@ import { fmtClock, fmtDay, fmtDayClock } from '../lib/format';
 import type { AnalysisEvent, EventType } from '../api/types';
 import { Icon } from './Icon';
 import { MiniChart, type Pt } from './MiniChart';
+import { SIM_UNITS, opsTotals, unitState } from '../sim/ops';
+import { useSimCtx } from '../sim/useSim';
+import { useMemo } from 'react';
 
 const SPEEDS = [1, 4, 8, 16, 32];
 
@@ -65,7 +68,33 @@ export function Timeline() {
   const profile = useProfile();
   const frontIdx = profile.findIndex((p) => p.burned);
 
-  const charts = mode === 'drones'
+  const simCtx = useSimCtx();
+  const selUnit = useStore((st) => st.selectedUnitId);
+  const opsSeries = useMemo(() => {
+    if (!simCtx) return null;
+    const xs = Array.from({ length: 91 }, (_, i) => t0 + (span * i) / 90);
+    const tots = xs.map((x) => opsTotals(x, simCtx));
+    return { gal: xs.map((x, i) => ({ x, y: tots[i].gal })), chains: xs.map((x, i) => ({ x, y: tots[i].chains })), pers: xs.map((x, i) => ({ x, y: tots[i].personnel })) };
+  }, [simCtx, t0, span]);
+  const droneSeries = useMemo(() => {
+    const u = SIM_UNITS.find((x) => x.id === selUnit && x.group === 'drones');
+    if (!simCtx || !u) return null;
+    const xs = Array.from({ length: 121 }, (_, i) => t0 + (span * i) / 120);
+    return { alt: xs.map((x) => ({ x, y: unitState(u, x, simCtx).agl * 3.281 })), bat: xs.map((x) => ({ x, y: unitState(u, x, simCtx).battery ?? null })) };
+  }, [simCtx, selUnit, t0, span]);
+  const charts = mode === 'resources' && opsSeries
+    ? [
+      { title: 'Retardant / Water Dropped', unit: 'gal', pts: opsSeries.gal, color: '#c0392b', kind: 'area' as const, prov: 'demo_parameter' },
+      { title: 'Fire Line Built', unit: 'chains', pts: opsSeries.chains, color: '#7c5a3a', kind: 'area' as const, prov: 'demo_parameter' },
+      { title: 'Personnel Assigned', unit: 'count', pts: opsSeries.pers, color: '#5f7a4c', kind: 'area' as const, prov: 'demo_parameter' },
+    ]
+    : mode === 'drones' && droneSeries
+    ? [
+      { title: `Altitude · ${selUnit}`, unit: 'ft AGL', pts: droneSeries.alt, color: '#d2402a', kind: 'line' as const, prov: 'demo_parameter' },
+      { title: 'Active Fire Area', unit: 'm² · UAV-01', pts: ser((f) => f.active_fire_area_m2.value), color: '#e8742c', kind: 'area' as const, prov: frames[0]?.active_fire_area_m2.provenance },
+      { title: `Battery · ${selUnit}`, unit: '%', pts: droneSeries.bat, color: '#5f7a4c', kind: 'line' as const, prov: 'demo_parameter' },
+    ]
+    : mode === 'drones'
     ? [
       { title: 'Burned Area in View', unit: 'm²', pts: ser((f) => f.burned_area_m2.value), color: '#c9503a', kind: 'area' as const, prov: frames[0]?.burned_area_m2.provenance },
       { title: 'Active Fire Area', unit: 'm²', pts: ser((f) => f.active_fire_area_m2.value), color: '#e8742c', kind: 'area' as const, prov: frames[0]?.active_fire_area_m2.provenance },
@@ -114,11 +143,11 @@ export function Timeline() {
         <div className="charts">
           {charts.map((c) => (
             <div className="chart" key={c.title}>
-              <div className="chart-h"><span>{c.title} <small>({c.unit})</small>{c.prov && <span className={'prov ' + c.prov}>{c.prov}</span>}</span><span className="muted">⋮</span></div>
+              <div className="chart-h"><span>{c.title} <small>({c.unit})</small>{c.prov && <span className={'prov ' + c.prov}>{c.prov === 'demo_parameter' ? 'sim' : c.prov}</span>}</span><span className="muted">⋮</span></div>
               <MiniChart pts={c.pts} cursor={time} color={c.color} kind={c.kind} xTicks={xLab()} />
             </div>
           ))}
-          {mode !== 'drones' && (
+          {mode !== 'drones' && mode !== 'resources' && (
             <div className="chart">
               <div className="chart-h"><span>Elevation Profile <small>(drone line of sight)</small><span className="prov external">DEM</span></span><span className="muted">⋮</span></div>
               <MiniChart pts={profile.map((p) => ({ x: p.d, y: p.elev }))} cursor={frontIdx >= 0 ? profile[frontIdx].d : null} color="#5f7a4c" fill="#7f9a68" kind="area" zero={false}
@@ -127,7 +156,29 @@ export function Timeline() {
           )}
         </div>
       </div>
-      <KeyEvents />
+      {mode === 'resources' ? <AirOpsLog /> : <KeyEvents />}
+    </div>
+  );
+}
+
+function AirOpsLog() {
+  const { time, set, setTime } = useStore();
+  const ctx = useSimCtx();
+  if (!ctx) return null;
+  const drops = opsTotals(time, ctx).drops.slice().reverse();
+  return (
+    <div className="events">
+      <div className="events-h"><span>Air Ops Log <span className="badge" style={{ marginLeft: 4 }}>{drops.length}</span></span><span className="sim-tag">SIM</span></div>
+      <div className="scroll">
+        {drops.map((d, i) => (
+          <div key={i} className="ev" onClick={() => { set({ selectedUnitId: d.unitId, follow: null, playing: false }); setTime(d.t); }}>
+            <span style={{ width: 9, height: 9, borderRadius: 2, background: d.kind === 'retardant' ? '#c0392b' : '#3b82f6', display: 'inline-block' }} />
+            <span className="ev-title">{d.unitId} · {d.gal.toLocaleString()} gal {d.kind}</span>
+            <span className="t">{fmtClock(d.t, false)}</span>
+          </div>
+        ))}
+        {!drops.length && <div className="muted" style={{ padding: 10, fontSize: 12 }}>No drops yet at this time.</div>}
+      </div>
     </div>
   );
 }

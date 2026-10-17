@@ -4,9 +4,71 @@ import { mediaUrl } from '../api/client';
 import { formatLat, formatLon } from '../scene/geo';
 import { fmtClock, fmtVideo } from '../lib/format';
 import { Icon } from './Icon';
+import { SIM_UNITS, unitState } from '../sim/ops';
+import { useSimCtx } from '../sim/useSim';
+import { sceneRef } from '../scene/SceneView';
 
 /** Drone camera window. The <video> follows the global timeline (the timeline is the master clock). */
 export function DroneFeed() {
+  const sel = useStore((s) => s.selectedUnitId);
+  return sel?.startsWith('FT-') ? <SimFeed id={sel} /> : <RealFeed />;
+}
+
+/** Simulated drone camera: a second camera rendering the 3D twin from the drone's pose (spatially coherent, labelled). */
+function SimFeed({ id }: { id: string }) {
+  const { time, set } = useStore();
+  const ctx = useSimCtx();
+  const cv = useRef<HTMLCanvasElement>(null);
+  const [full, setFull] = useState(false);
+  const [sensor, setSensor] = useState<'EO' | 'IR'>('EO');
+  const [palette, setPalette] = useState<'ironbow' | 'whitehot'>('ironbow');
+  const u = SIM_UNITS.find((x) => x.id === id)!;
+  useEffect(() => {
+    let on = true;
+    const tick = () => {
+      if (!on) return;
+      const img = sceneRef.current?.renderUnitView(id, 480, 270);
+      const c = cv.current;
+      if (img && c) c.getContext('2d')!.putImageData(img, 0, 0);
+      setTimeout(tick, 100);
+    };
+    tick();
+    return () => { on = false; };
+  }, [id]);
+  if (!ctx) return null;
+  const st = unitState(u, time, ctx);
+  return (
+    <div className={'feed' + (full ? ' full' : '')}>
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden>
+        <filter id="lut-ironbow-s"><feColorMatrix type="saturate" values="0" /><feComponentTransfer>
+          <feFuncR type="table" tableValues="0.02 0.25 0.62 0.88 0.98 1" /><feFuncG type="table" tableValues="0 0.01 0.06 0.34 0.72 0.98" /><feFuncB type="table" tableValues="0.08 0.42 0.55 0.22 0.08 0.75" /></feComponentTransfer></filter>
+        <filter id="lut-whitehot-s"><feColorMatrix type="saturate" values="0" /></filter>
+      </svg>
+      <div className="vid">
+        <canvas ref={cv} width={480} height={270} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: sensor === 'IR' ? `url(#lut-${palette}-s)` : undefined }} />
+        <div className="hud">
+          <div className="tl"><div className="rec">SIM {fmtVideo(st.flightS)}</div><div>{u.id} · {u.name.toUpperCase()}</div><div>{sensor === 'EO' ? 'EO · RENDERED' : `IR* · ${palette === 'ironbow' ? 'IRONBOW' : 'WHITE-HOT'}`}</div></div>
+          <div className="tr"><div>{fmtClock(time)} UTC</div><div style={{ color: '#c9a7f7' }}>SIMULATED VIEW</div><div style={{ color: '#c9a7f7' }}>rendered from 3D twin</div></div>
+          <div className="cross" />
+          <div className="bl"><div>ALT {Math.round(st.agl * 3.281)} FT AGL</div><div>GS {Math.round(st.speedKt)} KT</div><div>HDG {String(Math.round(st.heading)).padStart(3, '0')}°</div></div>
+          <div className="bc">{formatLat(st.lat)}  {formatLon(st.lon)}</div>
+          <div className="br"><div>BAT {Math.round(st.battery ?? 0)}%</div><div>LNK {st.link} DBM</div></div>
+        </div>
+      </div>
+      <div className="feed-bar">
+        <b>{u.id}</b><span className="feed-name">{u.name}</span>
+        <div className="seg2"><button className={sensor === 'EO' ? 'on' : ''} onClick={() => setSensor('EO')}>EO</button><button className={sensor === 'IR' ? 'on' : ''} onClick={() => setSensor('IR')} title="Simulated thermal look (luminance LUT)">IR*</button></div>
+        {sensor === 'IR' && <button className="feed-pal" onClick={() => setPalette(palette === 'ironbow' ? 'whitehot' : 'ironbow')}>{palette === 'ironbow' ? 'Ironbow' : 'White-hot'}</button>}
+        <span className="sim-tag">SIM</span>
+        <span className="sp" />
+        <button onClick={() => setFull(!full)} title="Full camera view"><Icon name="full" size={13} /></button>
+        <button onClick={() => set({ feedOpen: false })} title="Close"><Icon name="x" size={13} /></button>
+      </div>
+    </div>
+  );
+}
+
+function RealFeed() {
   const { sources, selectedSourceId, time, playing, speed, events, set } = useStore();
   const src = sources.find((s) => s.id === selectedSourceId) ?? sources[0];
   const v = useRef<HTMLVideoElement>(null);

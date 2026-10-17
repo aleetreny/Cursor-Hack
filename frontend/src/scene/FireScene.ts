@@ -7,6 +7,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import type { AnalysisEvent, FireFeature, Hotspot, Incident, VideoSource } from '../api/types';
 import { type GeoFrame, makeFrame, toLonLat, toXZ } from './geo';
 import { ESRI_IMAGERY, TERRARIUM, cropToBBox, decodeTerrarium, loadMosaic } from './tiles';
+import { SIM_UNITS, dropsUntil, firelinesUntil, unitState, type SimCtx, type SimUnit } from '../sim/ops';
 
 type BBox = [number, number, number, number];
 type Ring = [number, number][];
@@ -22,6 +23,8 @@ export interface SceneCallbacks {
   onCamera?: (c: CameraInfo) => void;
   onEventClick?: (id: string) => void;
   onDroneClick?: (id: string) => void;
+  onUnitClick?: (id: string) => void;
+  onFollowEnd?: () => void;
   onReady?: () => void;
   onProgress?: (msg: string) => void;
 }
@@ -84,6 +87,14 @@ export class FireScene {
   private rotors: THREE.Object3D[] = [];
   private frustum?: THREE.LineSegments;
   private labels = new Map<string, { el: HTMLElement; pos: THREE.Vector3; minZoom?: number }>();
+  // simulated operations (clearly labelled in UI)
+  private simCtx?: SimCtx;
+  private units = new Map<string, { u: SimUnit; obj: THREE.Group }>();
+  private opsMode: 'incident' | 'drones' | 'resources' = 'incident';
+  private selectedUnit: string | null = null;
+  private follow: { id: string; mode: 'chase' | 'overview' | 'ride' } | null = null;
+  private viewRT?: THREE.WebGLRenderTarget;
+  private viewCam = new THREE.PerspectiveCamera(52, 16 / 9, 0.5, 60000);
 
   // data
   private incident?: Incident;
@@ -135,7 +146,7 @@ export class FireScene {
     this.controls.rotateSpeed = 0.55;
     this.controls.panSpeed = 0.9;
     this.controls.zoomSpeed = 0.9;
-    this.controls.addEventListener('start', () => { this.anim = undefined; });
+    this.controls.addEventListener('start', () => { this.anim = undefined; if (this.follow) { this.follow = null; this.cb.onFollowEnd?.(); } });
 
     // atmosphere
     const haze = new THREE.Color('#d9dcd8');
@@ -499,7 +510,9 @@ void main() {`)
     const gt = this.layers.groundTruth ? this.latestAt(this.byClass.get('ground_truth_burned'), t) : undefined;
     const before = this.compareTime != null ? this.latestAt(this.byClass.get('burned_area'), this.compareTime) : undefined;
     const pathIdx = this.events.filter((e) => Date.parse(e.timestamp) <= t).length;
-    const key = [burned?.properties.id, active?.properties.id, change?.properties.id, gt?.properties.id, before?.properties.id, pathIdx].join('|');
+    const drops = this.simCtx && this.opsMode === 'resources' ? dropsUntil(t, this.simCtx) : [];
+    const lineKey = this.simCtx && this.opsMode === 'resources' ? Math.floor((t - this.simCtx.t0) / 10000) : -1;
+    const key = [burned?.properties.id, active?.properties.id, change?.properties.id, gt?.properties.id, before?.properties.id, pathIdx, drops.length, lineKey, this.opsMode].join('|');
     if (!force && key === this.drawnKey) return;
     this.drawnKey = key;
 
@@ -553,6 +566,19 @@ void main() {`)
         dc.stroke();
       }
       dc.setLineDash([]);
+    }
+    if (this.simCtx && this.opsMode === 'resources') {
+      for (const ln of firelinesUntil(t, this.simCtx)) {
+        dc.beginPath(); ln.forEach((p, i) => { const [x, y] = dp(p[0], p[1]); if (i) dc.lineTo(x, y); else dc.moveTo(x, y); });
+        dc.strokeStyle = 'rgba(92,52,24,0.95)'; dc.lineWidth = Math.max(2, 3 * pxPerM); dc.setLineDash([]); dc.stroke();
+      }
+      for (const d of drops) {
+        const age = (t - d.t) / 60000, a = Math.max(0.25, 0.85 - age * 0.08);
+        const [x0, y0] = dp(d.line[0][0], d.line[0][1]), [x1, y1] = dp(d.line[1][0], d.line[1][1]);
+        dc.beginPath(); dc.moveTo(x0, y0); dc.lineTo(x1, y1);
+        dc.strokeStyle = d.kind === 'retardant' ? `rgba(220,38,38,${a})` : `rgba(59,130,246,${a})`;
+        dc.lineWidth = Math.max(4, (d.kind === 'retardant' ? 22 : 14) * pxPerM); dc.lineCap = 'round'; dc.stroke(); dc.lineCap = 'butt';
+      }
     }
     this.decalTex.needsUpdate = true;
 
@@ -772,6 +798,108 @@ varying float vL; varying float vSeed;
     this.addLabel('drone_' + src.id, `<div class="lbl-drone"><span class="dot"></span>${src.label} <b>${Math.round(pose.altitude_agl_m ?? 0)} m</b></div>`, pos.clone().add(new THREE.Vector3(0, 6, 0)), () => this.cb.onDroneClick?.(src.id));
   }
 
+  /* ------------------------------------------------- simulated operations */
+
+  setSim(ctx: SimCtx) {
+    this.simCtx = ctx;
+    for (const { obj } of this.units.values()) this.scene.remove(obj);
+    this.units.clear();
+    this.removeLabels('unit_');
+    // decal must also cover drop lines and the cell perimeter (already included) — nothing to extend
+    for (const u of SIM_UNITS) {
+      const obj = makeUnitMesh(u);
+      obj.traverse((o) => { o.castShadow = true; });
+      this.scene.add(obj);
+      this.units.set(u.id, { u, obj });
+      const lbl = `<div class="lbl-unit g-${u.group}"><b>${u.id}</b><span>${u.group === 'drones' ? u.name : u.type}</span></div>`;
+      this.addLabel('unit_' + u.id, lbl, new THREE.Vector3(), () => this.cb.onUnitClick?.(u.id));
+    }
+    this.setOpsMode(this.opsMode);
+  }
+
+  setOpsMode(m: 'incident' | 'drones' | 'resources') {
+    this.opsMode = m;
+    for (const { u, obj } of this.units.values()) {
+      const vis = (m === 'drones' && u.group === 'drones') || (m === 'resources' && u.group !== 'drones');
+      obj.visible = vis;
+      const l = this.labels.get('unit_' + u.id);
+      if (l) l.el.style.display = vis ? '' : 'none';
+    }
+    this.drawnKey = '';
+    this.redrawOverlays();
+  }
+
+  setSelectedUnit(id: string | null) {
+    this.selectedUnit = id;
+    for (const [lid, l] of this.labels) if (lid.startsWith('unit_')) { l.el.classList.toggle('sel', lid === 'unit_' + id); delete l.el.dataset.w; }
+  }
+
+  get selectedUnitId() { return this.selectedUnit; }
+  setFollow(f: { id: string; mode: 'chase' | 'overview' | 'ride' } | null) { this.follow = f; this.anim = undefined; }
+
+  unitWorld(id: string): THREE.Vector3 | null { return this.units.get(id)?.obj.position.clone() ?? null; }
+  flyToUnit(id: string, dist = 260) { const p = this.unitWorld(id); if (p) this.flyTo(p, dist); }
+
+  private updateUnits(dt: number) {
+    if (!this.simCtx || !this.frame) return;
+    for (const { u, obj } of this.units.values()) {
+      if (!obj.visible && !(this.follow?.id === u.id)) continue;
+      const st = unitState(u, this.time, this.simCtx);
+      const [x, z] = toXZ(this.frame, st.lon, st.lat);
+      const gy = this.groundY(x, z);
+      obj.position.set(x, gy + st.agl * this.exaggeration + (u.group === 'drones' || u.group === 'aircraft' ? 2 : 0.6), z);
+      obj.rotation.y = -THREE.MathUtils.degToRad(st.heading);
+      if (u.kind === 'helicopter' || u.kind === 'drone') obj.children.forEach((ch) => { if (ch.userData.rotor) ch.rotation.y += dt * 30; });
+      obj.userData.hidden = !st.visible;
+      if (obj.visible) obj.scale.setScalar(st.visible ? 1 : 0.001);
+      const l = this.labels.get('unit_' + u.id);
+      if (l) { l.pos.copy(obj.position).add(new THREE.Vector3(0, u.group === 'aircraft' ? 22 : u.group === 'drones' ? 6 : 9, 0)); }
+    }
+    if (this.follow) {
+      const o = this.units.get(this.follow.id)?.obj ?? (this.drone && this.follow.id === 'UAV-01' ? this.drone : undefined);
+      if (o) {
+        const h = -o.rotation.y, f = new THREE.Vector3(Math.sin(h), 0, -Math.cos(h));
+        const air = (this.units.get(this.follow.id)?.u.group ?? 'aircraft') === 'aircraft';
+        let pos: THREE.Vector3, tgt: THREE.Vector3;
+        if (this.follow.mode === 'overview') { pos = o.position.clone().add(f.clone().multiplyScalar(-520)).add(new THREE.Vector3(0, 380, 0)); tgt = o.position.clone(); }
+        else if (this.follow.mode === 'ride') { pos = o.position.clone().add(f.clone().multiplyScalar(-22)).add(new THREE.Vector3(0, 9, 0)); tgt = o.position.clone().add(f.clone().multiplyScalar(40)); }
+        else { pos = o.position.clone().add(f.clone().multiplyScalar(air ? -190 : -30)).add(new THREE.Vector3(0, air ? 48 : 12, 0)); tgt = o.position.clone().add(f.clone().multiplyScalar(air ? 260 : 30)).add(new THREE.Vector3(0, air ? -40 : 0, 0)); }
+        const gy = this.groundY(pos.x, pos.z) + 4;
+        if (pos.y < gy) pos.y = gy;                                    // never clip into terrain
+        const k = Math.min(1, dt * 3.5);
+        this.camera.position.lerp(pos, k);
+        this.controls.target.lerp(tgt, Math.min(1, dt * 5));
+      }
+    }
+  }
+
+  /** Render the 3D twin from a simulated drone's camera (EO view) into pixels for its PiP. */
+  renderUnitView(id: string, w: number, h: number): ImageData | null {
+    const o = this.units.get(id)?.obj;
+    if (!o || !this.ready) return null;
+    if (!this.viewRT || this.viewRT.width !== w || this.viewRT.height !== h) { this.viewRT?.dispose(); this.viewRT = new THREE.WebGLRenderTarget(w, h, { samples: 4 }); }
+    const hd = -o.rotation.y, f = new THREE.Vector3(Math.sin(hd), 0, -Math.cos(hd));
+    // gimbal: look at the fire front if it is near, otherwise 35° down along the heading
+    const fire = this.focusPoint(), toFire = fire.clone().sub(o.position);
+    const look = toFire.length() < 450 ? fire : o.position.clone().add(f.multiplyScalar(120)).add(new THREE.Vector3(0, -85, 0));
+    this.viewCam.aspect = w / h; this.viewCam.updateProjectionMatrix();
+    this.viewCam.position.copy(o.position).add(new THREE.Vector3(0, -1, 0));
+    this.viewCam.lookAt(look);
+    const was = o.visible; o.visible = false;
+    this.renderer.setRenderTarget(this.viewRT);
+    this.renderer.render(this.scene, this.viewCam);
+    this.renderer.setRenderTarget(null);
+    o.visible = was;
+    const buf = new Uint8Array(w * h * 4);
+    this.renderer.readRenderTargetPixels(this.viewRT, 0, 0, w, h, buf);
+    const img = new ImageData(w, h);
+    for (let y = 0; y < h; y++) {
+      const src = (h - 1 - y) * w * 4, dst = y * w * 4;
+      for (let x = 0; x < w * 4; x += 4) { img.data[dst + x] = SRGB[buf[src + x]]; img.data[dst + x + 1] = SRGB[buf[src + x + 1]]; img.data[dst + x + 2] = SRGB[buf[src + x + 2]]; img.data[dst + x + 3] = 255; }
+    }
+    return img;
+  }
+
   /* ------------------------------------------------------------- labels */
 
   addLabel(id: string, html: string, pos: THREE.Vector3, onClick?: () => void) {
@@ -827,9 +955,10 @@ varying float vL; varying float vSeed;
       el.style.transform = `translate(${x}px, ${y}px)`;
       if (id.startsWith('hs_')) continue;
       const c = el.firstElementChild as HTMLElement | null;
-      const kind = id.startsWith('ev_') ? 'ev' : id.startsWith('drone_') ? 'drone' : 'place';
+      const kind = id.startsWith('ev_') ? 'ev' : id.startsWith('drone_') || id.startsWith('unit_') ? 'drone' : 'place';
+      if (id.startsWith('unit_') && el.style.display === 'none') continue;
       void c;
-      const pri = kind === 'ev' ? (el.classList.contains('sel') ? 4 : el.classList.contains('future') ? 1 : 2) : kind === 'drone' ? 3 : 0;
+      const pri = el.classList.contains('sel') ? 4 : kind === 'ev' ? (el.classList.contains('future') ? 1 : 2) : id.startsWith('drone_') ? 3 : kind === 'drone' ? 2.5 : 0;
       items.push({ el, x, y, pri, kind });
     }
     // greedy collision manager: higher priority first, 6 px padding, keep clear of the map controls band
@@ -996,6 +1125,7 @@ varying float vL; varying float vSeed;
     }
     this.controls.update();
     for (const r of this.rotors) r.rotation.y += dt * 40;
+    this.updateUnits(dt);
     if (this.drone) this.drone.position.y += Math.sin(this.uniforms.uTime.value * 1.3) * 0.004;
     this.composer.render();
     this.updateLabels();
@@ -1059,3 +1189,35 @@ function pointInPoly(x: number, y: number, poly: Ring[] | number[][][]) {
 }
 function mulberry32(a: number) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function hashStr(s: string) { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h; }
+
+const SRGB = (() => { const t = new Uint8Array(256); for (let i = 0; i < 256; i++) { const v = i / 255; t[i] = Math.round(255 * (v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055)); } return t; })();
+
+function makeUnitMesh(u: SimUnit): THREE.Group {
+  const g = new THREE.Group();
+  const M = (c: string, e = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, metalness: 0.1, emissive: e ? c : '#000', emissiveIntensity: e });
+  const box = (w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); g.add(o); return o; };
+  const white = M('#f3f1ec'), dark = M('#2b2b2b');
+  if (u.kind === 'drone') {
+    box(1.6, 0.6, 2.2, white); box(4.6, 0.2, 0.35, white); box(0.35, 0.2, 4.6, white);
+    for (const [x, z] of [[2.1, 2.1], [-2.1, 2.1], [2.1, -2.1], [-2.1, -2.1]]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.05, 14), new THREE.MeshBasicMaterial({ color: '#888', transparent: true, opacity: 0.35 })); r.position.set(x, 0.35, z); r.userData.rotor = true; g.add(r); }
+    box(0.35, 0.35, 0.35, M('#d2402a', 0.8), 0, -0.4, -1.1);
+  } else if (u.kind === 'air_tanker' || u.kind === 'air_attack') {
+    const L = u.kind === 'air_attack' ? 12 : u.id === 'T-910' ? 50 : 30, s = L / 30;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(1.7 * s, 1.4 * s, L, 12), white); body.rotation.x = Math.PI / 2; g.add(body);
+    box(38 * s, 0.6 * s, 5 * s, white, 0, 0, 1 * s); box(12 * s, 0.5 * s, 3 * s, white, 0, 0.6 * s, L / 2 - 2 * s);
+    box(0.5 * s, 6 * s, 4 * s, M(u.kind === 'air_attack' ? '#6b7280' : '#c0392b'), 0, 3 * s, L / 2 - 2 * s);
+    box(2.8 * s, 0.4 * s, 4 * s, M('#c0392b'), 0, -1.7 * s, -2 * s);
+  } else if (u.kind === 'helicopter') {
+    const s = u.id === 'H-743' ? 1.4 : 1;
+    box(3 * s, 3 * s, 9 * s, M(u.id === 'H-743' ? '#d97706' : '#e5e7eb')); box(0.6 * s, 0.6 * s, 8 * s, M('#d97706'), 0, 0.8 * s, 8 * s);
+    const r = new THREE.Mesh(new THREE.CylinderGeometry(9 * s, 9 * s, 0.08, 20), new THREE.MeshBasicMaterial({ color: '#555', transparent: true, opacity: 0.3 })); r.position.y = 2.1 * s; r.userData.rotor = true; g.add(r);
+    box(2 * s, 1.4 * s, 2 * s, M('#2f6fb3'), 0, -4 * s, 0);
+  } else if (u.kind === 'engine' || u.kind === 'tender') {
+    box(2.6, 2.6, 8, M(u.kind === 'tender' ? '#1d4ed8' : '#b91c1c')); box(2.5, 1.6, 2.4, dark, 0, 0.4, -3.4); box(2.7, 0.4, 7.6, M('#f3f1ec'), 0, 1.4, 0.4);
+  } else if (u.kind === 'crew') {
+    for (let i = 0; i < 6; i++) { const p = new THREE.Mesh(new THREE.CapsuleGeometry(0.35, 1.1, 3, 6), M('#ea580c')); p.position.set((i % 3 - 1) * 1.4, 0.9, Math.floor(i / 3) * 1.6 - 0.8); g.add(p); }
+  } else if (u.kind === 'dozer') {
+    box(3.2, 2.2, 5, M('#ca8a04')); box(4, 1.6, 0.4, dark, 0, -0.3, -3); box(1.8, 1.4, 1.8, dark, 0, 1.8, 0.6);
+  }
+  return g;
+}

@@ -1,5 +1,7 @@
 # FireScope 3D
 
+> 📘 Pitch y explicación completa (ES): [docs/PITCH_Y_FUNCIONAMIENTO.md](docs/PITCH_Y_FUNCIONAMIENTO.md)
+
 **We turn wildfire drone footage into a time-aware 3D operational picture.**
 
 FireScope 3D ingests drone video of a fire, works out what the camera sees (NVIDIA Cosmos Reason plus a measurable CV pipeline), projects the observed fire onto real terrain, and lets a responder scrub through time, click an observation, see the exact video evidence, search the footage and ask questions about it.
@@ -25,6 +27,8 @@ The interface recreates the "FireTrace" wildfire forensic prototype (Dilum Sanja
 | Hotspots | Visible-flame blob centroids. **RGB cannot measure temperature**, so `temperature_c` is always `null` | Model |
 | Projection | Linear centroid extrapolation, purple dashed layer, banner: **EXPERIMENTAL SCENARIO — NOT AN OPERATIONAL FORECAST** | Experimental |
 | Trees, smoke particles | Rendered for readability | Stylized |
+| Drones FT-02…FT-06, Resources (13 units), drops, fire lines | Deterministic exercise around the real incident; sim drone cameras render the 3D twin | **Simulated**, tagged SIM in the UI |
+| Weather card | ERA5 reanalysis via Open-Meteo for the site and hour | External (reanalysis, not on-site) |
 
 Every metric in the UI carries a provenance chip (`model`, `derived`, `ground_truth`, `external`, `fixture`).
 

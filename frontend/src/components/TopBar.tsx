@@ -7,12 +7,11 @@ import { Icon, Logo } from './Icon';
 import { runTour } from '../lib/tour';
 
 export function TopBar() {
-  const { incident, mode, set, events, sources, t0, t1, view, compare, layers, time } = useStore();
+  const { incident, mode, set, sources, t0, t1, view, compare, layers, time } = useStore();
   const [menu, setMenu] = useState<string | null>(null);
   const [tour, setTour] = useState('');
-  const alerts = events.filter((e) => e.severity === 'alert').length;
   const tab = (id: ModeTab, label: string, icon: string, count?: number) => (
-    <button className={mode === id ? 'on' : ''} onClick={() => set({ mode: id, feedOpen: id === 'drones' })}>
+    <button className={mode === id ? 'on' : ''} onClick={() => set({ mode: id, feedOpen: id === 'drones', follow: null, selectedUnitId: null, view: id === 'resources' && useStore.getState().mode !== 'resources' ? useStore.getState().view : useStore.getState().view })}>
       <Icon name={icon} size={13} />{label}{count ? <span className="badge">{count}</span> : null}
     </button>
   );
@@ -27,8 +26,8 @@ export function TopBar() {
       <div className="tb-meta date"><Icon name="calendar" size={13} />{t0 ? `${fmtDate(t0)} · ${Math.round((t1 - t0) / 60000)} min` : ''}</div>
       <div className="seg">
         {tab('incident', 'Incident', 'map')}
-        {tab('drones', 'Drones', 'drone', sources.length)}
-        {tab('alerts', 'Alerts', 'alert', alerts)}
+        {tab('drones', 'Drones', 'drone', sources.length + 5)}
+        {tab('resources', 'Resources', 'layers', 13)}
       </div>
       <div className="tb-sep" />
       <div style={{ position: 'relative', display: 'flex' }}>

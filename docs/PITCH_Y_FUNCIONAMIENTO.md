@@ -34,6 +34,8 @@ FireScope 3D procesa el vídeo y lo convierte en **tres cosas útiles a la vez**
 | Meteorología | Reanálisis **ERA5** (Open-Meteo) para ese día, hora y lugar | **Real**, pero de reanálisis, no un sensor in situ |
 | Descripciones, búsqueda y respuestas | Cosmos Reason, Cosmos Embed1 y YOLO11 en el clúster del workshop | **Real en producción**. En el Mac, sin token, se muestra como "not configured" |
 | Vista IR | LUT de falso color sobre el RGB | **Simulada**, rotulada en pantalla ("not thermal") |
+| Drones FT-02…FT-06 | Trayectorias deterministas alrededor del incidente; su cámara es una **segunda cámara que renderiza el gemelo 3D** desde la pose del dron | **Simulado** (etiqueta SIM / "SIMULATED VIEW") |
+| Modo Resources (13 unidades) | 6 aeronaves, 4 motobombas/cisternas, 2 cuadrillas y 1 bulldozer con circuitos deterministas, descargas (rojo = retardante, azul = agua) y línea de fuego cortada sobre el perímetro planificado | **Simulado** (ejercicio ilustrativo, etiqueta SIMULATED) |
 | Capa "Exp. Scenario" | Extrapolación lineal del frente | **Experimental**, rotulada "NOT AN OPERATIONAL FORECAST" |
 | Árboles y humo | Renderizado | **Estilizado**, para legibilidad |
 
@@ -86,8 +88,9 @@ Dashboard React + Three.js   ─── terreno 3D, máscaras sobre el terreno, t
 * **Incident Overview / Weather / Fire Observation:** datos del incidente, meteo ERA5 a la hora del cursor y métricas del instante (área quemada, llama activa, Δ y hotspots), cada una con su chip de procedencia.
 * **Timeline:** play, pausa, siguiente evento, velocidad 1–32×, arrastrar y marcadores de evento. Gráficas: área quemada, ritmo de propagación y perfil de elevación en la línea de visión del dron.
 * **Key Events:** clic → el tiempo salta, la cámara vuela y se resalta.
-* **Drones:** ventana de cámara sincronizada al segundo con el timeline: HUD, caja de la región que el modelo pide revisar, EO/IR* (simulado), zoom, arrastrar, pantalla de mapa completa, y "Run Cosmos analysis" con progreso.
-* **Alerts:** cola de revisión con Acknowledge y View footage.
+* **Drones:** flota de 6. **UAV-01 es el real** (vídeo grabado). FT-02…FT-06 son simulados, con telemetría (altitud, velocidad, rumbo, batería, enlace) y una cámara que renderiza el gemelo 3D desde su posición, en EO o IR* (Ironbow / White-hot). Seleccionar un dron abre su cámara; Follow lo persigue. La ventana de cámara del dron real va al segundo con el timeline: HUD, caja de la región que el modelo pide revisar, EO/IR* (simulado), zoom, arrastrar, pantalla de mapa completa, y "Run Cosmos analysis" con progreso.
+* **Resources (simulado):** KPIs (aeronaves operativas, galones descargados, cadenas de línea, personal), lista por grupos como en FireTrace y ficha de la unidad seleccionada. **Chase** sigue al avión en vuelo, **Ride along** acompaña a vehículos y cuadrillas, y **Overview** da el plano general. Las descargas y la línea de fuego aparecen sobre el terreno según el timeline. El Air Ops Log permite saltar a cada descarga, y las gráficas muestran retardante, línea construida y personal.
+* **Alertas:** las alertas del agente están en la columna Detections (modo Drones) y en Evidence → Event Review Queue.
 * **Analysis (agente):** preguntas en lenguaje natural; las citas `[00:48–01:00]` saltan al vídeo y al mapa.
 * **Evidence:** búsqueda semántica de clips (Cosmos Embed1) + coincidencias del archivo **VSS/VAST** + cola de revisión de eventos.
 * **Notes:** estado real de cada integración, qué es real y qué no, notas del analista y atribuciones.
@@ -108,7 +111,7 @@ Dashboard React + Three.js   ─── terreno 3D, máscaras sobre el terreno, t
 ## 8. Encaje con los criterios del jurado
 
 * **Idea:** convertir vídeo en un mapa operativo consultable es un uso directo del stack de búsqueda y resumen de vídeo, con impacto social claro.
-* **Implementación técnica:** pipeline reproducible (`python -m firescope.pipeline` en 12 s), contrato de API documentado, **evaluación cuantitativa (IoU)**, 7 tests de backend y 68 comprobaciones E2E de interfaz en 6 resoluciones.
+* **Implementación técnica:** pipeline reproducible (`python -m firescope.pipeline` en 12 s), contrato de API documentado, **evaluación cuantitativa (IoU)**, 7 tests de backend y 76 comprobaciones E2E en 6 resoluciones (incluidos los 3 modos y 60 fps medidos).
 * **Diseño:** réplica del lenguaje visual de FireTrace, sin solapes (verificado automáticamente) y con la procedencia de cada dato visible.
 * **Impacto (sponsors):** Cosmos Reason + Cosmos Embed1 + YOLO11 + VAST/VSS + despliegue en el clúster, cada uno con una función clara.
 * **Presentación:** botón **Tour** que ejecuta la demo de 2 minutos sin fallos.
@@ -133,13 +136,21 @@ Dashboard React + Three.js   ─── terreno 3D, máscaras sobre el terreno, t
 * **¿Funciona en directo?** La arquitectura es la misma para vídeo en directo (los clips entran por la misma vía); hoy se reproduce una grabación y se rotula como *replay*.
 * **¿Predecís el fuego?** No. La capa experimental es una extrapolación ingenua y está rotulada como no operativa.
 * **¿Y la temperatura?** Con RGB no se puede medir. Por eso el IR está rotulado como simulado y los hotspots no llevan °C.
-* **¿Qué falta respecto a FireTrace?** La flota de 6 drones y el modo de recursos (aviones y brigadas). Requieren datos de operaciones que no tenemos. Preferimos no inventarlos.
+* **¿Los aviones y brigadas son reales?** No. El modo Resources y los drones FT-02…06 son un **ejercicio simulado**, rotulado como tal, para demostrar el flujo de trabajo. Lo real es el vídeo del UAV-01, el terreno, la meteo y todo lo que se deriva del vídeo.
+* **¿Por qué YOLO si no detecta fuego?** Justo por eso no lo usamos para fuego. Detecta personas y vehículos (clases COCO) en clips donde Cosmos ve llamas, para alertar de exposición. El fuego lo segmenta nuestro pipeline y lo describe Cosmos.
 
-## 11. Cómo ejecutarlo
+## 11. Decisiones técnicas y trabajo futuro (P2)
+
+* **Motor 3D: nos quedamos con Three.js** en lugar de migrar a Cesium o MapLibre. Ya tiene LOD por anillos, depth logarítmico, sombras, bloom e instancing, y medimos **60 fps** reproduciendo a 1440×900. Migrar costaría el control sobre el shader del fuego pegado al terreno.
+* **Propagación tipo FARSITE (Huygens elíptico):** documentada como siguiente paso. Hoy la capa experimental es una extrapolación lineal, rotulada. Un modelo anisotrópico (viento ERA5 + pendiente del DEM + combustible) solo tendría sentido validado como *hindcast* contra las máscaras reales, y no daba tiempo a validarlo.
+* **ESA WorldCover (10 m):** mejoraría la distribución de vegetación y el "combustible disponible". Hoy la vegetación sale de la ortofoto (índice de verdor). No son modelos de combustible calibrados.
+* **NASA FIRMS:** útil para incendios grandes, pero con píxeles de 375 m no aporta nada en una parcela de 100 m. No lo añadimos solo por sumar integraciones.
+
+## 12. Cómo ejecutarlo
 
 ```bash
 ./run.sh                                   # API :8000 + dashboard :5173, con datos reales
 cd backend && python -m pytest -q tests    # tests de API + adaptadores de producción
-cd frontend && node scripts/e2e.mjs        # 68 comprobaciones E2E en 6 resoluciones
+cd frontend && node scripts/e2e.mjs        # 76 comprobaciones E2E (3 modos, 6 resoluciones, FPS)
 ./deploy/make-firescope-deploy.sh          # paquete para el clúster (www/ + app/)
 ```
