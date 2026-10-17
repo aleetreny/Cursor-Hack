@@ -1,6 +1,6 @@
 # FireScope 3D
 
-> 🌐 **Demo:** https://aleetreny.github.io/cursor-hack/ — static build, no backend, no keys (GitHub Pages from `main`).
+> 🌐 **Demo:** https://aleetreny.github.io/Cursor-Hack/ — static build, no backend, no keys (GitHub Pages from `main`).
 >
 > 📘 Pitch y explicación completa (ES): [docs/PITCH_Y_FUNCIONAMIENTO.md](docs/PITCH_Y_FUNCIONAMIENTO.md) · 🗺️ Plan de mejora: [docs/PLAN_DE_MEJORA.md](docs/PLAN_DE_MEJORA.md)
 
