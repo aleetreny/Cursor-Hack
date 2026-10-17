@@ -173,11 +173,15 @@ for (const [w, h] of [[1874, 1080], [1920, 1080], [1600, 900], [1440, 900], [136
   ok('View menu opens', (await page.locator('.menu-pop').count()) > 0);
   await page.locator('.menu-pop button', { hasText: 'Reset camera' }).click();
 
-  // tour starts and is cancellable
-  await page.locator('.tb-menu', { hasText: 'Tour' }).click(); await page.waitForTimeout(1500);
-  const touring = await page.locator('.tour-pill').count();
-  await page.mouse.click(m.x + 50, m.y + m.h - 80); await page.waitForTimeout(400);
-  ok('tour runs and cancels on click', touring > 0);
+  // presentation mode: opens, pauses, steps, exits
+  await page.locator('.tb-present').click(); await page.waitForTimeout(1200);
+  const s0 = await page.evaluate(() => document.querySelector('.pz')?.getAttribute('data-step'));
+  await page.keyboard.press('Space'); const paused = await page.locator('.pz-name em').count(); await page.keyboard.press('Space');
+  await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(1500);
+  const s3 = await page.evaluate(() => document.querySelector('.pz')?.getAttribute('data-step'));
+  const spot = await page.locator('.pz-spot').count();
+  await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+  ok('presentation mode: chapters, pause, spotlight, exit', s0 === 'title' && paused > 0 && s3 === 'twin' && spot === 1 && (await page.locator('.pz').count()) === 0, `${s0} → ${s3}`);
 
   await page.evaluate(() => { window.__store.getState().set({ mode: 'incident', speed: 8, playing: true }); window.__scene.flyHome(); });
   const fps = await page.evaluate(() => new Promise((r) => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 3000) requestAnimationFrame(f); else r(n / 3); }; requestAnimationFrame(f); }));

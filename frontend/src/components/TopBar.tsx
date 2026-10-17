@@ -4,12 +4,10 @@ import { useStore, type ModeTab } from '../state/store';
 import { sceneRef } from '../scene/SceneView';
 import { fmtDate } from '../lib/format';
 import { Icon, Logo } from './Icon';
-import { runTour } from '../lib/tour';
 
 export function TopBar() {
   const { incident, mode, set, sources, t0, t1, view, compare, layers, time } = useStore();
   const [menu, setMenu] = useState<string | null>(null);
-  const [tour, setTour] = useState('');
   const tab = (id: ModeTab, label: string, icon: string, count?: number) => (
     <button className={mode === id ? 'on' : ''} onClick={() => set({ mode: id, feedOpen: id === 'drones', follow: null, selectedUnitId: null, view: id === 'resources' && useStore.getState().mode !== 'resources' ? useStore.getState().view : useStore.getState().view })}>
       <Icon name={icon} size={13} />{label}{count ? <span className="badge">{count}</span> : null}
@@ -52,8 +50,7 @@ export function TopBar() {
         <button className="tb-menu" onClick={() => { navigator.clipboard?.writeText(location.href); }}><Icon name="share" size={13} />Share<Icon name="chev" size={11} /></button>
       </div>
       <div className="tb-right">
-        {tour && <span className="tour-pill">{tour}</span>}
-        <button className="tb-menu" onClick={() => runTour(setTour)} title="Guided 2-minute walkthrough (click anywhere to stop)"><Icon name="play" size={11} />Tour</button>
+        <button className="tb-present" onClick={() => set({ presenting: true })} title="Presentation mode — Space pause · ←/→ chapters · Esc exit"><Icon name="play" size={11} />Present</button>
         <span className={'mode-chip ' + (USE_FIXTURES ? 'fixture' : 'live')} title={USE_FIXTURES ? 'Rendering development fixtures from /public/fixtures' : `Backend: ${API_BASE}`}>
           {USE_FIXTURES ? 'DEV FIXTURES' : 'BACKEND CONNECTED'}
         </span>

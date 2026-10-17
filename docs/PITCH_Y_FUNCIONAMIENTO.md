@@ -82,7 +82,7 @@ Dashboard React + Three.js   ─── terreno 3D, máscaras sobre el terreno, t
 
 ## 6. Recorrido de la interfaz (qué hace cada cosa)
 
-* **Barra superior:** incidente, fecha, modos **Incident / Drones / Alerts**, menús View (2D/3D, reset, seguir dron, exageración), Analysis (comparar antes/después, verdad de campo, escenario experimental, agente) y Share. **Tour** ejecuta la demo guiada. A la derecha, el estado de conexión al backend.
+* **Barra superior:** incidente, fecha, modos **Incident / Drones / Alerts**, menús View (2D/3D, reset, seguir dron, exageración), Analysis (comparar antes/después, verdad de campo, escenario experimental, agente) y Share. **Present** abre el modo presentación: 14 capítulos (portada, problema, respuesta y 10 capítulos por la app) con tarjetas explicativas y foco sobre la zona de la interfaz. Espacio pausa, ←/→ cambia de capítulo, H oculta la barra y Esc sale. A la derecha, el estado de conexión al backend.
 * **Mapa 3D:** pasa el ratón por el terreno para ver elevación, pendiente, orientación, si está dentro de la zona quemada y las coordenadas. Haz clic en un evento o en el dron.
 * **Layers:** cada capa cambia el render de verdad (opacidad incluida). Ground Truth muestra la máscara manual en azul.
 * **Incident Overview / Weather / Fire Observation:** datos del incidente, meteo ERA5 a la hora del cursor y métricas del instante (área quemada, llama activa, Δ y hotspots), cada una con su chip de procedencia.
@@ -114,7 +114,7 @@ Dashboard React + Three.js   ─── terreno 3D, máscaras sobre el terreno, t
 * **Implementación técnica:** pipeline reproducible (`python -m firescope.pipeline` en 12 s), contrato de API documentado, **evaluación cuantitativa (IoU)**, 7 tests de backend y 76 comprobaciones E2E en 6 resoluciones (incluidos los 3 modos y 60 fps medidos).
 * **Diseño:** réplica del lenguaje visual de FireTrace, sin solapes (verificado automáticamente) y con la procedencia de cada dato visible.
 * **Impacto (sponsors):** Cosmos Reason + Cosmos Embed1 + YOLO11 + VAST/VSS + despliegue en el clúster, cada uno con una función clara.
-* **Presentación:** botón **Tour** que ejecuta la demo de 2 minutos sin fallos.
+* **Presentación:** botón **Present**, un modo presentación por capítulos, pausable, para usarlo de fondo mientras se habla.
 
 ## 9. Guion del pitch (2 minutos, en inglés)
 

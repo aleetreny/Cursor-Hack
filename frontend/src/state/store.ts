@@ -32,6 +32,7 @@ interface State {
   compare: { on: boolean; before: number | null };
   hover: HoverInfo | null;
   scenario: { on: boolean; hours: number; ha: number };
+  presenting: boolean;
   cam: CameraInfo;
   set: (p: Partial<State>) => void;
   setTime: (t: number) => void;
@@ -49,6 +50,7 @@ export const useStore = create<State>((set, get) => ({
   compare: { on: false, before: null },
   hover: null,
   scenario: { on: false, hours: 0, ha: 0 },
+  presenting: false,
   cam: { azimuth: 0, zoom: 1, metersPerPx: 1, polar: 50 },
   set: (p) => set(p),
   setTime: (t) => { const { t0, t1 } = get(); set({ time: Math.min(t1, Math.max(t0, t)) }); },
