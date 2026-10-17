@@ -25,6 +25,7 @@ export interface SceneCallbacks {
   onDroneClick?: (id: string) => void;
   onUnitClick?: (id: string) => void;
   onFollowEnd?: () => void;
+  onScenario?: (s: { on: boolean; hours: number; ha: number }) => void;
   onReady?: () => void;
   onProgress?: (msg: string) => void;
 }
@@ -77,6 +78,7 @@ export class FireScene {
     uMaskBounds: { value: new THREE.Vector4() }, uDecalBounds: { value: new THREE.Vector4() },
     uTime: { value: 0 }, uBurnOp: { value: 1 }, uFireOp: { value: 1 }, uChangeOp: { value: 0.6 },
     uImageryMix: { value: 0.18 }, uMapStyle: { value: 0 }, uStyleOn: { value: 1 },
+    uScen: { value: null as THREE.Texture | null }, uScenBounds: { value: new THREE.Vector4() }, uScenT: { value: 0 }, uScenOn: { value: 0 },
   };
 
   // dynamic content
@@ -95,6 +97,11 @@ export class FireScene {
   private follow: { id: string; mode: 'chase' | 'overview' | 'ride' } | null = null;
   private viewRT?: THREE.WebGLRenderTarget;
   private viewCam = new THREE.PerspectiveCamera(52, 16 / 9, 0.5, 60000);
+  // SIMULATED large-fire scenario (arrival-time field)
+  private scen?: { N: number; arr: Uint8Array; cell: number; tMaxS: number; bucket: number };
+  private sFlames?: THREE.Points;
+  private sSmoke?: THREE.Points;
+  scenarioInfo = { on: false, hours: 0, ha: 0 };
 
   // data
   private incident?: Incident;
@@ -343,6 +350,7 @@ export class FireScene {
         .replace('void main() {', `varying vec3 vWorld;
 uniform sampler2D uMask; uniform sampler2D uDecal; uniform vec4 uMaskBounds; uniform vec4 uDecalBounds;
 uniform float uTime, uBurnOp, uFireOp, uChangeOp, uImageryMix, uMapStyle, uStyleOn, uInner;
+uniform sampler2D uScen; uniform vec4 uScenBounds; uniform float uScenT, uScenOn;
 ${NOISE_GLSL}
 void main() {`)
         .replace('#include <map_fragment>', /* glsl */ `
@@ -379,6 +387,21 @@ void main() {`)
     fireEm = vec3(1.0, 0.34, 0.06) * actv * (1.6 + 5.0*fl);
     fireEm += vec3(0.9, 0.25, 0.04) * change * 0.25 * (0.6 + 0.4*sin(uTime*2.0));
     alb = mix(alb, vec3(0.05,0.02,0.01), actv*0.6);
+  }
+  if (uScenOn > 0.5) {   // SIMULATED large-fire scenario: arrival-time field vs scenario clock
+    vec2 suv = fsBoundsUv(vWorld.xz, uScenBounds);
+    if (fsInside(suv) > 0.) {
+      float a = texture2D(uScen, suv).r;
+      float burnt = smoothstep(uScenT + 0.003, uScenT - 0.003, a) * step(a, 0.995);
+      float front = burnt * smoothstep(uScenT - 0.011, uScenT - 0.001, a);
+      vec3 sc = mix(vec3(0.012,0.010,0.010), vec3(0.09,0.05,0.04), fsFbm(vWorld.xz*0.05));
+      alb = mix(alb, mix(sc, vec3(0.58,0.30,0.27), uMapStyle*0.6), burnt*0.96);
+      fireEm += vec3(0.5, 0.08, 0.02) * burnt * smoothstep(uScenT - 0.06, uScenT - 0.01, a) * 0.6;   // smouldering behind the front
+      float sfl = fsNoise(vWorld.xz*0.12 + vec2(0., -uTime*1.6)) * fsNoise(vWorld.xz*0.33 + vec2(uTime, 0.));
+      fireEm += vec3(1.0, 0.32, 0.05) * front * (2.2 + 6.0*sfl);
+      float glow = smoothstep(uScenT - 0.05, uScenT, a) * (1.0 - burnt) * step(a, 0.995) * smoothstep(uScenT + 0.012, uScenT, a);
+      fireEm += vec3(0.9, 0.18, 0.03) * glow * 0.8;
+    }
   }
   vec2 duv = fsBoundsUv(vWorld.xz, uDecalBounds);
   if (fsInside(duv) > 0.) { vec4 d = texture2D(uDecal, duv); alb = mix(alb, d.rgb, d.a); }
@@ -473,7 +496,7 @@ void main() {`)
     if (this.ready) this.rebuildEventLabels();
   }
 
-  setTime(ms: number) { this.time = ms; this.redrawOverlays(); }
+  setTime(ms: number) { this.time = ms; this.redrawOverlays(); this.updateScenario(); }
   setSelectedEvent(id: string | null) { this.selectedEvent = id; this.drawnKey = ''; this.redrawOverlays(); }
   setCompare(ms: number | null) { this.compareTime = ms; this.drawnKey = ''; this.redrawOverlays(); }
 
@@ -796,6 +819,122 @@ varying float vL; varying float vSeed;
       this.scene.add(this.frustum);
     }
     this.addLabel('drone_' + src.id, `<div class="lbl-drone"><span class="dot"></span>${src.label} <b>${Math.round(pose.altitude_agl_m ?? 0)} m</b></div>`, pos.clone().add(new THREE.Vector3(0, 6, 0)), () => this.cb.onDroneClick?.(src.id));
+  }
+
+  /* ---------------------------------------------- simulated large fire */
+
+  /** Huygens-style arrival times on the real DEM: elliptical wind enhancement + slope factor, Dijkstra on a 16-neighbour grid.
+   *  Assumptions (shown in the UI): uniform fuel, constant scenario wind, no suppression. Purely illustrative. */
+  setScenario(on: boolean, opts: { windFromDeg?: number; windKmh?: number } = {}) {
+    this.scenarioInfo.on = on;
+    this.uniforms.uScenOn.value = on ? 1 : 0;
+    if (on && !this.scen) this.buildScenario(opts.windFromDeg ?? 225, opts.windKmh ?? 30);
+    if (this.sFlames) this.sFlames.visible = on;
+    if (this.sSmoke) this.sSmoke.visible = on && this.layers.smoke;
+    this.updateScenario(true);
+  }
+
+  private buildScenario(windFromDeg: number, windKmh: number) {
+    const N = 300, half = 4200, cell = (2 * half) / N;
+    const f = this.focusPoint();
+    const x0 = f.x - half, z0 = f.z - half;
+    const H = new Float32Array((N + 1) * (N + 1));
+    for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) H[j * (N + 1) + i] = this.elevationAt(x0 + i * cell, z0 + j * cell);
+    const to = THREE.MathUtils.degToRad(windFromDeg + 180);           // direction the fire is pushed toward
+    const wx = Math.sin(to), wz = -Math.cos(to), U = windKmh / 30;
+    const R0 = 0.28;                                                    // m/s backing/flank base rate
+    const T = new Float64Array((N + 1) * (N + 1)).fill(Infinity);
+    const done = new Uint8Array((N + 1) * (N + 1));
+    const nb: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1], [2, 1], [2, -1], [-2, 1], [-2, -1], [1, 2], [1, -2], [-1, 2], [-1, -2]];
+    // binary heap
+    const heap: number[] = [], push = (k: number) => { heap.push(k); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (T[heap[p]] <= T[heap[i]]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+    const pop = () => { const top = heap[0], last = heap.pop()!; if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && T[heap[l]] < T[heap[m]]) m = l; if (r < heap.length && T[heap[r]] < T[heap[m]]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+    const ci = Math.round(N / 2), seed = ci * (N + 1) + ci;
+    T[seed] = 0; push(seed);
+    while (heap.length) {
+      const k = pop();
+      if (done[k]) continue;
+      done[k] = 1;
+      const i = k % (N + 1), j = (k / (N + 1)) | 0, tk = T[k];
+      for (const [di, dj] of nb) {
+        const a = i + di, b = j + dj;
+        if (a < 0 || b < 0 || a > N || b > N) continue;
+        const kk = b * (N + 1) + a, d = Math.hypot(di, dj) * cell, ux = di * cell / d, uz = dj * cell / d;
+        const cosw = ux * wx + uz * wz;
+        const ell = 1 + 4.2 * U * Math.max(0, cosw) ** 1.6 - 0.35 * Math.max(0, -cosw);   // elongated head, slower back
+        const slope = (H[kk] - H[k]) / d;                                                // +upslope
+        const sf = Math.min(4, Math.max(0.35, Math.exp(3.2 * slope)));
+        const R = R0 * Math.max(0.25, ell) * sf * fuelJS(a, b);                                 // smooth fuel heterogeneity (illustrative)
+        const nt = tk + d / R;
+        if (!done[kk] && nt < T[kk] - 1e-9) { T[kk] = nt; push(kk); }
+      }
+    }
+    const sorted = Array.from(T).filter(isFinite).sort((p, q) => p - q);
+    const tMaxS = sorted[Math.floor(sorted.length * 0.62)];             // scenario clock ends when ~62 % of the box burned
+    const arr = new Uint8Array((N + 1) * (N + 1));
+    for (let k = 0; k < arr.length; k++) arr[k] = Math.min(255, Math.round((T[k] / tMaxS) * 254));
+    // texture rows: row 0 = north (min z) → same convention as the other overlays (flipY false: we write north first at v=1)
+    const tex = new THREE.DataTexture(arr, N + 1, N + 1, THREE.RedFormat, THREE.UnsignedByteType);
+    tex.flipY = false; tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
+    // fsBoundsUv flips v (1 = north). DataTexture row 0 maps to v = 0 → store south first:
+    const flipped = new Uint8Array(arr.length);
+    for (let j = 0; j <= N; j++) flipped.set(arr.subarray(j * (N + 1), (j + 1) * (N + 1)), (N - j) * (N + 1));
+    tex.image.data = flipped;
+    this.uniforms.uScen.value = tex;
+    this.uniforms.uScenBounds.value.set(x0, z0, x0 + 2 * half, z0 + 2 * half);
+    this.scen = { N, arr, cell, tMaxS, bucket: -1 };
+    // big-scale flames + smoke for the scenario front
+    if (this.flames && this.smoke) {
+      const mk = (src: THREE.Points, cap: number, size: number) => {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cap * 3), 3));
+        g.setAttribute('aSeed', new THREE.BufferAttribute(new Float32Array(cap), 1));
+        g.setDrawRange(0, 0);
+        const m = (src.material as THREE.ShaderMaterial).clone();
+        m.uniforms.uTime = this.uniforms.uTime; m.uniforms.uScale = (src.material as THREE.ShaderMaterial).uniforms.uScale;
+        if (m.uniforms.uSize) m.uniforms.uSize = { value: size };
+        const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.renderOrder = src.renderOrder; this.scene.add(pts); return pts;
+      };
+      this.sFlames = mk(this.flames, 4000, 22);
+      this.sSmoke = mk(this.smoke, 700, 1);
+      this.sSmoke.scale.setScalar(1);
+    }
+  }
+
+  private updateScenario(force = false) {
+    const sc = this.scen;
+    if (!sc || !this.scenarioInfo.on) return;
+    const span = Math.max(1, this.simCtx ? this.simCtx.t1 - this.simCtx.t0 : 1);
+    const T = Math.min(1, Math.max(0, (this.time - (this.simCtx?.t0 ?? this.time)) / span));
+    this.uniforms.uScenT.value = T;
+    const b = Math.round(T * 400);
+    if (!force && b === sc.bucket) return;
+    sc.bucket = b;
+    const thr = Math.round(T * 254), band = 6;
+    let burned = 0;
+    const fp = this.sFlames!.geometry.attributes.position as THREE.BufferAttribute, fs = this.sFlames!.geometry.attributes.aSeed as THREE.BufferAttribute;
+    const sp = this.sSmoke!.geometry.attributes.position as THREE.BufferAttribute, ss = this.sSmoke!.geometry.attributes.aSeed as THREE.BufferAttribute;
+    const b4 = this.uniforms.uScenBounds.value, rnd = mulberry32(b + 7);
+    const front: number[] = [];
+    for (let k = 0; k < sc.arr.length; k++) { const a = sc.arr[k]; if (a < thr && a < 254) { burned++; if (a > thr - band) front.push(k); } }
+    let nf = 0, ns = 0;
+    const stepF = Math.max(1, front.length / fp.count), stepS = Math.max(1, front.length / sp.count);
+    for (let q = 0; q < front.length && nf < fp.count; q += stepF) {
+      const k = front[Math.floor(q)], i = k % (sc.N + 1), j = Math.floor(k / (sc.N + 1));
+      const x = b4.x + (i + rnd() - 0.5) * sc.cell, z = b4.y + (j + rnd() - 0.5) * sc.cell;
+      fp.setXYZ(nf, x, this.groundY(x, z) + 0.5, z); fs.setX(nf, rnd()); nf++;
+    }
+    for (let q = 0; q < front.length && ns < sp.count; q += stepS) {
+      const k = front[Math.floor(q)], i = k % (sc.N + 1), j = Math.floor(k / (sc.N + 1));
+      const x = b4.x + i * sc.cell, z = b4.y + j * sc.cell;
+      sp.setXYZ(ns, x, this.groundY(x, z) + 4, z); ss.setX(ns, rnd()); ns++;
+    }
+    fp.needsUpdate = fs.needsUpdate = sp.needsUpdate = ss.needsUpdate = true;
+    this.sFlames!.geometry.setDrawRange(0, nf);
+    this.sSmoke!.geometry.setDrawRange(0, ns);
+    this.scenarioInfo.ha = (burned * sc.cell * sc.cell) / 10000;
+    this.scenarioInfo.hours = (T * sc.tMaxS) / 3600;
+    this.cb.onScenario?.({ ...this.scenarioInfo });
   }
 
   /* ------------------------------------------------- simulated operations */
@@ -1220,4 +1359,17 @@ function makeUnitMesh(u: SimUnit): THREE.Group {
     box(3.2, 2.2, 5, M('#ca8a04')); box(4, 1.6, 0.4, dark, 0, -0.3, -3); box(1.8, 1.4, 1.8, dark, 0, 1.8, 0.6);
   }
   return g;
+}
+
+function fsHashJS(a: number, b: number) { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); }
+
+function vnoiseJS(x: number, y: number) {
+  const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+  const h = (a: number, b: number) => fsHashJS(a, b);
+  return (h(xi, yi) * (1 - u) + h(xi + 1, yi) * u) * (1 - v) + (h(xi, yi + 1) * (1 - u) + h(xi + 1, yi + 1) * u) * v;
+}
+/** Illustrative fuel-availability multiplier (0.35–1.5) with km-scale patches — NOT a calibrated fuel model. */
+function fuelJS(a: number, b: number) {
+  const n = 0.6 * vnoiseJS(a / 18, b / 18) + 0.3 * vnoiseJS(a / 7, b / 7) + 0.1 * vnoiseJS(a / 2.5, b / 2.5);
+  return 0.35 + 1.15 * n * n * 1.6;
 }

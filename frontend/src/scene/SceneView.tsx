@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import * as THREE from 'three';
 import { FireScene } from './FireScene';
 import { useStore } from '../state/store';
 
@@ -18,11 +19,12 @@ export function SceneView() {
       onDroneClick: (id) => useStore.getState().set({ mode: 'drones', selectedSourceId: id, selectedUnitId: null, feedOpen: true }),
       onUnitClick: (id) => { const s = useStore.getState(); s.set(id.startsWith('FT-') ? { selectedUnitId: id, feedOpen: true } : { selectedUnitId: id }); },
       onFollowEnd: () => useStore.getState().set({ follow: null }),
+      onScenario: (sc) => useStore.getState().set({ scenario: sc }),
       onProgress: (m) => useStore.getState().set({ loadMsg: m }),
       onReady: () => useStore.getState().set({ loadMsg: '' }),
     });
     sceneRef.current = scene;
-    (window as unknown as { __scene: FireScene }).__scene = scene;
+    Object.assign(window as object, { __scene: scene, __THREE_V: THREE.Vector3, __selEv: (id: string) => selectEvent(id, true) });
     return () => { scene.dispose(); sceneRef.current = null; };
   }, []);
 
@@ -50,7 +52,7 @@ export function SceneView() {
         const k = String(Math.floor(st.time / 4000));
         if (k !== lastFrameKey) { lastFrameKey = k; updateProfile(); }
       }
-      if (st.layers !== prev.layers) scene.setLayers(st.layers);
+      if (st.layers !== prev.layers) { scene.setLayers(st.layers); if (st.layers.projection !== prev.layers.projection) { scene.setScenario(st.layers.projection); if (!st.layers.projection) useStore.getState().set({ scenario: { on: false, hours: 0, ha: 0 } }); } }
       if (st.view !== prev.view) scene.set2D(st.view === '2d');
       if (st.events !== prev.events) scene.setEvents(st.events);
       if (st.selectedEventId !== prev.selectedEventId) scene.setSelectedEvent(st.selectedEventId);

@@ -14,7 +14,7 @@ function niceScale(mpp: number) {
 const fmtM = (m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`);
 
 export function MapOverlays() {
-  const { cam, view, set, hover, loadMsg, loadError, loaded, compare, time, features, layers, incident } = useStore();
+  const { cam, view, set, hover, loadMsg, loadError, loaded, compare, time, features, layers, incident, scenario } = useStore();
   const sc = niceScale(cam.metersPerPx || 1);
   const burnedAt = (t: number) => {
     let best: number | null = null, bt = -Infinity;
@@ -45,7 +45,7 @@ export function MapOverlays() {
         {compare.on && compare.before != null && (
           <span className="pill"><Icon name="compare" size={12} /> BEFORE {fmtClock(compare.before)} ┆ CURRENT {fmtClock(time)} · Δ burned <b>{delta != null && delta >= 0 ? '+' : ''}{da.v} {da.u}</b></span>
         )}
-        {layers.projection && <span className="pill exp">EXPERIMENTAL SCENARIO — NOT AN OPERATIONAL FORECAST</span>}
+        {layers.projection && <span className="pill exp">SIMULATED FIRE SCENARIO · T+{Math.floor(scenario.hours)}h{String(Math.round((scenario.hours % 1) * 60)).padStart(2, '0')} · {Math.round(scenario.ha).toLocaleString()} ha · NOT A FORECAST</span>}
       </div>
 
       {hover && (

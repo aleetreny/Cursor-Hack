@@ -1,0 +1,27 @@
+[
+ {
+  "id": "s1",
+  "text": "When a wildfire runs, drones film everything. But footage alone can't tell a commander where the fire is going.",
+  "dur": 7.36
+ },
+ {
+  "id": "s2",
+  "text": "FireScope 3D turns that footage into a living, three-dimensional map \u2014 on real terrain. Scrub the timeline, and watch this simulated fire climb the ridges.",
+  "dur": 10.75
+ },
+ {
+  "id": "s3",
+  "text": "Underneath is real drone video. Every frame is segmented and projected onto the ground. Alerts jump to the exact second of evidence, and the agent, built for NVIDIA Cosmos, answers with clickable proof.",
+  "dur": 14.59
+ },
+ {
+  "id": "s4",
+  "text": "Then coordinate the response: a simulated fleet of drones with live camera views, and air tankers you can chase as they lay down retardant.",
+  "dur": 9.19
+ },
+ {
+  "id": "s5",
+  "text": "From raw drone footage to spatial intelligence, in seconds. This is FireScope 3D.",
+  "dur": 6.45
+ }
+]

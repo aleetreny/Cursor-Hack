@@ -23,7 +23,7 @@ const LAYERS: LayerRow[] = [
   { id: 'perimeter', label: 'Burn Cell (KML)', sw: 'repeating-linear-gradient(90deg,#fff 0 4px,#8b8379 4px 7px)', kind: 'toggle', prov: 'external' },
   { id: 'groundTruth', label: 'Ground Truth', sw: 'linear-gradient(135deg,#bfe6fb,#40c8ff)', kind: 'toggle', prov: 'ground_truth' },
   { id: 'trees', label: 'Vegetation', sw: 'radial-gradient(circle,#2f4a2a 35%,#e6d8bd 40%)', kind: 'toggle', prov: 'derived' },
-  { id: 'projection', label: 'Exp. Scenario', sw: 'repeating-linear-gradient(45deg,#c7a7f7 0 3px,#f3ecfd 3px 6px)', kind: 'toggle', prov: 'demo_parameter' },
+  { id: 'projection', label: 'Fire Scenario (sim)', sw: 'repeating-linear-gradient(45deg,#c7a7f7 0 3px,#f3ecfd 3px 6px)', kind: 'toggle', prov: 'demo_parameter' },
 ];
 
 export function RightPanel() {
@@ -46,13 +46,12 @@ export function RightPanel() {
 function LayersSection() {
   const { layers, setLayer, features } = useStore();
   const hasGT = features.some((f) => f.properties.classification === 'ground_truth_burned');
-  const hasProj = features.some((f) => f.properties.classification === 'projection');
   return (
     <div className="section" style={{ paddingTop: 8 }}>
       {LAYERS.map((l) => {
         const v = layers[l.id];
         const on = typeof v === 'boolean' ? v : (v as number) > 0.001;
-        const unavailable = (l.id === 'groundTruth' && !hasGT) || (l.id === 'projection' && !hasProj);
+        const unavailable = l.id === 'groundTruth' && !hasGT;
         return (
           <div key={l.id} className={'layer' + (l.kind === 'toggle' ? ' toggle' : '') + (on && !unavailable ? '' : ' off')} title={unavailable ? 'Not provided by the current data source' : undefined}>
             <input type="checkbox" className="cb" checked={on} onChange={(e) => setLayer(l.id, (l.kind === 'opacity' ? (e.target.checked ? (l.def ?? 1) : 0) : e.target.checked) as never)} />
