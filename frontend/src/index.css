@@ -324,16 +324,15 @@ input[type=range].rng::-webkit-slider-thumb { appearance: none; width: 11px; hei
 .pz-spot { position: fixed; border-radius: 12px; transition: all .7s cubic-bezier(.2,.8,.2,1);
   box-shadow: 0 0 0 9999px rgba(14,10,8,.52), 0 0 0 2px rgba(255,176,104,.95), 0 0 44px 6px rgba(255,130,50,.45); }
 .pz-dim { position: fixed; inset: 0; background: radial-gradient(ellipse at 40% 40%, rgba(10,8,7,.0) 40%, rgba(10,8,7,.45)); }
-.pz-caption { position: fixed; max-width: 600px; padding: 26px 30px 24px; border-radius: 16px; color: #fff;
+.pz-caption { position: fixed; width: min(500px, 34vw); padding: 22px 26px 20px; transition: left .6s cubic-bezier(.2,.8,.2,1), top .6s cubic-bezier(.2,.8,.2,1); border-radius: 16px; color: #fff;
   background: linear-gradient(160deg, rgba(34,24,18,.90), rgba(18,13,10,.88)); backdrop-filter: blur(16px) saturate(1.2);
   border: 1px solid rgba(255,200,160,.14); box-shadow: 0 24px 60px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06);
   animation: pzIn .7s cubic-bezier(.2,.8,.2,1) both; }
 .pz-caption::before { content: ''; position: absolute; left: 30px; top: 0; width: 54px; height: 3px; border-radius: 0 0 3px 3px; background: linear-gradient(90deg, #d2402a, #f2b33d); }
 @keyframes pzIn { from { opacity: 0; transform: translateY(18px) scale(.98); } to { opacity: 1; transform: none; } }
-.pz-caption[style*="translate(-50%"] { animation: none; }
 .pz-kicker { font-size: 13px; font-weight: 750; letter-spacing: .16em; text-transform: uppercase; color: #ffb07a; }
-.pz-head { margin-top: 10px; font-size: 34px; font-weight: 760; letter-spacing: -.025em; line-height: 1.08; }
-.pz-body { margin-top: 12px; font-size: 17.5px; line-height: 1.5; color: #eadfd5; }
+.pz-head { margin-top: 9px; font-size: clamp(24px, 1.75vw, 32px); font-weight: 760; letter-spacing: -.025em; line-height: 1.08; }
+.pz-body { margin-top: 10px; font-size: clamp(14.5px, 0.95vw, 17px); line-height: 1.5; color: #eadfd5; }
 .pz-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
 .pz-tag { font-size: 11px; font-weight: 750; letter-spacing: .08em; padding: 4px 9px; border-radius: 999px; border: 1px solid; }
 .pz-tag.t-real { color: #a7e3a1; border-color: rgba(167,227,161,.4); background: rgba(80,140,70,.18); }
@@ -381,6 +380,7 @@ input[type=range].rng::-webkit-slider-thumb { appearance: none; width: 11px; hei
 
 .pz-bar { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 9100; pointer-events: auto; display: flex; align-items: center; gap: 8px;
   padding: 8px 10px; border-radius: 16px; background: rgba(20,15,12,.86); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,.08); box-shadow: 0 12px 34px rgba(0,0,0,.4); color: #fff; transition: opacity .3s, transform .3s; }
+.pz-bar.top { bottom: auto; top: 54px; }
 .pz-bar.hidden { opacity: 0; transform: translate(-50%, 12px); pointer-events: none; }
 .pz-bar button { width: 36px; height: 36px; border-radius: 10px; color: #f3e9e0; font-size: 20px; display: grid; place-items: center; }
 .pz-bar button:hover { background: rgba(255,255,255,.08); }

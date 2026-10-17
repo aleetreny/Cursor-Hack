@@ -1157,6 +1157,27 @@ varying float vL; varying float vSeed;
   }
   flyToLonLat(lon: number, lat: number, dist = 110) { this.flyTo(this.worldAt(lon, lat), dist); }
   flyHome() { this.flyTo(this.focusPoint(), undefined, 1400, this.homeOffset()); }
+  /** Cinematic framing of the fire zone: distance (m), elevation angle (deg), azimuth offset from the drone's view (rad). */
+  flyFrame(dist = 260, elevDeg = 30, az = 0.45, ms = 2600) {
+    const e = THREE.MathUtils.degToRad(elevDeg), v = this.viewDir().multiplyScalar(-1).applyAxisAngle(new THREE.Vector3(0, 1, 0), az);
+    const off = v.multiplyScalar(Math.cos(e) * dist).add(new THREE.Vector3(0, Math.sin(e) * dist, 0));
+    this.controls.autoRotate = false;
+    this.flyTo(this.focusPoint(), undefined, ms, off);
+  }
+  /** Screen-space box (container px) of the observed fire zone, for UI that must not cover it. */
+  fireScreenBox(): { x0: number; y0: number; x1: number; y1: number } | null {
+    if (!this.frame) return null;
+    const b = this.maskBounds, w = this.container.clientWidth, h = this.container.clientHeight;
+    const pts = [[b.x, b.y], [b.z, b.y], [b.x, b.w], [b.z, b.w], [(b.x + b.z) / 2, (b.y + b.w) / 2]];
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, n = 0;
+    for (const [x, z] of pts) {
+      this.v.set(x, this.groundY(x, z) + 4, z).project(this.camera);
+      if (this.v.z > 1) continue;
+      const sx = ((this.v.x + 1) / 2) * w, sy = ((1 - this.v.y) / 2) * h; n++;
+      x0 = Math.min(x0, sx); y0 = Math.min(y0, sy); x1 = Math.max(x1, sx); y1 = Math.max(y1, sy);
+    }
+    return n ? { x0, y0, x1, y1 } : null;
+  }
   flyToDrone() {
     if (!this.drone) return;
     const v = this.viewDir();

@@ -13,7 +13,7 @@ interface Step {
   id: string; title: string; dur: number;
   kind?: 'slide' | 'app';
   spot?: string;                         // CSS selector to spotlight
-  at?: 'tl' | 'bl' | 'tr' | 'center';    // caption placement (relative to the map pane)
+  at?: 'tl' | 'bl' | 'tr' | 'br';    // caption placement (relative to the map pane)
   kicker?: string; head?: string; body?: ReactNode; tags?: Tag[];
   enter: () => void | Promise<void>;
   slide?: () => ReactNode;
@@ -86,39 +86,86 @@ const STEPS: Step[] = [
     enter: () => { const s = st(); s.setLayer('projection', false); base({ mode: 'incident', panel: 'layers', view: '3d', feedOpen: false, playing: false }); s.setTime(s.t0 + 4 * 60000); shot(-900, 420, 900, 3500, 0.5); },
   },
   {
+    id: 'layers', title: 'Layers', dur: 12, spot: '.right .scroll > .section:nth-child(1)', at: 'bl',
+    kicker: 'Live layers', head: 'Every layer changes the scene for real', tags: ['REAL', 'MEASURED'],
+    body: <>Terrain, aerial imagery, burned area, active fire, change since the previous frame, hotspots, drone footprint, burn-cell boundary and ground truth. Each one has visibility and opacity controls.</>,
+    enter: () => {
+      const s = st(); base({ mode: 'incident', panel: 'layers', feedOpen: false }); s.setTime(s.t0 + 6 * 60000); sc().flyFrame(260, 30, 0.5, 2400);
+      const live = () => document.querySelector('.pz')?.getAttribute('data-step') === 'layers';
+      setTimeout(() => live() && st().setLayer('burned', 0), 3000);
+      setTimeout(() => live() && st().setLayer('burned', 0.95), 5200);
+      setTimeout(() => live() && st().setLayer('imagery', 0.75), 7200);
+      setTimeout(() => { st().setLayer('imagery', 0.18); st().setLayer('burned', 0.95); }, 10200);
+    },
+  },
+  {
     id: 'observed', title: 'Observed fire', dur: 13, spot: '.left', at: 'tl',
     kicker: 'From pixels to ground', head: 'The fire, exactly as the drone saw it', tags: ['REAL', 'MEASURED'],
     body: <>Every 4 seconds we segment burned ground and flames, then cast each pixel onto the terrain from the drone's real pose. One clock drives the map, charts and video.</>,
-    enter: () => { const s = st(); sc().controls.autoRotate = false; sc().flyHome(); s.setTime(s.t0 + 40000); s.set({ speed: 24, playing: true }); },
+    enter: () => { const s = st(); sc().flyFrame(250, 26, 0.5, 2800); s.setTime(s.t0 + 40000); s.set({ speed: 24, playing: true }); },
+  },
+  {
+    id: 'area', title: 'Burned Area chart', dur: 10, spot: '.charts .chart:nth-child(1)', at: 'bl',
+    kicker: 'Burned area', head: 'How much has burned, minute by minute', tags: ['MEASURED'],
+    body: <>Cumulative burned ground in square metres, from the georeferenced segmentation. The dot is the current instant: solid line behind it, faded line ahead.</>,
+    enter: () => { const s = st(); s.set({ playing: true, speed: 24 }); },
+  },
+  {
+    id: 'ros', title: 'Rate of Spread chart', dur: 10, spot: '.charts .chart:nth-child(2)', at: 'bl',
+    kicker: 'Rate of spread', head: 'When the fire accelerates', tags: ['MEASURED'],
+    body: <>New burned area per minute, averaged over 40 seconds. Peaks are surges; the biggest ones become “rapid growth” alerts in Key Events.</>,
+    enter: () => {},
+  },
+  {
+    id: 'elev', title: 'Elevation Profile', dur: 10, spot: '.charts .chart:nth-child(3)', at: 'br',
+    kicker: 'Elevation profile', head: 'The ground under the drone’s line of sight', tags: ['REAL', 'MEASURED'],
+    body: <>Real elevation along the drone’s view, from 0 to 160 m. The marker shows where the burned front sits on that line, so slope and fire position can be read together.</>,
+    enter: () => { st().set({ playing: false }); },
+  },
+  {
+    id: 'weather', title: 'Weather', dur: 10, spot: '.right .scroll > .section:nth-child(3)', at: 'bl',
+    kicker: 'Context', head: 'Weather at that hour and place', tags: ['EXTERNAL'],
+    body: <>Wind, temperature, humidity, gusts, soil moisture and vapour-pressure deficit from the ERA5 reanalysis for that exact hour. It follows the timeline, and it is reanalysis, not an on-site sensor.</>,
+    enter: () => { base({ mode: 'incident', panel: 'layers' }); },
   },
   {
     id: 'truth', title: 'Ground truth', dur: 11, spot: '.map', at: 'tl',
     kicker: 'Verified', head: 'Checked against human annotators', tags: ['GROUND TRUTH', 'MEASURED'],
     body: <><b style={{ color: '#7dd3fc' }}>Blue</b> is the dataset's hand-drawn burned area. Our segmentation agrees with it at <b>0.71 IoU</b> on the ground (0.68 in the image), across 226 annotated frames.</>,
-    enter: () => { const s = st(); s.set({ playing: false, view: '2d' }); s.setTime(s.t0 + 9 * 60000); s.setLayer('groundTruth', true); },
+    enter: async () => { const s = st(); s.set({ playing: false, mode: 'incident', panel: 'layers', feedOpen: false }); s.setTime(s.t0 + 9 * 60000); sc().flyFrame(300, 45, 0.3, 1000); await sleep(1100); st().set({ view: '2d' }); st().setLayer('groundTruth', true); },
+  },
+  {
+    id: 'events', title: 'Key Events', dur: 11, spot: '.events', at: 'bl',
+    kicker: 'Key events', head: 'The recording, already indexed', tags: ['MEASURED', 'MODEL'],
+    body: <>Every detected event (first flames, rapid growth, flames ahead of the front, dense smoke) appears in time order and as a marker on the timeline. One click seeks the clock and flies the camera there.</>,
+    enter: async () => {
+      const s = st(); s.setLayer('groundTruth', false); s.set({ view: '3d', mode: 'incident', panel: 'layers', feedOpen: false });
+      await sleep(1600); const ev = [...document.querySelectorAll<HTMLElement>('.events .ev')][3]; ev?.click(); sc().flyFrame(240, 28, 0.2, 2200);
+    },
   },
   {
     id: 'alert', title: 'Evidence-linked alerts', dur: 13, spot: '.feed', at: 'bl',
     kicker: 'Video understanding', head: 'Alerts with the proof attached', tags: ['MEASURED', 'REVIEW REQUIRED'],
     body: <>Rapid growth, flames ahead of the front, dense smoke… Each alert opens the footage at the exact second, with the region to review boxed on the video.</>,
     enter: async () => {
-      const s = st(); s.setLayer('groundTruth', false); s.set({ view: '3d' });
+      const s = st(); s.setLayer('groundTruth', false); s.set({ view: '3d', panel: 'layers' });
       const e = s.events.find((x) => x.event_type === 'visible_fire_expansion' && x.severity === 'alert') ?? s.events[0];
-      await sleep(900); if (e) selectEvent(e.event_id);
-      await sleep(2200); st().set({ mode: 'drones', feedOpen: true, selectedUnitId: null });
+      await sleep(700); if (e) selectEvent(e.event_id, false);
+      sc().flyFrame(240, 30, 0.65, 2600);
+      await sleep(2000); st().set({ mode: 'drones', feedOpen: true, selectedUnitId: null });
     },
   },
   {
     id: 'agent', title: 'Ask the video', dur: 13, spot: '.right', at: 'bl',
     kicker: 'Video agent', head: 'Ask the footage in plain English', tags: ['MODEL'],
     body: <>Answers come with clickable citations that jump the video and the map. Clip analysis uses NVIDIA Cosmos Reason, {cosmosLine()}.</>,
-    enter: async () => { st().set({ mode: 'incident', panel: 'analysis', feedOpen: true }); await click('.suggest button', undefined, 700); },
+    enter: async () => { st().set({ mode: 'incident', panel: 'analysis', feedOpen: true }); await click('.suggest button', undefined, 700); await sleep(900); sc().flyFrame(260, 30, 0.55, 2200); },
   },
   {
     id: 'search', title: 'Semantic search', dur: 10, spot: '.right', at: 'bl',
     kicker: 'Search by meaning', head: 'Find the moment, not the timestamp', tags: ['MODEL'],
     body: <>Cosmos Embed puts video clips and text queries in the same vector space, alongside the team's VAST / VSS video archive.</>,
-    enter: async () => { st().set({ panel: 'evidence', feedOpen: false }); await click('.btn-sm', 'dense smoke', 700); },
+    enter: async () => { st().set({ panel: 'evidence', feedOpen: false }); sc().flyFrame(300, 34, 0.3, 2400); await click('.btn-sm', 'dense smoke', 700); },
   },
   {
     id: 'scenario', title: 'Large-fire scenario', dur: 13, spot: '.map', at: 'bl',
@@ -130,7 +177,7 @@ const STEPS: Step[] = [
     id: 'fleet', title: 'Drone fleet', dur: 11, spot: '.feed', at: 'bl',
     kicker: 'A fleet, not a feed', head: 'Six drones, one shared picture', tags: ['REAL', 'SIMULATED'],
     body: <>UAV-01 is real recorded footage. FT-02 to FT-06 are simulated, with camera views rendered from the 3D twin (EO and IR* looks).</>,
-    enter: async () => { const s = st(); sc().controls.autoRotate = false; s.set({ playing: false, mode: 'drones', feedOpen: true }); await sleep(300); st().set({ selectedUnitId: 'FT-02', feedOpen: true }); await click('.feed-bar button', 'IR*', 1400); },
+    enter: async () => { const s = st(); sc().controls.autoRotate = false; s.setLayer('projection', false); s.set({ playing: false, mode: 'drones', feedOpen: true }); await sleep(300); st().set({ selectedUnitId: 'FT-02', feedOpen: true }); await sleep(1700); sc().flyFrame(420, 30, 0.9, 2200); await click('.feed-bar button', 'IR*', 400); },
   },
   {
     id: 'resources', title: 'Response operations', dur: 13, at: 'tl',
@@ -142,7 +189,7 @@ const STEPS: Step[] = [
     id: 'trust', title: 'Trust', dur: 10, spot: '.right', at: 'bl',
     kicker: 'Built to be trusted', head: 'Every number shows where it came from', tags: ['MEASURED', 'MODEL', 'EXTERNAL', 'SIMULATED'],
     body: <>Provenance chips on every metric, live integration status, and honest limits: RGB measures no temperature, and georeferencing is approximate.</>,
-    enter: () => { base({ mode: 'incident', panel: 'notes', playing: false }); sc().flyHome(); },
+    enter: () => { base({ mode: 'incident', panel: 'notes', playing: false, feedOpen: false }); sc().flyFrame(320, 32, 0.4); },
   },
   {
     id: 'close', title: 'FireScope 3D', dur: 0, kind: 'slide',
@@ -191,8 +238,9 @@ export function Presenter() {
   const [hideBar, setHideBar] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
-  const [mapR, setMapR] = useState<DOMRect | null>(null);
   const step = STEPS[i];
+  const card = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ x: number; y: number; k: string } | null>(null);
 
   const go = useCallback((n: number) => { const k = Math.max(0, Math.min(STEPS.length - 1, n)); setI(k); setElapsed(0); }, []);
   const exit = useCallback(() => {
@@ -212,11 +260,37 @@ export function Presenter() {
 
   useEffect(() => {   // follow spotlight target + map pane
     const upd = () => {
-      setMapR(document.querySelector('.map')?.getBoundingClientRect() ?? null);
       setRect(step.spot ? document.querySelector(step.spot)?.getBoundingClientRect() ?? null : null);
     };
     upd(); const t = setInterval(upd, 250); return () => clearInterval(t);
   }, [step.spot]);
+
+  // Place the caption in the map corner that covers the least of: the fire zone, the drone camera window and the spotlight.
+  useEffect(() => {
+    setPos(null);
+    const place = () => {
+      const m = document.querySelector('.map')?.getBoundingClientRect(), c = card.current;
+      if (!m || !c) return;
+      const cw = c.offsetWidth, ch = c.offsetHeight, M = 24;
+      const C: Record<string, [number, number]> = { tl: [m.left + M, m.top + 64], tr: [m.right - cw - M, m.top + 64], bl: [m.left + M, m.bottom - ch - M], br: [m.right - cw - M, m.bottom - ch - 64] };
+      const prot: { x0: number; y0: number; x1: number; y1: number; w: number }[] = [];
+      const add = (r: DOMRect | null | undefined, w = 1) => { if (r && r.width > 0) prot.push({ x0: r.left, y0: r.top, x1: r.right, y1: r.bottom, w }); };
+      add(document.querySelector('.feed')?.getBoundingClientRect(), 3);
+      if (step.spot && !['.map', '.left'].includes(step.spot)) add(document.querySelector(step.spot)?.getBoundingClientRect(), 2);
+      const fb = sceneRef.current?.fireScreenBox();
+      if (fb && st().mode !== 'resources') prot.push({ x0: m.left + fb.x0 - 60, y0: m.top + fb.y0 - 60, x1: m.left + fb.x1 + 60, y1: m.top + fb.y1 + 60, w: 2.5 });
+      const ov = (x: number, y: number) => prot.reduce((a, p) => a + p.w * Math.max(0, Math.min(x + cw, p.x1) - Math.max(x, p.x0)) * Math.max(0, Math.min(y + ch, p.y1) - Math.max(y, p.y0)), 0);
+      const pref = step.at ?? 'bl';
+      let best: string = pref, bestS = ov(...C[pref]) * 0.92;
+      for (const k of Object.keys(C)) { const sc2 = ov(...C[k]); if (sc2 < bestS) { best = k; bestS = sc2; } }
+      setPos((p) => {
+        if (p && p.k !== best) { const cur = ov(...C[p.k]); if (cur - bestS < cw * ch * 0.08) return { k: p.k, x: C[p.k][0], y: C[p.k][1] }; }
+        return { k: best, x: C[best][0], y: C[best][1] };
+      });
+    };
+    const t0 = setTimeout(place, 60); const t = setInterval(place, 400);
+    return () => { clearTimeout(t0); clearInterval(t); };
+  }, [i, step.spot, step.at]);
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
@@ -230,15 +304,7 @@ export function Presenter() {
   void set;
 
   const pad = 8;
-  const cardPos: React.CSSProperties = (() => {
-    const m = mapR; if (!m) return { left: 40, bottom: 40 };
-    switch (step.at) {
-      case 'tl': return { left: m.left + 28, top: m.top + 72 };
-      case 'tr': return { right: innerWidth - m.right + 28, top: m.top + 72 };
-      case 'center': return { left: m.left + m.width / 2, top: m.top + m.height / 2, transform: 'translate(-50%,-50%)' };
-      default: return { left: m.left + 28, bottom: innerHeight - m.bottom + 28 };
-    }
-  })();
+  const cardPos: React.CSSProperties = pos ? { left: pos.x, top: pos.y } : { left: -9999, top: 0 };
 
   return (
     <div className="pz" data-step={step.id}>
@@ -248,7 +314,7 @@ export function Presenter() {
         <>
           {rect && <div className="pz-spot" style={{ left: rect.left - pad, top: rect.top - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 }} />}
           {!rect && <div className="pz-dim" />}
-          <div className="pz-caption" key={step.id} style={cardPos}>
+          <div className="pz-caption" key={step.id} ref={card} style={cardPos}>
             <div className="pz-kicker">{String(i - 2).padStart(2, '0')} · {step.kicker}</div>
             <div className="pz-head">{step.head}</div>
             <div className="pz-body">{step.body}</div>
@@ -256,7 +322,7 @@ export function Presenter() {
           </div>
         </>
       )}
-      <div className={'pz-bar' + (hideBar ? ' hidden' : '')}>
+      <div className={'pz-bar' + (hideBar ? ' hidden' : '') + (rect && rect.bottom > innerHeight - 140 ? ' top' : '')}>
         <button onClick={() => go(i - 1)} title="Previous (←)">‹</button>
         <button className="pp" onClick={() => setPaused(!paused)} title="Pause / resume (Space)">{paused ? '▶' : '❚❚'}</button>
         <button onClick={() => go(i + 1)} title="Next (→)">›</button>
