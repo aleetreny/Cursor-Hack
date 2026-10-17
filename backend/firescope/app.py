@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import shutil
 import time
@@ -25,8 +26,18 @@ from . import config as C
 from . import cosmos_job, nvidia
 from .common import M_LAT, M_LON, OUT, to_lonlat_geom
 
-app = FastAPI(title="FireScope 3D API", version="0.2.0")
+app = FastAPI(title="FireScope 3D API", version="0.3.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+PREFIX = os.environ.get("PUBLIC_BASE_PATH", "/app").rstrip("/")
+
+
+@app.middleware("http")
+async def strip_public_prefix(request, call_next):
+    """The workshop Ingress strips /app; if a request still carries it (local test, other proxy), strip it here."""
+    p = request.scope.get("path", "")
+    if PREFIX and (p == PREFIX or p.startswith(PREFIX + "/")):
+        request.scope["path"] = p[len(PREFIX):] or "/"
+    return await call_next(request)
 MEDIA = C.MEDIA_DIR
 UPLOADS = C.ROOT / "data" / "uploads"
 _cache: dict[str, tuple[float, object]] = {}
@@ -384,7 +395,8 @@ def healthz():
 def runtime_config():
     """The dashboard served by this API always talks to it same-origin (relative to the page, so /app works)."""
     from fastapi.responses import Response
-    return Response("window.__FIRESCOPE__ = { apiBase: '.' };\n", media_type="application/javascript", headers={"Cache-Control": "no-store"})
+    base = os.environ.get("PUBLIC_API_BASE", ".")   # '.' = relative to the page (works under /app/ and at /)
+    return Response(f"window.__FIRESCOPE__ = {{ apiBase: '{base}' }};\n", media_type="application/javascript", headers={"Cache-Control": "no-store"})
 
 
 if C.FRONTEND_DIST.exists():

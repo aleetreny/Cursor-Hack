@@ -7,7 +7,7 @@ const reqs = [];
 await p.route('http://firescope.test/**', async (route) => {
   const u = new URL(route.request().url());
   if (!u.pathname.startsWith('/app')) { reqs.push('OUTSIDE PREFIX ' + u.pathname); return route.fulfill({ status: 404, body: 'outside /app' }); }
-  const target = 'http://localhost:8090' + (u.pathname.slice(4) || '/') + u.search;
+  const target = (process.env.TARGET || 'http://localhost:8090') + (u.pathname.slice(4) || '/') + u.search;
   reqs.push(u.pathname);
   const resp = await route.fetch({ url: target });
   return route.fulfill({ response: resp });

@@ -1,5 +1,19 @@
 # Deploying FireScope 3D on the workshop cluster
 
+## Handoff layout (requested by Cursor): `firescope-deploy/`
+
+```bash
+./deploy/make-firescope-deploy.sh     # → firescope-deploy/{www,app}  (no secrets, no video, no dev files)
+cd firescope-deploy/app && pip install -r requirements.txt && python main.py     # 0.0.0.0:$PORT (8080)
+```
+
+* `www/`: contents of `frontend/dist`, built with base `/app/`. JS chunks: three ≈519 KB, vendor ≈224 KB, app <100 KB. CSS 46 KB. Fonts are separate small files.
+* `app/`: `main.py` (entrypoint), `firescope/` (FastAPI backend), `requirements.txt`, `data.tgz` (≈454 KB processed observations), `thumbs.tgz` (≈454 KB).
+* `main.py` unpacks the data into a writable `DATA_DIR` (default `/tmp/firescope-data`), downloads the 25 MB replay video once (`VIDEO_SOURCE_URL`), then serves `/health`, `/api/*`, `/media/*`, `/config.js` and the dashboard (`WWW_DIR`, default `../www`) at `/`. Requests that still carry `/app` are accepted too.
+* Required env (K8s Secret): `GPU_BEARER_TOKEN`, `VSS_URL=http://video-backend-service.team-23.svc.cluster.local:8000`, `VSS_USERNAME`, `VSS_PASSWORD`. Recommended: `AUTO_ANALYZE=1`. Optional: `LLM_BASE`/`LLM_API_KEY`/`LLM_MODEL` (W&B).
+
+The original ConfigMap-tarball flow is kept below for reference.
+
 This follows `vast-builders-challenge/.cursor/skills/deployment/deploy-app-no-registry`: a public `python:3.12-slim` image, code and assets from ConfigMaps, Ingress path `/app` (rewritten to `/`), and users open **https://workshop.thecosmoslabs.com → App**.
 
 One container serves both the API and the built 3D dashboard. The dashboard uses only relative URLs (`base: './'`, runtime `config.js` with `apiBase: '.'`), so it works under `/app` unchanged. This was verified with an emulated prefix-stripping Ingress (`frontend/scripts/prefix-test.mjs`).
