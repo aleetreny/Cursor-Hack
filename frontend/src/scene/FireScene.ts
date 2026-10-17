@@ -163,7 +163,7 @@ export class FireScene {
     // post
     this.composer = new EffectComposer(renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.85, 0.55, 0.88);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.7, 0.45, 0.9);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
 
@@ -563,14 +563,20 @@ void main() {`)
       uniforms: pu, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
       vertexShader: /* glsl */ `attribute float aSeed; uniform float uTime, uScale, uSize; varying float vSeed; varying float vF;
         void main(){ vSeed = aSeed; vec3 p = position; float f = fract(uTime*(0.9+aSeed*0.8) + aSeed*7.0); vF = f;
-          p.y += f * uSize * 0.9; p.x += sin(uTime*3.+aSeed*20.)*0.25;
+          p.y += f * uSize * 0.55 + uSize*0.35; p.x += sin(uTime*3.+aSeed*20.)*0.25;
           vec4 mv = modelViewMatrix*vec4(p,1.); gl_Position = projectionMatrix*mv;
-          gl_PointSize = clamp(uSize*(1.0 - f*0.5)*(0.7+aSeed*0.6) * uScale / -mv.z, 1.5, 180.); }`,
-      fragmentShader: /* glsl */ `varying float vSeed; varying float vF;
-        void main(){ vec2 uv = gl_PointCoord*2.-1.; uv.y = -uv.y; float d = length(vec2(uv.x*1.6, uv.y*0.85 + 0.15));
-          float a = smoothstep(1.0, 0.15, d) * (1.0 - vF);
-          vec3 c = mix(vec3(0.9,0.12,0.01), vec3(1.0,0.55,0.12), smoothstep(0.8, 0.2, d)); c = mix(c, vec3(1.,.85,.5), smoothstep(.3,.0,d)*(1.-vF)*0.6);
-          gl_FragColor = vec4(c*1.25*a, a); }`,
+          gl_PointSize = clamp(uSize*(1.0 - f*0.45)*(0.75+aSeed*0.7) * uScale / -mv.z, 1.5, 220.); }`,
+      fragmentShader: /* glsl */ `varying float vSeed; varying float vF; uniform float uTime;
+        void main(){ vec2 uv = gl_PointCoord*2.-1.; uv.y = -uv.y;
+          float wob = sin(uv.y*5.0 + uTime*9.0 + vSeed*30.0)*0.12*(uv.y+1.0);
+          float w = mix(0.62, 0.08, clamp((uv.y+1.0)*0.5, 0., 1.));            // wide base, pointed tip
+          float d = abs(uv.x + wob) / w;
+          float body = smoothstep(1.0, 0.35, d) * smoothstep(1.0, 0.55, uv.y) * smoothstep(-1.0, -0.7, uv.y);
+          float a = body * (1.0 - vF*0.85);
+          float core = smoothstep(0.5, 0.0, d) * smoothstep(0.2, -0.8, uv.y);
+          vec3 c = mix(vec3(0.85,0.10,0.01), vec3(1.0,0.48,0.08), smoothstep(0.9, 0.2, d));
+          c = mix(c, vec3(1.0,0.82,0.45), core*0.7);
+          gl_FragColor = vec4(c*0.62*a, a*0.8); }`,
     }));
     this.flames.frustumCulled = false;
     this.flames.renderOrder = 5;
@@ -615,7 +621,7 @@ void main() {`)
       const rings = polygonsXZ(active.geometry, this.frame);
       for (const poly of rings) {
         const area = ringArea(poly[0]);
-        const count = Math.min(fp.count - nf, Math.ceil(area / 0.45));
+        const count = Math.min(fp.count - nf, Math.ceil(area / 1.1));
         const [minx, minz, maxx, maxz] = ringBBox(poly[0]);
         let tries = 0, made = 0;
         while (made < count && tries < count * 30) {
