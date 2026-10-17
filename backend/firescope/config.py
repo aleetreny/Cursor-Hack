@@ -52,8 +52,12 @@ HORIZON_FRAC = 0.21              # rows above this fraction of the frame are far
 # NVIDIA / sponsor endpoints (OpenAI-compatible). Fill in backend/.env — never commit keys.
 NVIDIA_API_BASE = os.environ.get("NVIDIA_API_BASE", "https://integrate.api.nvidia.com/v1")
 NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", "")
-COSMOS_REASON_MODEL = os.environ.get("COSMOS_REASON_MODEL", "nvidia/cosmos-reason2-8b")
+COSMOS_REASON_MODEL = os.environ.get("COSMOS_REASON_MODEL", "nvidia/cosmos3-nano-reasoner")
 COSMOS_REASON_BASE = os.environ.get("COSMOS_REASON_BASE", NVIDIA_API_BASE)
+# Bearer token for the workshop endpoint: either the value itself, or a command whose stdout is the token
+# (e.g. an ssh one-liner) — the command output is kept in memory only, never written to disk or logs.
+COSMOS_API_KEY = os.environ.get("COSMOS_API_KEY", "")
+COSMOS_TOKEN_CMD = os.environ.get("COSMOS_TOKEN_CMD", "")
 COSMOS_EMBED_BASE = os.environ.get("COSMOS_EMBED_BASE", "")
 COSMOS_EMBED_MODEL = os.environ.get("COSMOS_EMBED_MODEL", "nvidia/cosmos-embed1")
 LLM_MODEL = os.environ.get("LLM_MODEL", COSMOS_REASON_MODEL)

@@ -24,10 +24,31 @@ class NotConfigured(RuntimeError):
     pass
 
 
-def _headers() -> dict[str, str]:
+_TOKEN: dict[str, str] = {}
+
+
+def _workshop() -> bool:
+    return bool(C.COSMOS_REASON_BASE) and "integrate.api.nvidia.com" not in C.COSMOS_REASON_BASE
+
+
+def _token(base: str) -> str:
+    """Workshop endpoints use COSMOS_API_KEY / COSMOS_TOKEN_CMD; build.nvidia.com uses NVIDIA_API_KEY."""
+    if "integrate.api.nvidia.com" in base:
+        return C.NVIDIA_API_KEY
+    if C.COSMOS_API_KEY:
+        return C.COSMOS_API_KEY
+    if C.COSMOS_TOKEN_CMD and "cmd" not in _TOKEN:
+        import subprocess
+        out = subprocess.run(C.COSMOS_TOKEN_CMD, shell=True, capture_output=True, text=True, timeout=40)
+        _TOKEN["cmd"] = out.stdout.strip()
+    return _TOKEN.get("cmd", "")
+
+
+def _headers(base: str = "") -> dict[str, str]:
     h = {"Content-Type": "application/json", "Accept": "application/json"}
-    if C.NVIDIA_API_KEY:
-        h["Authorization"] = f"Bearer {C.NVIDIA_API_KEY}"
+    tok = _token(base or C.NVIDIA_API_BASE)
+    if tok:
+        h["Authorization"] = f"Bearer {tok}"
     return h
 
 
@@ -42,16 +63,18 @@ def _log(service: str, model: str, endpoint: str, ok: bool, latency_ms: int, det
 def configured(service: str) -> bool:
     if service == "embed":
         return bool(C.COSMOS_EMBED_BASE or C.NVIDIA_API_KEY)
-    return bool(C.NVIDIA_API_KEY or (C.COSMOS_REASON_BASE and "integrate.api.nvidia.com" not in C.COSMOS_REASON_BASE))
+    if _workshop():
+        return bool(C.COSMOS_API_KEY or C.COSMOS_TOKEN_CMD)
+    return bool(C.NVIDIA_API_KEY)
 
 
 def chat(messages: list[dict], model: str, base: str, max_tokens: int = 900, temperature: float = 0.2, service: str = "cosmos_reason", timeout: float = 120) -> str:
     if not configured("reason"):
-        raise NotConfigured("Set NVIDIA_API_KEY (build.nvidia.com) or COSMOS_REASON_BASE (workshop NIM) in backend/.env")
+        raise NotConfigured("Cosmos endpoint token missing: set COSMOS_API_KEY or COSMOS_TOKEN_CMD in backend/.env")
     url = base.rstrip("/") + "/chat/completions"
     t = time.time()
     try:
-        r = httpx.post(url, headers=_headers(), json={"model": model, "messages": messages, "max_tokens": max_tokens, "temperature": temperature}, timeout=timeout)
+        r = httpx.post(url, headers=_headers(base), json={"model": model, "messages": messages, "max_tokens": max_tokens, "temperature": temperature}, timeout=timeout)
         r.raise_for_status()
         out = r.json()["choices"][0]["message"]["content"] or ""
         _log(service, model, url, True, int((time.time() - t) * 1000))
@@ -120,7 +143,7 @@ def embed(texts: list[str], input_type: str = "passage") -> list[list[float]]:
     url = base.rstrip("/") + "/embeddings"
     t = time.time()
     try:
-        r = httpx.post(url, headers=_headers(), json={"model": model, "input": texts, "input_type": input_type, "encoding_format": "float", "truncate": "END"}, timeout=60)
+        r = httpx.post(url, headers=_headers(base), json={"model": model, "input": texts, "input_type": input_type, "encoding_format": "float", "truncate": "END"}, timeout=60)
         r.raise_for_status()
         vecs = [d["embedding"] for d in r.json()["data"]]
         _log("embed", model, url, True, int((time.time() - t) * 1000))

@@ -269,6 +269,7 @@ export class FireScene {
     this.redrawOverlays(true);
 
     this.setInitialCamera();
+    if (!/[?&]nointro/.test(location.search)) this.intro();
     this.ready = true;
     this.cb.onReady?.();
   }
@@ -436,7 +437,7 @@ void main() {`)
     u.uChangeOp.value = this.layers.change;
     u.uStyleOn.value = this.layers.terrain ? 1 : 0;
     if (this.trees) this.trees.visible = this.layers.trees && !this.mode2D;
-    if (this.flames) this.flames.visible = this.layers.active > 0.01;
+    if (this.flames) this.flames.visible = this.layers.active > 0.01 && !this.mode2D;
     if (this.smoke) this.smoke.visible = this.layers.smoke && this.layers.active > 0.01 && !this.mode2D;
     if (this.frustum) this.frustum.visible = this.layers.footprint;
     if (prev.groundTruth !== this.layers.groundTruth || prev.perimeter !== this.layers.perimeter || prev.footprint !== this.layers.footprint || prev.path !== this.layers.path || prev.projection !== this.layers.projection) { this.drawnKey = ''; this.redrawOverlays(); }
@@ -795,6 +796,16 @@ void main() {`)
     this.controls.update();
   }
 
+  /** Establishing shot over the whole burn cell, then glide down to the drone's fire front (like the reference's fly-ins). */
+  private intro() {
+    const t = this.focusPoint();
+    const wide = this.homeOffset().setLength(780).setY(420);
+    this.camera.position.copy(t.clone().add(wide.applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.5)));
+    this.controls.target.copy(t.clone().add(this.viewDir().multiplyScalar(160)));
+    this.controls.update();
+    setTimeout(() => this.flyTo(t, undefined, 3600, this.homeOffset()), 700);
+  }
+
   focusPoint() {
     const b = this.maskBounds;
     const x = (b.x + b.z) / 2, z = (b.y + b.w) / 2;
@@ -838,6 +849,7 @@ void main() {`)
     }
     if (this.trees) this.trees.visible = this.layers.trees && !on;
     if (this.smoke) this.smoke.visible = this.layers.smoke && !on;
+    if (this.flames) this.flames.visible = this.layers.active > 0.01 && !on;
   }
 
   /* -------------------------------------------------------------- input */
