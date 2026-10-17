@@ -22,14 +22,10 @@ from .config import CLIP_SECONDS, DATASET, KML, POSE, PROCESSED, RECORDED_START,
 from .geo import DEM, Camera, M_LAT, M_LON, enu_to_lonlat
 from .segment import TemporalBurn, iou_prf, raw_masks
 
-OUT = PROCESSED / SOURCE_ID
+from .common import OUT, iso, to_lonlat_geom  # noqa: E402
+
 MEDIA = PROCESSED / "media"
-T0 = datetime.fromisoformat(RECORDED_START.replace("Z", "+00:00"))
 CV_MODEL = "firescope-cv v0.1 (HSV + morphology + temporal accumulation)"
-
-
-def iso(sec: float) -> str:
-    return (T0 + timedelta(seconds=sec)).astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def read_kml_ring() -> list[list[float]]:
@@ -70,16 +66,6 @@ class Projector:
             return None
         u = unary_union(polys)
         return u if isinstance(u, MultiPolygon) else MultiPolygon([u]) if isinstance(u, Polygon) else None
-
-
-def to_lonlat_geom(g) -> dict:
-    def ring(r):
-        return [[round(a, 7), round(b, 7)] for a, b in (enu_to_lonlat(x, y) for x, y in r.coords)]
-    polys = list(g.geoms) if hasattr(g, "geoms") else [g]
-    coords = [[ring(p.exterior)] + [ring(i) for i in p.interiors] for p in polys if not p.is_empty]
-    if len(coords) == 1:
-        return {"type": "Polygon", "coordinates": coords[0]}
-    return {"type": "MultiPolygon", "coordinates": coords}
 
 
 def gt_polygon_px(frame: int) -> np.ndarray | None:
@@ -133,7 +119,7 @@ def run(limit_seconds: float | None = None) -> dict:
                 break
             sec = fi / fps
             if fi % clip_every == 0:
-                cv2.imwrite(str(MEDIA / SOURCE_ID / f"clip_{fi // clip_every:04d}.jpg"), cv2.resize(frame, (320, 180)), [cv2.IMWRITE_JPEG_QUALITY, 80])
+                cv2.imwrite(str(MEDIA / SOURCE_ID / f"clip_{fi // clip_every:04d}.jpg"), cv2.resize(frame, (256, 144), interpolation=cv2.INTER_AREA), [cv2.IMWRITE_JPEG_QUALITY, 62])
             if fi % SAMPLE_EVERY_FRAMES == 0:
                 m = raw_masks(frame)
                 shp = tuple(m["shape"])

@@ -13,3 +13,5 @@ data/cache/
 data/uploads/
 backend/.venv/
 __pycache__/
+deploy/out/
+deploy/media/

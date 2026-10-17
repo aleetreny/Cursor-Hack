@@ -9,9 +9,14 @@ import type {
  *  - FIXTURES: no VITE_API_BASE (or VITE_DATA_MODE=fixtures) → reads /fixtures/*.json, badged "DEV FIXTURE" in the UI
  * Live failures surface as errors — they are never silently replaced with fixtures.
  */
-const BASE = ((import.meta.env.VITE_API_BASE as string | undefined) ?? '').replace(/\/$/, '');
-export const USE_FIXTURES = !BASE || import.meta.env.VITE_DATA_MODE === 'fixtures';
-export const API_BASE = BASE;
+// Runtime config (public/config.js, editable after build) wins over build-time env.
+// apiBase '.' = same origin, relative to the page (works under /app); '' = fixtures.
+const RUNTIME = (window as unknown as { __FIRESCOPE__?: { apiBase?: string; dataMode?: string } }).__FIRESCOPE__ ?? {};
+const BASE = (RUNTIME.apiBase ?? (import.meta.env.VITE_API_BASE as string | undefined) ?? '').replace(/\/$/, '');
+const MODE = RUNTIME.dataMode ?? (import.meta.env.VITE_DATA_MODE as string | undefined);
+export const USE_FIXTURES = !BASE || MODE === 'fixtures';
+export const API_BASE = BASE === '.' ? 'same origin' : BASE;
+const FIXTURES = `${import.meta.env.BASE_URL}fixtures/`;
 
 export class ApiError extends Error {
   status: number;
@@ -20,7 +25,7 @@ export class ApiError extends Error {
 }
 
 async function req<T>(path: string, fixture: string, init?: RequestInit): Promise<T> {
-  const url = USE_FIXTURES ? `/fixtures/${fixture}` : `${BASE}${path}`;
+  const url = USE_FIXTURES ? `${FIXTURES}${fixture}` : `${BASE}${path}`;
   const res = await fetch(url, USE_FIXTURES ? undefined : init);
   if (!res.ok) {
     let msg = res.statusText;
@@ -35,7 +40,8 @@ const post = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Cont
 export function mediaUrl(u: string | null | undefined): string | undefined {
   if (!u) return undefined;
   if (/^(https?:|blob:|data:)/.test(u)) return u;
-  return USE_FIXTURES ? u : `${BASE}${u.startsWith('/') ? '' : '/'}${u}`;
+  const rel = u.startsWith('/') ? u.slice(1) : u;
+  return USE_FIXTURES ? `${import.meta.env.BASE_URL}${rel}` : `${BASE}/${rel}`;
 }
 
 export const api = {

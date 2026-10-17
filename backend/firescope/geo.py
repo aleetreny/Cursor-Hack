@@ -11,8 +11,7 @@ from PIL import Image
 from .config import CACHE, POSE
 
 TERRARIUM = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
-M_LAT = 111_320.0
-M_LON = 111_320.0 * math.cos(math.radians(POSE.lat))
+from .common import M_LAT, M_LON, enu_to_lonlat  # noqa: F401  (re-exported)
 
 
 def lon_to_tx(lon: float, z: int) -> float:
@@ -58,10 +57,6 @@ class DEM:
         fx, fy = px - i, py - j
         h = self.h
         return float((h[j, i] * (1 - fx) + h[j, i + 1] * fx) * (1 - fy) + (h[j + 1, i] * (1 - fx) + h[j + 1, i + 1] * fx) * fy)
-
-
-def enu_to_lonlat(e: float, n: float) -> tuple[float, float]:
-    return POSE.lon + e / M_LON, POSE.lat + n / M_LAT
 
 
 class Camera:

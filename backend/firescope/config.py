@@ -10,13 +10,11 @@ RAW = ROOT / "data" / "raw" / "burnedareauav"
 DATASET = RAW / "BurnedAreaUAV_dataset"
 VIDEO = DATASET / "MP4_video" / "original_prescribed_burn_video.mp4"
 KML = RAW / "pinhao_cell_precribed_area.kml"
-PROCESSED = ROOT / "data" / "processed"
-CACHE = ROOT / "data" / "cache"
 SOURCE_ID = "drone_replay_01"
 
 
 def _load_dotenv() -> None:
-    env = ROOT / "backend" / ".env"
+    env = Path(__file__).resolve().parents[1] / ".env"
     if not env.exists():
         return
     for line in env.read_text().splitlines():
@@ -27,6 +25,8 @@ def _load_dotenv() -> None:
 
 
 _load_dotenv()
+PROCESSED = Path(os.environ.get("DATA_DIR", ROOT / "data" / "processed"))
+CACHE = ROOT / "data" / "cache"
 
 
 @dataclass(frozen=True)
@@ -62,5 +62,9 @@ COSMOS_EMBED_BASE = os.environ.get("COSMOS_EMBED_BASE", "")
 COSMOS_EMBED_MODEL = os.environ.get("COSMOS_EMBED_MODEL", "nvidia/cosmos-embed1")
 LLM_MODEL = os.environ.get("LLM_MODEL", COSMOS_REASON_MODEL)
 VAST_ENDPOINT = os.environ.get("VAST_ENDPOINT", "")
+MEDIA_DIR = Path(os.environ.get("MEDIA_DIR", PROCESSED / "media"))
+# If set, media is served from this absolute URL prefix (e.g. an object store) instead of /media
+MEDIA_URL = os.environ.get("MEDIA_URL", "").rstrip("/")
+FRONTEND_DIST = Path(os.environ.get("FRONTEND_DIST", ROOT / "frontend" / "dist"))
 WANDB_API_KEY = os.environ.get("WANDB_API_KEY", "")
 EMBED_MODEL_FALLBACK = os.environ.get("EMBED_MODEL", "nvidia/llama-3.2-nv-embedqa-1b-v1")

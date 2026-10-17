@@ -23,12 +23,11 @@ from shapely.ops import unary_union
 
 from . import config as C
 from . import cosmos_job, nvidia
-from .geo import M_LAT, M_LON
-from .pipeline import OUT, to_lonlat_geom
+from .common import M_LAT, M_LON, OUT, to_lonlat_geom
 
 app = FastAPI(title="FireScope 3D API", version="0.2.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-MEDIA = C.PROCESSED / "media"
+MEDIA = C.MEDIA_DIR
 UPLOADS = C.ROOT / "data" / "uploads"
 _cache: dict[str, tuple[float, object]] = {}
 
@@ -84,9 +83,13 @@ def incident():
     return load("incident.json")
 
 
+def _media(u):
+    return f"{C.MEDIA_URL}{u[len('/media'):]}" if (C.MEDIA_URL and isinstance(u, str) and u.startswith("/media/")) else u
+
+
 @app.get("/api/sources")
 def sources():
-    src = load("sources.json")
+    src = [{**s, "media_url": _media(s["media_url"]), "thumbnail_url": _media(s.get("thumbnail_url"))} for s in load("sources.json")]
     if cosmos_job.JOB["state"] == "processing":
         src = [{**s, "processing": {k: cosmos_job.JOB[k] for k in ("state", "progress", "clips_total", "clips_done", "message")}} for s in src]
     return src
@@ -334,6 +337,17 @@ def media(path: str):
 @app.get("/api/eval")
 def evaluation():
     return load("eval.json")
+
+
+@app.get("/health")
+def healthz():
+    return {"ok": True}
+
+
+if C.FRONTEND_DIST.exists():
+    # Same-origin dashboard: works at / locally and under an Ingress prefix (e.g. /app, stripped by nginx)
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/", StaticFiles(directory=C.FRONTEND_DIST, html=True), name="dashboard")
 
 
 @app.exception_handler(HTTPException)

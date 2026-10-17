@@ -12,19 +12,20 @@ import threading
 import time
 from pathlib import Path
 
-import imageio_ffmpeg
 
 from . import config as C
 from . import nvidia
-from .pipeline import OUT, iso
+from .common import OUT, iso
 
 CLIPDIR = C.PROCESSED / "clips" / C.SOURCE_ID
-FF = imageio_ffmpeg.get_ffmpeg_exe()
+
 JOB: dict = {"state": "idle", "progress": 0.0, "clips_total": 0, "clips_done": 0, "message": None}
 _lock = threading.Lock()
 
 
 def cut_clip(i: int, start: float, dur: float) -> tuple[Path, list[Path]]:
+    import imageio_ffmpeg
+    FF = imageio_ffmpeg.get_ffmpeg_exe()
     CLIPDIR.mkdir(parents=True, exist_ok=True)
     mp4, frames = CLIPDIR / f"clip_{i:04d}.mp4", [CLIPDIR / f"clip_{i:04d}_{k}.jpg" for k in range(4)]
     if not mp4.exists():
