@@ -163,10 +163,23 @@ for (const [w, h] of [[1874, 1080], [1920, 1080], [1600, 900], [1440, 900], [136
   await page.locator('.result').first().click();
   ok('search returns clickable clips', (await page.locator('.result').count()) > 0);
 
-  // notes / integrations
-  await page.locator('.tabs button', { hasText: 'Notes' }).click();
-  ok('integration status listed', (await page.locator('.integr').count()) >= 4);
-  await page.screenshot({ path: `${out}/walk_notes.png` });
+  // analyst: different questions get different, data-backed answers (EN + ES)
+  await page.locator('.tabs button', { hasText: 'Analysis' }).click();
+  const answers = [];
+  for (const q of ['When did it grow fastest?', '¿Dónde estaba el dron?', 'What was the wind?', 'Is anyone in danger?']) {
+    const n = await page.locator('.msg.bot').count();
+    await page.locator('.chat-in input').fill(q); await page.keyboard.press('Enter');
+    await page.waitForFunction((n) => document.querySelectorAll('.msg.bot').length > n && !document.querySelector('.msg.bot.muted'), n, { timeout: 10000 });
+    answers.push(await page.locator('.msg.bot').last().innerText());
+  }
+  ok('analyst: 4 questions → 4 distinct answers', new Set(answers).size === 4, answers.map((a) => a.slice(0, 32)).join(' | '));
+  ok('analyst answers in Spanish when asked in Spanish', /estacionario|sobre el suelo/.test(answers[1]));
+  ok('analyst cites the fastest growth at 05:44', /05:44/.test(answers[0]) && /632/.test(answers[0]));
+
+  // about: how each part was produced, from the incident manifest
+  await page.locator('.tabs button', { hasText: 'About' }).click();
+  ok('about lists how each part was made', (await page.locator('.integr').count()) >= 6);
+  await page.screenshot({ path: `${out}/walk_about.png` });
 
   // menus + Escape-free close via outside
   await page.locator('.tb-menu', { hasText: 'View' }).click();

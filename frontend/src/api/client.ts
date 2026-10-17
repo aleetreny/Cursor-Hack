@@ -1,13 +1,14 @@
 import type {
-  AnalyzeRequest, AnalyzeResponse, AskRequest, AskResponse, EventsResponse, HealthResponse, Incident,
-  ObservationsResponse, SearchRequest, WeatherResponse, SearchResponse, TimelineResponse, UploadResponse, VideoSource, VideoStatusResponse,
+  AskRequest, AskResponse, EventsResponse, Incident, IncidentIndex, IncidentManifest,
+  ObservationsResponse, SearchRequest, WeatherResponse, SearchResponse, TimelineResponse, VideoSource,
 } from './types';
-import { localAsk, localSearch } from './local';
+import { analystAsk } from '../agent/analyst';
+import { staticSearch } from '../agent/search';
 
 /**
  * API client. Two modes:
- *  - STATIC (default): reads the precomputed incident from <base>/data/*.json (scripts/export-static.mjs).
- *    Search and Ask run in the browser over the logged events. This is what GitHub Pages serves.
+ *  - STATIC (default): reads a precomputed incident package from <base>/incidents/<id>/ (scripts/export-static.mjs),
+ *    chosen with ?incident=<id> or the index default. Search and Ask run in the browser. This is what GitHub Pages serves.
  *  - API: VITE_API_BASE (or runtime config.js apiBase) set → calls the FastAPI backend (docs/api-contract.md).
  * Failures surface as errors — they are never silently replaced with other data.
  */
@@ -17,7 +18,6 @@ const BASE = (RUNTIME.apiBase ?? (import.meta.env.VITE_API_BASE as string | unde
 const MODE = RUNTIME.dataMode ?? (import.meta.env.VITE_DATA_MODE as string | undefined);
 export const IS_STATIC = !BASE || MODE === 'static';
 export const API_BASE = BASE === '.' ? 'same origin' : BASE;
-const DATA = `${import.meta.env.BASE_URL}data/`;
 
 export class ApiError extends Error {
   status: number;
@@ -25,8 +25,23 @@ export class ApiError extends Error {
   constructor(status: number, message: string, path: string) { super(message); this.status = status; this.path = path; }
 }
 
+let pkg: Promise<string> | null = null;
+/** URL of the incident package to load (static mode): ?incident=<id>, else the index default. */
+export function incidentBase(): Promise<string> {
+  pkg ??= fetch(`${import.meta.env.BASE_URL}incidents/index.json`)
+    .then((r) => { if (!r.ok) throw new ApiError(r.status, 'Incident index missing', 'incidents/index.json'); return r.json() as Promise<IncidentIndex>; })
+    .then((ix) => {
+      const want = new URLSearchParams(location.search).get('incident');
+      const e = ix.incidents.find((x) => x.id === want) ?? ix.incidents.find((x) => x.id === ix.default) ?? ix.incidents[0];
+      if (!e) throw new ApiError(404, 'No incidents published', 'incidents/index.json');
+      return `${import.meta.env.BASE_URL}${e.path}`;
+    });
+  pkg.catch(() => { pkg = null; });
+  return pkg;
+}
+
 async function req<T>(path: string, file: string, init?: RequestInit): Promise<T> {
-  const url = IS_STATIC ? `${DATA}${file}` : `${BASE}${path}`;
+  const url = IS_STATIC ? `${await incidentBase()}${file}` : `${BASE}${path}`;
   const res = await fetch(url, IS_STATIC ? undefined : init);
   if (!res.ok) {
     let msg = res.statusText;
@@ -36,7 +51,6 @@ async function req<T>(path: string, file: string, init?: RequestInit): Promise<T
   return res.json() as Promise<T>;
 }
 const post = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-const unavailable = (path: string) => Promise.reject(new ApiError(0, 'Not available in the static demo', path));
 
 /** Resolve a media URL (may be relative) to something <video>/<img> can load. */
 export function mediaUrl(u: string | null | undefined): string | undefined {
@@ -47,22 +61,14 @@ export function mediaUrl(u: string | null | undefined): string | undefined {
 }
 
 export const api = {
-  health: () => req<HealthResponse>('/api/integrations/health', 'health.json'),
+  /** Static mode only: what the incident package contains and how each part was made. */
+  manifest: (): Promise<IncidentManifest | null> => (IS_STATIC ? req<IncidentManifest>('', 'manifest.json') : Promise.resolve(null)),
   incident: () => req<Incident>('/api/incident', 'incident.json'),
   sources: () => req<VideoSource[]>('/api/sources', 'sources.json'),
   timeline: () => req<TimelineResponse>('/api/fire/timeline', 'timeline.json'),
   observations: () => req<ObservationsResponse>('/api/fire/observations', 'observations.json'),
   weather: () => req<WeatherResponse>('/api/weather', 'weather.json'),
   events: (sourceId: string) => req<EventsResponse>(`/api/video/${encodeURIComponent(sourceId)}/events`, 'events.json'),
-  status: (sourceId: string) => (IS_STATIC ? unavailable(`/api/video/${sourceId}/status`) : req<VideoStatusResponse>(`/api/video/${encodeURIComponent(sourceId)}/status`, '')),
-  analyze: (body: AnalyzeRequest) => (IS_STATIC ? unavailable('/api/video/analyze') : req<AnalyzeResponse>('/api/video/analyze', '', post(body))),
-  search: (body: SearchRequest): Promise<SearchResponse> => (IS_STATIC ? localSearch(body, DATA) : req<SearchResponse>('/api/search', '', post(body))),
-  ask: (body: AskRequest): Promise<AskResponse> => (IS_STATIC ? localAsk(body, DATA) : req<AskResponse>('/api/ask', '', post(body))),
-  upload: async (file: File): Promise<UploadResponse> => {
-    if (IS_STATIC) return unavailable('/api/video/upload');
-    const fd = new FormData(); fd.append('file', file);
-    const res = await fetch(`${BASE}/api/video/upload`, { method: 'POST', body: fd });
-    if (!res.ok) throw new ApiError(res.status, res.statusText, '/api/video/upload');
-    return res.json();
-  },
+  search: async (body: SearchRequest): Promise<SearchResponse> => (IS_STATIC ? staticSearch(body, await incidentBase()) : req<SearchResponse>('/api/search', '', post(body))),
+  ask: async (body: AskRequest): Promise<AskResponse> => (IS_STATIC ? analystAsk(body, await incidentBase()) : req<AskResponse>('/api/ask', '', post(body))),
 };

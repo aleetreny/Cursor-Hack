@@ -39,7 +39,7 @@ export function SceneView() {
       const st = useStore.getState();
       const ring = (st.incident!.reference_perimeter?.geometry.coordinates[0] ?? []) as [number, number][];
       scene.setSim({ t0: st.t0, t1: st.t1, center: st.incident!.center as [number, number], cell: ring });
-      scene.setOpsMode(st.mode === 'alerts' ? 'incident' : st.mode);
+      scene.setOpsMode(st.mode);
       scene.setEvents(st.events);
       scene.setTime(useStore.getState().time);
       updateProfile();
@@ -56,7 +56,7 @@ export function SceneView() {
       if (st.view !== prev.view) scene.set2D(st.view === '2d');
       if (st.events !== prev.events) scene.setEvents(st.events);
       if (st.selectedEventId !== prev.selectedEventId) scene.setSelectedEvent(st.selectedEventId);
-      if (st.mode !== prev.mode) scene.setOpsMode(st.mode === 'alerts' ? 'incident' : st.mode);
+      if (st.mode !== prev.mode) scene.setOpsMode(st.mode);
       if (st.selectedUnitId !== prev.selectedUnitId) { scene.setSelectedUnit(st.selectedUnitId); if (st.selectedUnitId && !st.follow) scene.flyToUnit(st.selectedUnitId, st.selectedUnitId.startsWith('FT-') ? 160 : 320); }
       if (st.follow !== prev.follow) scene.setFollow(st.follow);
       if (st.exaggeration !== prev.exaggeration) scene.setExaggeration(st.exaggeration);

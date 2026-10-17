@@ -20,5 +20,5 @@ export async function loadAll() {
     set({ loadError: e instanceof Error ? e.message : String(e) });
   }
   api.weather().then((weather) => set({ weather })).catch(() => set({ weather: null }));
-  api.health().then((health) => set({ health })).catch(() => set({ health: { ok: false, version: '?', integrations: [] } }));
+  api.manifest().then((manifest) => set({ manifest })).catch(() => set({ manifest: null }));
 }

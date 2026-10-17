@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import type { AnalysisEvent, WeatherResponse, HealthResponse, Hotspot, FireFeature, Incident, TimelineResponse, VideoSource } from '../api/types';
+import type { AnalysisEvent, WeatherResponse, Hotspot, FireFeature, Incident, IncidentManifest, TimelineResponse, VideoSource } from '../api/types';
 import type { CameraInfo, HoverInfo, SceneLayers } from '../scene/FireScene';
 
-export type ModeTab = 'incident' | 'drones' | 'resources' | 'alerts';
+export type ModeTab = 'incident' | 'drones' | 'resources';
 export type PanelTab = 'layers' | 'analysis' | 'evidence' | 'notes';
 
 export interface LayerDef { id: keyof SceneLayers; label: string; swatch: string; opacity?: boolean; provenance?: string }
@@ -17,7 +17,7 @@ interface State {
   features: FireFeature[];
   hotspots: Hotspot[];
   events: AnalysisEvent[];
-  health: HealthResponse | null;
+  manifest: IncidentManifest | null;
   weather: WeatherResponse | null;
 
   t0: number; t1: number; time: number; playing: boolean; speed: number;
@@ -41,7 +41,7 @@ interface State {
 
 export const useStore = create<State>((set, get) => ({
   loaded: false, loadError: null, loadMsg: 'Connecting',
-  incident: null, sources: [], timeline: null, features: [], hotspots: [], events: [], health: null, weather: null,
+  incident: null, sources: [], timeline: null, features: [], hotspots: [], events: [], manifest: null, weather: null,
   t0: 0, t1: 1, time: 0, playing: false, speed: 8,
   mode: 'incident', panel: 'layers', view: '3d',
   layers: { terrain: true, imagery: 0.18, burned: 0.95, active: 1, change: 0.6, hotspots: true, groundTruth: false, perimeter: true, footprint: true, path: true, projection: false, trees: true, smoke: true },

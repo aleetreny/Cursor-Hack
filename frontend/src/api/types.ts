@@ -16,7 +16,7 @@ export type LonLat = [number, number] | [number, number, number];
 
 /** Where a value came from. Rendered as a provenance chip next to every metric. */
 export type Provenance =
-  | 'model'          // produced by an AI model run (Cosmos Reason / Embed / YOLO / segmentation)
+  | 'model'          // produced by a model run (e.g. the burned-area segmentation)
   | 'derived'        // computed from model outputs (e.g. polygon area after georeferencing)
   | 'ground_truth'   // dataset annotation (BurnedAreaUAV manual masks)
   | 'external'       // third-party observation (e.g. NASA FIRMS)
@@ -32,22 +32,20 @@ export interface Metric {
 
 /* ------------------------------------------------------------------ health */
 
-export interface IntegrationStatus {
-  id: string;              // "nvidia_cosmos_reason", "nvidia_cosmos_embed", "vast", "yolo", "vss", "wandb", ...
-  name: string;            // display name
-  sponsor: string;         // "NVIDIA" | "VAST Data" | "CoreWeave" | "Weights & Biases" | ...
-  status: 'ok' | 'degraded' | 'down' | 'not_configured';
-  model?: string | null;   // exact model identifier actually called
-  endpoint?: string | null;// host only, never credentials
-  last_success?: ISODate | null;
-  latency_ms?: number | null;
-  detail?: string | null;
+/** How one part of the picture was produced (manifest.methods) — rendered as "How this works". */
+export interface MethodNote { id: string; name: string; provenance: 'real' | 'model' | 'derived' | 'external' | 'simulated'; detail: string }
+
+/** incidents/<id>/manifest.json — what an incident package contains and how it was made (static demo). */
+export interface IncidentManifest {
+  format_version: number; id: string; name: string; location: string; kind: Incident['kind'];
+  start: ISODate; end: ISODate; center: LonLat; packaged: ISODate;
+  files: Record<string, string>; counts: Record<string, number>; methods: MethodNote[]; attribution: string[];
 }
 
-export interface HealthResponse {
-  ok: boolean;
-  version: string;
-  integrations: IntegrationStatus[];
+/** incidents/index.json — the incidents published in the static demo. */
+export interface IncidentIndex {
+  format_version: number; default: string | null;
+  incidents: { id: string; name: string; location: string; kind: Incident['kind']; start: ISODate; end: ISODate; center: LonLat; path: string }[];
 }
 
 /* ---------------------------------------------------------------- incident */
@@ -229,7 +227,7 @@ export interface AnalysisEvent {
   confidence: number | null;        // null unless the model emits a calibrated probability
   review_required: boolean;
   severity: 'info' | 'watch' | 'alert';
-  processing_model: string;         // exact model id, e.g. "nvidia/cosmos-reason2-8b"
+  processing_model: string;         // exact pipeline/model id, e.g. "firescope-cv v0.1 (…)"
   location?: LonLat | null;         // georeferenced point if derivable
   image_region?: [number, number, number, number] | null; // [x0,y0,x1,y1] normalized 0..1 in frame
   thumbnail_url?: string | null;
@@ -264,20 +262,16 @@ export interface SearchResult {
   timestamp: ISODate;
   /** Raw cosine similarity from the embedding model — a ranking score, NOT a confidence. */
   similarity: number;
-  caption?: string | null;          // Cosmos Reason caption of the clip, if available
+  caption?: string | null;          // what matched: the event logged in the clip or its measurements
   thumbnail_url?: string | null;
   event_id?: string | null;
 }
 
 export interface SearchResponse {
   query: string;
-  model: string;                    // e.g. "nvidia/cosmos-embed1-448p"
+  model: string;                    // how results were ranked (shown in the UI)
   results: SearchResult[];
   latency_ms?: number | null;
-  /** Optional: matches from the team's VSS archive (VAST). Other footage — not georeferenced. */
-  archive_results?: { video?: string | null; start_seconds?: number | null; end_seconds?: number | null; similarity?: number | null; caption?: string | null; segments?: number | null; error?: string }[];
-  archive_synthesis?: string | null;
-  archive_source?: string | null;
 }
 
 export interface AskRequest {

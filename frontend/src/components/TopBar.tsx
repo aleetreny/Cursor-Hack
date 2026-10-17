@@ -44,17 +44,17 @@ export function TopBar() {
             <button onClick={() => { set({ compare: compare.on ? { on: false, before: null } : { on: true, before: Math.max(t0, time - 180000) } }); close(); }}>Compare before / current<span className="muted">{compare.on ? 'on' : 'off'}</span></button>
             <button onClick={() => { useStore.getState().setLayer('groundTruth', !layers.groundTruth); close(); }}>Ground-truth masks<span className="muted">{layers.groundTruth ? 'on' : 'off'}</span></button>
             <button onClick={() => { useStore.getState().setLayer('projection', !layers.projection); close(); }}>Experimental scenario<span className="muted">{layers.projection ? 'on' : 'off'}</span></button>
-            <button onClick={() => { set({ panel: 'analysis', mode: 'incident' }); close(); }}>Ask the video agent</button>
+            <button onClick={() => { set({ panel: 'analysis', mode: 'incident' }); close(); }}>Ask the incident analyst</button>
           </div>
         )}
         <button className="tb-menu" onClick={() => { navigator.clipboard?.writeText(location.href); }}><Icon name="share" size={13} />Share<Icon name="chev" size={11} /></button>
       </div>
       <div className="tb-right">
         <button className="tb-present" onClick={() => set({ presenting: true })} title="Presentation mode — → / Space next · ← back · Esc exit"><Icon name="play" size={11} />Present</button>
-        <span className={'mode-chip ' + (IS_STATIC ? 'static' : 'live')} title={IS_STATIC ? 'Precomputed incident data served as static files — no backend' : `Backend: ${API_BASE}`}>
+        <span className={'mode-chip ' + (IS_STATIC ? 'static' : 'live')} title={IS_STATIC ? 'Runs entirely in your browser from recorded data — no server, no keys' : `Backend: ${API_BASE}`}>
           {IS_STATIC ? 'STATIC DEMO' : 'BACKEND CONNECTED'}
         </span>
-        <button className="tb-menu" onClick={() => set({ panel: 'notes', mode: 'incident' })}><Icon name="gear" size={15} /></button>
+        <button className="tb-menu" onClick={() => set({ panel: 'notes', mode: 'incident' })} title="About this demo" aria-label="About this demo"><Icon name="info" size={15} /></button>
       </div>
     </header>
   );

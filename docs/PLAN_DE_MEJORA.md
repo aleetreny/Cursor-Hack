@@ -6,6 +6,14 @@
 
 ---
 
+## Estado
+
+| Fase | Estado |
+|---|---|
+| 0 · Repositorio y publicación | ✅ 17 oct 2026: `main` publica en https://aleetreny.github.io/Cursor-Hack/ |
+| 1 · Autocontenido y honestidad | ✅ 17 oct 2026: paquetes de incidente con manifest, analista bilingüe en el navegador, búsqueda ES/EN, sin integraciones muertas en la interfaz, README y PITCH reescritos |
+| 2 – 8 | Pendientes |
+
 ## 0. Resumen ejecutivo
 
 **Lo que ya funciona bien (hay que conservarlo):**

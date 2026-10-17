@@ -14,4 +14,4 @@ data/uploads/
 backend/.venv/
 __pycache__/
 demo/*.mp4
-frontend/public/data/
+frontend/public/incidents/

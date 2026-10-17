@@ -1,11 +1,12 @@
 # FireScope 3D — Backend API Contract (v0.1)
 
-**Audience:** the backend / AI agent (VM side). **Owner of this file:** frontend branch.
-The TypeScript source of truth is [`frontend/src/api/types.ts`](../frontend/src/api/types.ts).
-If you need to change a shape, edit both files and leave a note in the PR. Additive fields are always safe.
+> **Status (Oct 2026): optional.** The public demo is a static build that does not call this API. It reads a precomputed
+> incident package (`frontend/scripts/export-static.mjs` → `incidents/<id>/*.json`, the same JSON shapes as below), and Search
+> and Ask run in the browser (`frontend/src/agent/`). This contract still describes the FastAPI backend in `backend/`, which you
+> can run locally and point the UI at with `VITE_API_BASE`. Sections that mention NVIDIA Cosmos, YOLO or VSS describe the
+> hackathon deployment ([docs/historia-hackathon.md](historia-hackathon.md)) and are not used by the demo.
 
-The frontend currently renders from **development fixtures** in `frontend/public/fixtures/` that mirror these
-responses exactly (one file per endpoint). Swapping to the real backend means setting `VITE_API_BASE`, with no UI code changes.
+The TypeScript source of truth is [`frontend/src/api/types.ts`](../frontend/src/api/types.ts). If you change a shape, edit both files. Additive fields are always safe.
 
 ---
 

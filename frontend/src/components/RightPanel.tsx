@@ -5,7 +5,6 @@ import { fmtArea, fmtClock, fmtDayClock, fmtNum, fmtVideo } from '../lib/format'
 import { Icon } from './Icon';
 import { AgentPanel, EvidencePanel } from './AgentPanels';
 import { DronePanel } from './DronePanel';
-import { AlertsPanel } from './AlertsPanel';
 import { ResourcesPanel } from './ResourcesPanel';
 import { IS_STATIC, API_BASE } from '../api/client';
 
@@ -29,12 +28,11 @@ const LAYERS: LayerRow[] = [
 export function RightPanel() {
   const { mode, panel, set } = useStore();
   if (mode === 'drones') return <aside className="right"><DronePanel /></aside>;
-  if (mode === 'alerts') return <aside className="right"><AlertsPanel /></aside>;
   if (mode === 'resources') return <aside className="right"><ResourcesPanel /></aside>;
   const tab = (id: PanelTab, label: string) => <button className={panel === id ? 'on' : ''} onClick={() => set({ panel: id })}>{label}</button>;
   return (
     <aside className="right">
-      <div className="tabs">{tab('layers', 'Layers')}{tab('analysis', 'Analysis')}{tab('evidence', 'Evidence')}{tab('notes', 'Notes')}</div>
+      <div className="tabs">{tab('layers', 'Layers')}{tab('analysis', 'Analysis')}{tab('evidence', 'Evidence')}{tab('notes', 'About')}</div>
       {panel === 'layers' && <div className="scroll"><LayersSection /><IncidentOverview /><WeatherCard /><ObservationCard /></div>}
       {panel === 'analysis' && <AgentPanel />}
       {panel === 'evidence' && <EvidencePanel />}
@@ -117,38 +115,42 @@ function ObservationCard() {
   );
 }
 
+const PROV_LABEL: Record<string, string> = { real: 'real', model: 'model', derived: 'derived', external: 'external', simulated: 'sim' };
 function NotesSection() {
-  const { health, incident } = useStore();
+  const { manifest, incident } = useStore();
   const [note, setNote] = useState(() => { try { return localStorage.getItem('fs-notes') ?? ''; } catch { return ''; } });
   return (
     <>
       <div className="section">
-        <div className="section-h">Sponsor Integrations <span className={'mode-chip ' + (IS_STATIC ? 'static' : 'live')}>{IS_STATIC ? 'STATIC' : 'LIVE'}</span></div>
-        {!health && <div className="muted">Checking…</div>}
-        {health?.integrations.map((i) => (
-          <div className="integr" key={i.id}>
-            <span><span className={'status-dot ' + (i.status === 'ok' ? 'ok' : i.status === 'degraded' ? 'warn' : i.status === 'down' ? 'bad' : '')} />{i.name} <span className="muted">· {i.sponsor}</span></span>
-            <span className="muted" style={{ fontSize: 11 }}>{i.status.replace('_', ' ')}</span>
-            {(i.model || i.detail || i.latency_ms) && <span className="s">{[i.model, i.endpoint, i.latency_ms ? `${i.latency_ms} ms` : null, i.detail].filter(Boolean).join(' · ')}</span>}
+        <div className="section-h">How this works <span className={'mode-chip ' + (IS_STATIC ? 'static' : 'live')}>{IS_STATIC ? 'STATIC DEMO' : 'BACKEND'}</span></div>
+        {IS_STATIC && !manifest && <div className="muted">Loading…</div>}
+        {manifest?.methods.map((m) => (
+          <div className="integr" key={m.id}>
+            <span>{m.name}</span>
+            <span className={'prov ' + (m.provenance === 'simulated' ? 'demo_parameter' : m.provenance)}>{PROV_LABEL[m.provenance]}</span>
+            <span className="s">{m.detail}</span>
           </div>
         ))}
-        <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>{IS_STATIC ? 'Static demo: precomputed data, no backend.' : `Backend ${API_BASE}`}</div>
+        <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>{IS_STATIC ? `Everything runs in your browser from a precomputed data package${manifest ? ` (packaged ${manifest.packaged.slice(0, 10)})` : ''}. No server, no keys.` : `Backend ${API_BASE}`}</div>
       </div>
       <div className="section">
-        <div className="section-h">What is real here</div>
+        <div className="section-h">Limits</div>
         <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--ink-2)' }}>
-          <p style={{ margin: '0 0 6px' }}><b>Real:</b> terrain from a DEM (AWS Terrain Tiles), aerial imagery (Esri), drone pose from the BurnedAreaUAV photo metadata, and the planned burn-cell KML.</p>
-          <p style={{ margin: '0 0 6px' }}><b>Model outputs:</b> fire polygons, events and answers come from the backend. Each value carries a provenance chip.</p>
-          <p style={{ margin: '0 0 6px' }}><b>Not measured:</b> RGB video cannot give temperature, so hotspots are visible-flame locations. Georeferencing is approximate (pinhole model + DEM).</p>
-          <p style={{ margin: '0 0 6px' }}><b>Simulated:</b> drones FT-02…FT-06, their rendered camera views, and all 13 Resources units, drops and fire lines (an illustrative exercise, tagged SIM). IR* is a false-colour look, not temperature.</p>
-          <p style={{ margin: 0 }}><b>Stylized:</b> trees and smoke are rendered for readability. The terrain uses {useStore.getState().exaggeration}× vertical exaggeration.</p>
+          <p style={{ margin: '0 0 6px' }}><b>No temperatures:</b> the camera is RGB only, so hotspots are visible-flame locations and IR* is a false-colour look.</p>
+          <p style={{ margin: '0 0 6px' }}><b>Approximate positions:</b> georeferencing uses a pinhole camera and the elevation model; its error in metres is not measured yet.</p>
+          <p style={{ margin: '0 0 6px' }}><b>Only the camera's view:</b> burned area is what the drone saw, a small part of the planned burn cell.</p>
+          <p style={{ margin: 0 }}><b>Stylized:</b> trees and smoke are drawn for readability, and the terrain uses {useStore.getState().exaggeration}× vertical exaggeration.</p>
         </div>
       </div>
       <div className="section">
-        <div className="section-h">Analyst Notes</div>
-        <textarea value={note} onChange={(e) => { setNote(e.target.value); try { localStorage.setItem('fs-notes', e.target.value); } catch { /* ignore */ } }} placeholder="Notes stay in this browser…" style={{ width: '100%', minHeight: 90, border: '1px solid var(--line)', borderRadius: 6, padding: 8, background: '#fff', resize: 'vertical', fontSize: 12.5 }} />
+        <div className="section-h">History</div>
+        <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--ink-2)' }}>Built in a day at the VAST Builders Challenge (17 Oct 2026), where clip descriptions and video search ran live on NVIDIA Cosmos on the event cluster. Those outputs were not kept and are not reproduced here: this public version shows only what can be recomputed from the open data.</div>
       </div>
-      <div className="section"><div className="section-h">Attribution</div>{incident?.attribution.map((a) => <div key={a} className="muted" style={{ fontSize: 11.5 }}>{a}</div>)}</div>
+      <div className="section">
+        <div className="section-h">Analyst Notes</div>
+        <textarea aria-label="Analyst notes" value={note} onChange={(e) => { setNote(e.target.value); try { localStorage.setItem('fs-notes', e.target.value); } catch { /* ignore */ } }} placeholder="Notes stay in this browser…" style={{ width: '100%', minHeight: 90, border: '1px solid var(--line)', borderRadius: 6, padding: 8, background: '#fff', resize: 'vertical', fontSize: 12.5 }} />
+      </div>
+      <div className="section"><div className="section-h">Attribution</div>{(manifest?.attribution ?? incident?.attribution)?.map((a) => <div key={a} className="muted" style={{ fontSize: 11.5 }}>{a}</div>)}</div>
     </>
   );
 }

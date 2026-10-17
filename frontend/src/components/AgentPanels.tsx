@@ -9,9 +9,10 @@ import { eventIcon } from './Timeline';
 
 const SUGGESTIONS = [
   'How did the fire change during the recording?',
-  'Where did new visible fire activity appear?',
-  'When was smoke densest, and does it affect the burned-area estimate?',
-  'Which parts of the view should be reviewed for emerging fire?',
+  'When did it grow fastest?',
+  'Where did flames appear outside the burned area?',
+  '¿Qué tiempo hacía?',
+  'How accurate is the burned-area estimate?',
 ];
 
 type Msg = { role: 'user' | 'assistant'; content: string; res?: AskResponse; error?: string };
@@ -21,7 +22,8 @@ function renderAnswer(text: string, cites: Citation[]): ReactNode[] {
     const m = part.match(/^\[(\d+)\]$/);
     const c = m ? cites[+m[1] - 1] : undefined;
     if (!c) return <span key={i}>{part}</span>;
-    return <span key={i} className="cite" onClick={() => seekCitation(c.source_id, c.start_seconds, c.event_id)} title="Jump to footage"><Icon name="video" size={9} />{c.label ?? `${fmtVideo(c.start_seconds)}–${fmtVideo(c.end_seconds)}`}</span>;
+    const range = c.label ?? `${fmtVideo(c.start_seconds)}–${fmtVideo(c.end_seconds)}`;
+    return <span key={i} className="cite" role="button" tabIndex={0} onClick={() => seekCitation(c.source_id, c.start_seconds, c.event_id)} onKeyDown={(e) => { if (e.key === 'Enter') seekCitation(c.source_id, c.start_seconds, c.event_id); }} title={`Jump to the footage, ${range}`} aria-label={`Jump to the footage, ${range}`}><Icon name="video" size={9} /></span>;
   });
 }
 
@@ -51,8 +53,8 @@ export function AgentPanel() {
     <div className="chat" style={{ minHeight: 0, flex: 1 }}>
       <div className="chat-log" ref={log}>
         <div className="msg bot">
-          <b>Video agent</b>: ask about the drone footage. Answers come with clickable evidence clips that move the video and the map to that moment.
-          <div className="meta">{IS_STATIC ? <span className="tag">Extractive answers over the logged events</span> : <><span className="tag">Cosmos Reason</span><span className="tag">Cosmos Embed retrieval</span></>}</div>
+          <b>Incident analyst</b>: ask about this incident in English or Spanish. Answers are computed from the recorded measurements and events, with clickable evidence that moves the video and the map to that moment.
+          <div className="meta"><span className="tag">{IS_STATIC ? 'Rule-based · in your browser · no language model' : 'Backend agent'}</span></div>
         </div>
         {!msgs.length && <div className="suggest">{SUGGESTIONS.map((s) => <button key={s} onClick={() => ask(s)}>{s}</button>)}</div>}
         {msgs.map((m, i) => m.role === 'user'
@@ -60,14 +62,14 @@ export function AgentPanel() {
           : (
             <div key={i} className="msg bot">
               {m.error ? <span className="err">Agent error: {m.error}</span> : renderAnswer(m.content, m.res?.citations ?? [])}
-              {m.res && <div className="meta"><span>{m.res.model}</span>{m.res.latency_ms != null && <span>· {m.res.latency_ms} ms</span>}<span className="tag" style={m.res.grounded ? { background: '#e3ecdf', color: '#3c6431' } : { background: '#fbe7cf', color: '#8a4b00' }}>{m.res.grounded ? 'grounded' : 'not grounded'}</span></div>}
+              {m.res && <div className="meta"><span className="tag" style={m.res.grounded ? { background: '#e3ecdf', color: '#3c6431' } : { background: '#fbe7cf', color: '#8a4b00' }}>{m.res.grounded ? (m.res.citations.length ? `${m.res.citations.length} evidence clip${m.res.citations.length > 1 ? 's' : ''}` : 'from recorded data') : 'no match · summary'}</span><span title={m.res.model}>{m.res.latency_ms != null ? `${m.res.latency_ms} ms` : ''}</span></div>}
             </div>
           ))}
-        {busy && <div className="msg bot muted">Analyzing footage…</div>}
+        {busy && <div className="msg bot muted">Working it out…</div>}
       </div>
       <form className="chat-in" onSubmit={(e) => { e.preventDefault(); ask(q); }}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask about the footage…" />
-        <button type="submit" disabled={busy}><Icon name="send" size={13} /></button>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask about the incident… / Pregunta…" />
+        <button type="submit" disabled={busy || !q.trim()} aria-label="Ask" title="Ask"><Icon name="send" size={13} /></button>
       </form>
     </div>
   );
@@ -89,33 +91,24 @@ export function EvidencePanel() {
     <div className="scroll">
       <div className="section">
         <form className="chat-in" style={{ padding: 0, border: 0 }} onSubmit={(e) => { e.preventDefault(); run(q); }}>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder='Search footage, e.g. "first appearance of flames"' />
-          <button type="submit"><Icon name="search" size={13} /></button>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder='Search footage, e.g. "flames ahead" or "humo"' />
+          <button type="submit" aria-label="Search" title="Search"><Icon name="search" size={13} /></button>
         </form>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
-          {['first appearance of flames', 'fire expanding', 'dense smoke', 'burned ground'].map((s) => <button key={s} className="btn-sm" onClick={() => { setQ(s); run(s); }}>{s}</button>)}
+          {['first appearance of flames', 'fire expanding', 'dense smoke', 'llamas fuera del frente'].map((s) => <button key={s} className="btn-sm" onClick={() => { setQ(s); run(s); }}>{s}</button>)}
         </div>
-        {busy && <div className="muted" style={{ marginTop: 8 }}>Searching embeddings…</div>}
+        {busy && <div className="muted" style={{ marginTop: 8 }}>Searching…</div>}
         {err && <div className="err">Search failed: {err}</div>}
         {res && (
           <div style={{ marginTop: 8 }}>
-            <div className="muted" style={{ fontSize: 11 }}>{res.results.length} clips · {res.model}{res.latency_ms != null ? ` · ${res.latency_ms} ms` : ''}</div>
+            <div className="muted" style={{ fontSize: 11 }}>{res.results.length} clip{res.results.length === 1 ? '' : 's'} · {res.model}{res.latency_ms != null ? ` · ${res.latency_ms} ms` : ''}</div>
+            {!res.results.length && <div className="muted" style={{ fontSize: 11.5, marginTop: 6, lineHeight: 1.4 }}>No clip matches “{res.query}”. Search covers the recorded events and what was measured in each clip, not the pixels themselves.</div>}
             {res.results.map((r) => (
               <div key={r.clip_id} className="result" onClick={() => seekCitation(r.source_id, r.start_seconds, r.event_id)}>
                 <div className="thumb" style={{ backgroundImage: `url(${mediaUrl(r.thumbnail_url ?? thumb)})` }}><span>{fmtVideo(r.start_seconds)}</span></div>
-                <div><div className="cap">{r.caption ?? 'Clip'}</div><div className="rm">{fmtVideo(r.start_seconds)}–{fmtVideo(r.end_seconds)} · similarity {r.similarity.toFixed(2)}</div></div>
+                <div><div className="cap">{r.caption ?? 'Clip'}</div><div className="rm">{fmtVideo(r.start_seconds)}–{fmtVideo(r.end_seconds)}{IS_STATIC ? '' : ` · similarity ${r.similarity.toFixed(2)}`}</div></div>
               </div>
             ))}
-          </div>
-        )}
-        {res?.archive_source && (
-          <div style={{ marginTop: 10 }}>
-            <div className="section-h" style={{ fontSize: 12 }}>Archive matches <small>{res.archive_source}</small></div>
-            {res.archive_synthesis && <div className="msg bot" style={{ fontSize: 12, marginBottom: 6 }}>{res.archive_synthesis}</div>}
-            {(res.archive_results ?? []).map((r, i) => r.error
-              ? <div key={i} className="err">VSS: {r.error}</div>
-              : <div key={i} className="integr"><span className="mono" style={{ fontSize: 11 }}>{(r.video ?? 'video').split('/').pop()}</span><span className="muted" style={{ fontSize: 11 }}>{r.start_seconds != null ? fmtVideo(r.start_seconds) : ''}{r.similarity != null ? ` · ${(+r.similarity).toFixed(2)}` : ''}</span>{r.caption && <span className="s">{r.caption}</span>}</div>)}
-            {!res.archive_results?.length && <div className="muted" style={{ fontSize: 11.5 }}>No archive matches.</div>}
           </div>
         )}
       </div>

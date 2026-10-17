@@ -5,8 +5,9 @@ import { mediaUrl } from '../api/client';
 import { Logo } from './Icon';
 
 /**
- * Presentation mode: a chaptered, pausable story that drives the REAL app (camera, timeline, panels) and explains each
- * step with large caption cards + a spotlight on the relevant UI. Space = pause/resume · ←/→ = prev/next · H = hide bar · Esc = exit.
+ * Presentation mode: a chaptered story that drives the REAL app (camera, timeline, panels) and explains each step with
+ * large caption cards + a spotlight on the relevant UI. It only advances when the presenter asks:
+ * → / Space / Enter / PageDown = next · ← / PageUp = back · H = hide bar · Esc = exit.
  */
 type Tag = 'REAL' | 'MEASURED' | 'GROUND TRUTH' | 'MODEL' | 'SIMULATED' | 'REVIEW REQUIRED' | 'EXTERNAL';
 interface Step {
@@ -44,11 +45,6 @@ const click = async (sel: string, text?: string, wait = 450) => {
   el?.click();
 };
 
-function cosmosLine() {
-  const i = st().health?.integrations.find((x) => x.id === 'nvidia_cosmos_reason');
-  return i?.status === 'ok' ? 'running live on the event cluster' : 'deployed on the event cluster (not configured on this laptop)';
-}
-
 const STEPS: Step[] = [
   {
     id: 'title', title: 'FireScope 3D', dur: 9, kind: 'slide',
@@ -75,7 +71,7 @@ const STEPS: Step[] = [
         <div className="pz-h1">One timeline. One map. Every piece of evidence.</div>
         <div className="pz-cards">
           {[['01', 'Map it', 'Every observation from the drone placed on real terrain, in its real position and time.'],
-            ['02', 'Understand it', 'A video agent detects what changed, explains it and links you to the exact second.'],
+            ['02', 'Understand it', 'Computer vision measures what changed; an analyst you can question explains it and links to the exact second.'],
             ['03', 'Act on it', 'Alerts, search, scenarios and response operations on the same synchronized clock.']].map(([n, h, b], i) => (
             <div key={n} className="pz-card" style={{ animationDelay: `${0.25 + i * 0.35}s` }}><div className="n">{n}</div><div className="h">{h}</div><div className="b">{b}</div></div>
           ))}
@@ -139,8 +135,8 @@ const STEPS: Step[] = [
   },
   {
     id: 'events', title: 'Key Events', dur: 11, spot: '.events', at: 'bl',
-    kicker: 'Key events', head: 'The recording, already indexed', tags: ['MEASURED', 'MODEL'],
-    body: <>Every detected event (first flames, rapid growth, flames ahead of the front, dense smoke) appears in time order and as a marker on the timeline. One click seeks the clock and flies the camera there.</>,
+    kicker: 'Key events', head: 'The recording, already indexed', tags: ['MEASURED', 'REVIEW REQUIRED'],
+    body: <>Every event the measurements detect (first flames, rapid growth, flames ahead of the front, dense smoke) appears in time order and as a marker on the timeline. One click seeks the clock and flies the camera there. Each one waits for a human to confirm it.</>,
     enter: async () => {
       const s = st(); s.setLayer('groundTruth', false); s.set({ view: '3d', mode: 'incident', panel: 'layers', feedOpen: false });
       await sleep(1600); const ev = [...document.querySelectorAll<HTMLElement>('.events .ev')][3]; ev?.click(); sc().flyFrame(240, 28, 0.2, 2200);
@@ -148,8 +144,8 @@ const STEPS: Step[] = [
   },
   {
     id: 'live', title: 'Live drone video', spot: '.feed', at: 'bl', dur: 0,
-    kicker: 'Drone video, in real time', head: 'The footage, playing in sync with the map', tags: ['REAL', 'MODEL'],
-    body: <>The recorded drone video plays at 1× while the burn scar and flames update on the terrain below. NVIDIA Cosmos Reason watches every 12-second clip and reports what is visible, what changed and which regions to review. It is {cosmosLine()}.</>,
+    kicker: 'Drone video, in real time', head: 'The footage, playing in sync with the map', tags: ['REAL', 'MEASURED'],
+    body: <>The recorded drone video plays at 1× while the burn scar and flames update on the terrain below. When the measurements flag a change, the region to review is boxed on the video at that second.</>,
     enter: async () => {
       const s = st(); s.setLayer('groundTruth', false);
       base({ view: '3d', panel: 'layers', mode: 'drones', feedOpen: true, selectedUnitId: null, playing: false, speed: 1 });
@@ -159,15 +155,15 @@ const STEPS: Step[] = [
     },
   },
   {
-    id: 'agent', title: 'Ask the video', dur: 13, spot: '.right', at: 'bl',
-    kicker: 'Video agent', head: 'Ask the footage in plain English', tags: ['MODEL'],
-    body: <>Answers come with clickable citations that jump the video and the map. Clip analysis uses NVIDIA Cosmos Reason, {cosmosLine()}.</>,
+    id: 'agent', title: 'Ask the incident', dur: 13, spot: '.right', at: 'bl',
+    kicker: 'Incident analyst', head: 'Ask in plain English or Spanish', tags: ['MEASURED'],
+    body: <>Where was it, when did it grow fastest, what was the wind? Answers are computed from the recorded measurements, right in the browser, with nothing invented. Every citation jumps the video and the map.</>,
     enter: async () => { st().set({ mode: 'incident', panel: 'analysis', feedOpen: true }); await click('.suggest button', undefined, 700); await sleep(900); sc().flyFrame(260, 30, 0.55, 2200); },
   },
   {
     id: 'search', title: 'Semantic search', dur: 10, spot: '.right', at: 'bl',
-    kicker: 'Search by meaning', head: 'Find the moment, not the timestamp', tags: ['MODEL'],
-    body: <>Cosmos Embed puts video clips and text queries in the same vector space, alongside the team's VAST / VSS video archive.</>,
+    kicker: 'Search the footage', head: 'Find the moment, not the timestamp', tags: ['MEASURED'],
+    body: <>Type “dense smoke” or “llamas fuera del frente” and get the clips where it was measured, with a thumbnail and a jump to that second.</>,
     enter: async () => { st().set({ panel: 'evidence', feedOpen: false }); sc().flyFrame(300, 34, 0.3, 2400); await click('.btn-sm', 'dense smoke', 700); },
   },
   {
@@ -190,7 +186,7 @@ const STEPS: Step[] = [
         <div className="pz-kicker" style={{ textAlign: 'center' }}>From raw drone video to spatial intelligence</div>
         <div className="pz-logo"><Logo /> FireScope 3D</div>
         <div className="pz-sub">Map it · Understand it · Act on it</div>
-        <div className="pz-sponsors">NVIDIA Cosmos Reason &amp; Cosmos Embed · VAST Data / VSS · CoreWeave · Weights &amp; Biases · Cursor</div>
+        <div className="pz-sponsors">Born at the VAST Builders Challenge 2026 · runs entirely in your browser</div>
         <div className="pz-hint">Real footage: BurnedAreaUAV (CC-BY-4.0) · Large fire, fleet and resources shown are simulated</div>
       </div>
     ),

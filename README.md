@@ -1,38 +1,37 @@
 # FireScope 3D
 
-> 🌐 **Demo:** https://aleetreny.github.io/Cursor-Hack/ — static build, no backend, no keys (GitHub Pages from `main`).
+> 🌐 **Demo:** https://aleetreny.github.io/Cursor-Hack/ — runs entirely in your browser: no server, no keys.
 >
 > 📘 Pitch y explicación completa (ES): [docs/PITCH_Y_FUNCIONAMIENTO.md](docs/PITCH_Y_FUNCIONAMIENTO.md) · 🗺️ Plan de mejora: [docs/PLAN_DE_MEJORA.md](docs/PLAN_DE_MEJORA.md)
 
 **We turn wildfire drone footage into a time-aware 3D operational picture.**
 
-FireScope 3D ingests drone video of a fire, works out what the camera sees (NVIDIA Cosmos Reason plus a measurable CV pipeline), projects the observed fire onto real terrain, and lets a responder scrub through time, click an observation, see the exact video evidence, search the footage and ask questions about it.
+FireScope 3D takes drone video of a fire, measures what the camera sees (burned ground, flames, smoke), projects it onto real terrain, and lets you scrub through time, click an event to see the exact video evidence, search the footage and ask questions about the incident in English or Spanish.
 
-The interface recreates the "FireTrace" wildfire forensic prototype (Dilum Sanjaya / Claude, shared by Anthropic). Its layout is a full-bleed 3D terrain with a right-hand layers and incident panel, a bottom timeline with linked charts and a key-events column, plus Incident / Drones / Alerts modes, a drone camera window, and 2D/3D map switching. Here it runs on **real data**.
+The interface recreates the "FireTrace" wildfire forensic prototype (Dilum Sanjaya / Claude, shared by Anthropic). Its layout is a full-bleed 3D terrain with a right-hand layers and incident panel, a bottom timeline with linked charts and a key-events column, Incident / Drones / Resources modes, a drone camera window, and 2D/3D map switching. Here it runs on **real data**.
 
 > Exploratory decision-support prototype. **Not** a certified emergency-management or fire-spread prediction system.
 
 ---
 
-## What runs in the demo
+## What you are looking at
 
 | | Source | Status |
 |---|---|---|
 | Drone footage | **BurnedAreaUAV v1.1** (Zenodo 7944963, CC-BY-4.0): 15 min of RGB video of a prescribed burn at Torre do Pinhão, Portugal, from a hovering DJI Phantom 4 Pro | Real, replayed as **DRONE REPLAY**, never labelled live |
 | Camera pose | DJI XMP metadata of the dataset's photos (GPS, 24.9 m AGL, gimbal yaw −46.7°, pitch −28.9°, calibrated focal length) | Real |
-| Terrain | AWS Terrain Tiles (Terrarium) DEM, z15 inner and z12 horizon; Esri World Imagery drives the stylized ground and vegetation | Real elevation, stylized rendering, **1.8× vertical exaggeration (labelled)** |
+| Terrain | AWS Terrain Tiles (Terrarium) DEM in three rings of detail out to ~70 km; Esri World Imagery drives the stylized ground and vegetation | Real elevation, stylized rendering, **1.8× vertical exaggeration (labelled)** |
 | Burned area / flames | `backend/firescope/segment.py`: RGB segmentation with temporal accumulation | Model output, **evaluated against the manual masks** (below) |
 | Georeferencing | Pinhole camera, rays marched onto the DEM (`geo.py`) | **Approximate** (`camera_model_dem`) |
-| Events | Measurement-derived (area growth, flames outside the scar, smoke surges, peak flame extent), then described by **NVIDIA Cosmos Reason** per 12 s clip | Model / derived, `confidence: null`, `review_required: true` |
-| Search | NVIDIA embedding index over Cosmos clip captions, with a labelled lexical fallback | Real when the endpoint is configured |
-| Ask | Retrieval over events and clips, answered by the Cosmos/NIM LLM with `[n]` citations that seek video and map | Real when configured; otherwise an *extractive* answer, labelled as such |
+| Events | Measured changes: area growth, flames outside the scar, smoke surges, peak flame extent | Derived, `confidence: null`, `review_required: true` |
+| Ask | Incident analyst in the browser (`frontend/src/agent/analyst.ts`): detects the intent of the question (where, when, how much, fastest growth, spot fires, smoke, weather, drone, accuracy, risk, resources…), answers from the recorded data in English or Spanish, and cites the clips it used | Derived. Rule-based, **no language model, nothing generated** |
+| Search | Keyword search (EN/ES) over the recorded events and per-clip measurements (`frontend/src/agent/search.ts`) | Derived. Searches what was measured, not the pixels |
 | Hotspots | Visible-flame blob centroids. **RGB cannot measure temperature**, so `temperature_c` is always `null` | Model |
-| Projection | Linear centroid extrapolation, purple dashed layer, banner: **EXPERIMENTAL SCENARIO — NOT AN OPERATIONAL FORECAST** | Experimental |
-| Trees, smoke particles | Rendered for readability | Stylized |
-| Drones FT-02…FT-06, Resources (13 units), drops, fire lines | Deterministic exercise around the real incident; sim drone cameras render the 3D twin | **Simulated**, tagged SIM in the UI |
 | Weather card | ERA5 reanalysis via Open-Meteo for the site and hour | External (reanalysis, not on-site) |
+| Drones FT-02…FT-06, Resources (13 units), drops, fire lines, large-fire scenario | Deterministic exercise around the real incident; sim drone cameras render the 3D twin | **Simulated**, tagged SIM in the UI, never a forecast |
+| Trees, smoke particles | Rendered for readability | Stylized |
 
-Every metric in the UI carries a provenance chip (`model`, `derived`, `ground_truth`, `external`, `fixture`).
+Every metric in the UI carries a provenance chip (`model`, `derived`, `ground_truth`, `external`, `sim`), and the **About** tab lists how each part was produced.
 
 ## Evaluation (reproducible)
 
@@ -50,101 +49,65 @@ The ground-truth masks can be toggled on the map (Layers → Ground Truth), show
 ## Architecture
 
 ```
- Drone video (MP4 / RTSP later)
-        │  frames every 4 s · 12 s clips
-        ▼
- ┌────────────────────────┐      ┌────────────────────────────────┐
- │ CV pipeline (CPU)      │      │ NVIDIA Cosmos Reason (NIM)     │
- │ burned / flame / smoke │      │ cosmos3-nano-reasoner (VM) or  │
- │ temporal accumulation  │      │ cosmos-reason2-8b (hosted)     │
- └──────────┬─────────────┘      │ clip → JSON caption, change,   │
-            │ masks              │ evidence, event type           │
-            ▼                    └──────────────┬─────────────────┘
- ┌────────────────────────┐                     │ captions
- │ Georeferencing         │                     ▼
- │ pinhole + DJI pose     │      ┌────────────────────────────────┐
- │ ray-march onto DEM     │      │ Embedding index (Cosmos Embed /│
- └──────────┬─────────────┘      │ NV-Embed) → /api/search        │
-            │ GeoJSON (EPSG:4326)│ Agent (NIM LLM) → /api/ask     │
-            ▼                    └──────────────┬─────────────────┘
- ┌──────────────────────────────────────────────┴───────────────┐
- │ FastAPI (docs/api-contract.md): timeline · observations ·     │
- │ events · sources · search · ask · projection · media (range)  │
- └──────────────────────────────┬────────────────────────────────┘
-                                ▼
- ┌───────────────────────────────────────────────────────────────┐
- │ React + Three.js dashboard: DEM terrain · draped fire mask     │
- │ shader · bloom flames · smoke · drone + frustum · timeline ·   │
- │ charts · drone feed synced to the timeline · search · agent    │
- └───────────────────────────────────────────────────────────────┘
+ OFFLINE (once per incident)                              STATIC SITE (GitHub Pages)
+ ┌──────────────────────────────────────┐                ┌───────────────────────────────────────────┐
+ │ backend/firescope/pipeline.py         │                │ incidents/index.json                      │
+ │  video → frames every 4 s → masks     │  export-static │ incidents/<id>/manifest.json  (methods,   │
+ │  (burned / flame / smoke, accumulated)│ ─────────────▶ │   attribution) · incident · sources ·     │
+ │  → pinhole camera + DEM ray cast      │   (npm build)  │   timeline · events · observations ·      │
+ │  → GeoJSON polygons, timeline, events │                │   weather · clips · eval · media/ (video, │
+ │  → eval vs manual masks · ERA5        │                │   thumbnails)                             │
+ └──────────────────────────────────────┘                └──────────────────────┬────────────────────┘
+                                                                                ▼
+ ┌────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ React + Three.js dashboard: DEM terrain in LOD rings · draped fire-mask shader · bloom flames ·     │
+ │ smoke · drone + frustum · timeline (master clock) · charts · drone feed synced to the timeline ·    │
+ │ incident analyst + search in the browser (src/agent) · simulated ops (src/sim) · presentation mode  │
+ └────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 * **Frontend** (`frontend/`): React 19, TypeScript, Vite, Three.js (custom terrain shader, draped canvas masks for burned / active / change, UnrealBloom, GPU point-sprite flames and smoke, instanced vegetation), Zustand. The timeline is the single clock: map overlays, charts, events, the drone video and the panels all follow it.
-* **Backend** (`backend/firescope/`): `pipeline.py` (video → masks → polygons → timeline/events/eval), `geo.py` (DEM + camera), `segment.py`, `cosmos_job.py` (Cosmos clip analysis + index), `nvidia.py` (OpenAI-compatible adapters, every call logged to `data/processed/nvidia_calls.jsonl`), `app.py` (API).
-* **Contract**: `docs/api-contract.md` and `frontend/src/api/types.ts`. Coordinates are WGS84 `[lon, lat]`, times are ISO-8601 UTC, and unknown values are `null`.
-
-## Sponsor integrations (hackathon only — archived)
-
-> These ran live on the workshop Kubernetes cluster during the VAST Builders Challenge. That cluster is gone, and the public demo is a static build that does not call them: Search and Ask run in the browser over the logged events. See [docs/historia-hackathon.md](docs/historia-hackathon.md).
-
-| Sponsor | Service | What FireScope does with it | Code |
-|---|---|---|---|
-| **NVIDIA** | Cosmos Reason (`nvidia/cosmos3-nano-reasoner`, :8001) | Each 12 s clip is sent as `video_url` and returns a JSON caption, change, evidence and event type. Also the default agent LLM for `/api/ask` | `nvidia.cosmos_describe_clip`, `cosmos_job` |
-| **NVIDIA** | Cosmos Embed1 (`nvidia/cosmos-embed1`, 256-d, :8003) | Clip **video** embeddings plus text query embeddings in the same space, ranked by cosine in `/api/search` | `nvidia.embed`, `cosmos_job.build_index`, `app.retrieve` |
-| NVIDIA VSS stack | YOLO11 (:8002) | Objects per clip. People or vehicles in view while flames are visible raise a review alert | `nvidia.yolo_infer` |
-| **VAST Data** | VSS retrieval (`/api/v1/auth/login`, `/api/v1/search`) | Archive search over the team's VAST-backed collection, shown as "Archive matches" with LLM synthesis | `nvidia.vss`, `app.vss_archive` |
-| **W&B / CoreWeave** | OpenAI-compatible inference (optional) | Set `LLM_BASE` / `LLM_API_KEY` / `LLM_MODEL` to run the agent on W&B Inference | `config.LLM_*` |
-| **Cursor** | Agent on the VM | Verified endpoints and the K8s deployment | `deploy/` |
-
-Credentials exist **only** server-side (K8s Secret `firescope-env`: `GPU_BEARER_TOKEN`, `VSS_*`, optional `LLM_API_KEY`). With `AUTO_ANALYZE=1` the pod runs the real Cosmos Reason, Embed1 and YOLO11 pass at boot. `GET /api/integrations/health` and the **Notes** tab show each service's status. A service shows "ok" only after a successful call. All adapter code paths are exercised offline by `backend/tests/mock_gpu.py`, which matches the workshop API shapes and is test-only.
-
-Local development on a Mac has no GPU token, so Cosmos shows as *not configured* and events come from the measurement pipeline (`provenance: derived`), clearly labelled.
-
-## Publish (GitHub Pages)
-
-Every push to `main` runs [`.github/workflows/pages.yml`](.github/workflows/pages.yml). It exports the precomputed incident (`frontend/scripts/export-static.mjs` → `public/data/`: JSON, the 960×540 replay video and the clip thumbnails), builds the dashboard with the repository name as base path, and deploys it to GitHub Pages. Terrain and imagery tiles stream from public tile servers in the browser. The hackathon's Kubernetes deployment is archived in [docs/historia-hackathon.md](docs/historia-hackathon.md).
+* **Data client** (`frontend/src/api/client.ts`): static mode by default (reads `incidents/<id>/`, chosen with `?incident=<id>` or the index default); optional API mode against the FastAPI backend with `VITE_API_BASE`.
+* **Pipeline / optional backend** (`backend/firescope/`): `pipeline.py` (video → masks → polygons → timeline/events/eval), `geo.py` (DEM + camera), `segment.py`, `weather.py`, `app.py` (FastAPI, `docs/api-contract.md`). The hackathon's NVIDIA adapters (`nvidia.py`, `cosmos_job.py`) are still in the tree but unused by the demo.
 
 ## Run it
 
 ```bash
-# 1. data (≈1 GB, CC-BY-4.0): KML, photo metadata and the video/masks archive from Zenodo 7944963
+cd frontend && npm install
+npm run dev                  # static demo on the exported incident → http://localhost:5173
+npm run build                # → dist/ (what GitHub Pages serves); VITE_BASE=/<repo>/ for a sub-path
+```
+
+`npm run dev` and `npm run build` first run `scripts/export-static.mjs`, which packages `data/processed/drone_replay_01/` and `media/` into `public/incidents/`.
+
+To recompute the data from the original dataset:
+
+```bash
+# data (≈1 GB, CC-BY-4.0): KML, photo metadata and the video/masks archive from Zenodo 7944963
 mkdir -p data/raw/burnedareauav && cd data/raw/burnedareauav
 for f in pinhao_cell_precribed_area.kml uav_photo_1_metadata.JPG BurnedAreaUAV_dataset_v1.rar; do curl -LO "https://zenodo.org/api/records/7944963/files/$f/content" -o $f; done
 bsdtar -xf BurnedAreaUAV_dataset_v1.rar && cd ../../..
-
-# 2. backend
 cd backend && uv venv && uv pip install -r requirements.txt
-cp .env.example .env            # add Cosmos endpoint + token (see below)
-.venv/bin/python -m firescope.pipeline          # CV + georeferencing + eval (~15 s)
-.venv/bin/python -m firescope.cosmos_job --every 3   # NVIDIA Cosmos Reason pass (optional, needs endpoint)
-.venv/bin/uvicorn firescope.app:app --port 8000
-
-# 3. frontend
-cd ../frontend && npm install
-npm run dev                                         # static demo (no backend) → http://localhost:5173
-VITE_API_BASE=http://localhost:8000 npm run dev     # same UI against the local backend
+.venv/bin/python -m firescope.pipeline        # CV + georeferencing + eval (~15 s) → data/processed/
+.venv/bin/uvicorn firescope.app:app --port 8000   # optional: the same UI against the API → VITE_API_BASE=http://localhost:8000 npm run dev
 ```
 
 The browser video is a 960×540 H.264 copy at `media/drone_replay_01.mp4` (two-pass ~520 kb/s so it fits GitHub's 100 MB file limit):
 `ffmpeg -i <original> -an -vf "scale=960:540:flags=lanczos,hqdn3d=1.5:1.5:4:4" -c:v libx264 -preset slow -b:v 520k -maxrate 900k -bufsize 1800k -g 100 -pass 1|2 -movflags +faststart media/drone_replay_01.mp4`
 
-### Environment (`backend/.env`, gitignored)
+## Tests
 
-| Var | Meaning |
-|---|---|
-| `COSMOS_REASON_BASE` | OpenAI-compatible base URL (workshop: `http://166.19.38.112:8001/v1`) |
-| `COSMOS_REASON_MODEL` | `nvidia/cosmos3-nano-reasoner` (workshop) or `nvidia/cosmos-reason2-8b` (build.nvidia.com) |
-| `COSMOS_API_KEY` or `COSMOS_TOKEN_CMD` | Bearer token, or a command that prints it (output kept in memory only) |
-| `NVIDIA_API_KEY` | build.nvidia.com key (hosted Cosmos + embeddings) |
-| `COSMOS_EMBED_BASE` / `COSMOS_EMBED_MODEL` | Cosmos Embed endpoint, if available |
+```bash
+cd frontend
+node scripts/e2e.mjs 'http://localhost:4173/<base>/?nointro'                 # 76 checks: layout at 6 viewports + functional walk + FPS
+URL='http://localhost:4173/<base>/?nointro' node scripts/present-test.mjs out   # presentation mode, all 18 chapters
+node scripts/audit/states.mjs '<url>' out                                       # overlap / clipping sweep (see scripts/audit/README.md)
+cd ../backend && python -m pytest -q                                            # pipeline + API tests
+```
 
-## Two-minute demo
+## Publish (GitHub Pages)
 
-1. **0:00–0:20 Open.** The app opens on a wide shot of the real ridge and burn cell, then glides to the drone and the fire front. "Real terrain, real drone pose, real footage."
-2. **0:20–0:45 Scrub.** Press play or drag the timeline: the burn scar grows, flames move, charts follow. Press **2D** for the map view and toggle **Ground Truth** to compare the model (IoU 0.71 on the ground) with the manual annotation.
-3. **0:45–1:15 Evidence.** Click the red **"Burned area +… m² in 60 s"** event. The camera flies there and **Drones** shows the replay at that second, with the model's review region boxed on the video and Cosmos's description in **Alerts**.
-4. **1:15–1:40 Ask.** **Analysis** → *"How did the fire change during the recording?"*. The answer cites clips, and each citation seeks the video and map. **Evidence** → search *"dense smoke"*.
-5. **1:40–2:00 Wrap.** Open **Notes**: sponsor integrations with live status, what is real vs approximate, and the evaluation numbers. Public good: responders get a georeferenced, time-aware picture from footage they already capture.
+Every push to `main` runs [`.github/workflows/pages.yml`](.github/workflows/pages.yml): it exports the incident package, builds the dashboard with the repository name as base path and deploys it to GitHub Pages. Terrain and imagery tiles stream from public tile servers in the browser.
 
 ## Limitations (honest)
 
@@ -152,8 +115,13 @@ The browser video is a 960×540 H.264 copy at `media/drone_replay_01.mp4` (two-p
 * Georeferencing assumes the video pose equals the photo pose (same hover) and a flat-ish DEM near the drone. It is approximate, with an unknown RMSE. The far field (above 21% of the frame) is excluded.
 * Only the drone's field of view (~100 m) is observed. The planned burn-cell outline comes from the KML and is not an observation.
 * The video's wall-clock start (12:33:00Z) is an assumption anchored to the photo metadata.
-* The projection layer is a naive extrapolation for illustration only.
+* The analyst and search work on the recorded measurements and events only; they cannot answer about things that were not measured.
+* The large-fire scenario, fleet and resources are an illustrative simulation.
+
+## History
+
+FireScope 3D was built in a day at the **VAST Builders Challenge (17 Oct 2026)**. There, clip descriptions and video search ran live on NVIDIA Cosmos Reason / Cosmos Embed1 on the event's Kubernetes cluster. That cluster is gone and those outputs were not kept, so they are not reproduced here: [docs/historia-hackathon.md](docs/historia-hackathon.md).
 
 ## Credits
 
-BurnedAreaUAV, Ribeiro et al. 2023 (CC-BY-4.0) · AWS Terrain Tiles · Esri World Imagery · UI inspired by FireTrace (Dilum Sanjaya). The FireScope implementation is independent.
+BurnedAreaUAV, Ribeiro et al. 2023 (CC-BY-4.0) · AWS Terrain Tiles · Esri World Imagery · ERA5 via Open-Meteo · UI inspired by FireTrace (Dilum Sanjaya). The FireScope implementation is independent.
