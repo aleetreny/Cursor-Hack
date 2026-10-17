@@ -77,16 +77,24 @@ The ground-truth masks can be toggled on the map (Layers → Ground Truth), show
 * **Backend** (`backend/firescope/`): `pipeline.py` (video → masks → polygons → timeline/events/eval), `geo.py` (DEM + camera), `segment.py`, `cosmos_job.py` (Cosmos clip analysis + index), `nvidia.py` (OpenAI-compatible adapters, every call logged to `data/processed/nvidia_calls.jsonl`), `app.py` (API).
 * **Contract**: `docs/api-contract.md` and `frontend/src/api/types.ts`. Coordinates are WGS84 `[lon, lat]`, times are ISO-8601 UTC, and unknown values are `null`.
 
-## Sponsor integrations
+## Sponsor integrations (production on the workshop K8s cluster)
 
-| Sponsor | Use | Where |
-|---|---|---|
-| **NVIDIA** Cosmos Reason | Clip-level video understanding → event descriptions, evidence, review regions; agent answers | `nvidia.py`, `cosmos_job.py`, `/api/ask` |
-| **NVIDIA** Cosmos Embed / NV-Embed | Semantic clip search | `cosmos_job.build_index`, `/api/search` |
-| **VAST Data** workshop VM | Hosts the Cosmos NIM endpoint used by the backend (`166.19.38.112:8001`) | `.env` |
-| **Cursor** | Infrastructure discovery and validation on the VM | — |
+| Sponsor | Service | What FireScope does with it | Code |
+|---|---|---|---|
+| **NVIDIA** | Cosmos Reason (`nvidia/cosmos3-nano-reasoner`, :8001) | Each 12 s clip is sent as `video_url` and returns a JSON caption, change, evidence and event type. Also the default agent LLM for `/api/ask` | `nvidia.cosmos_describe_clip`, `cosmos_job` |
+| **NVIDIA** | Cosmos Embed1 (`nvidia/cosmos-embed1`, 256-d, :8003) | Clip **video** embeddings plus text query embeddings in the same space, ranked by cosine in `/api/search` | `nvidia.embed`, `cosmos_job.build_index`, `app.retrieve` |
+| NVIDIA VSS stack | YOLO11 (:8002) | Objects per clip. People or vehicles in view while flames are visible raise a review alert | `nvidia.yolo_infer` |
+| **VAST Data** | VSS retrieval (`/api/v1/auth/login`, `/api/v1/search`) | Archive search over the team's VAST-backed collection, shown as "Archive matches" with LLM synthesis | `nvidia.vss`, `app.vss_archive` |
+| **W&B / CoreWeave** | OpenAI-compatible inference (optional) | Set `LLM_BASE` / `LLM_API_KEY` / `LLM_MODEL` to run the agent on W&B Inference | `config.LLM_*` |
+| **Cursor** | Agent on the VM | Verified endpoints and the K8s deployment | `deploy/` |
 
-`GET /api/integrations/health` reports which services are actually configured and their last successful call. The Notes tab shows the same in the UI. Nothing is marked "ok" unless a call succeeded.
+Credentials exist **only** server-side (K8s Secret `firescope-env`: `GPU_BEARER_TOKEN`, `VSS_*`, optional `LLM_API_KEY`). With `AUTO_ANALYZE=1` the pod runs the real Cosmos Reason, Embed1 and YOLO11 pass at boot. `GET /api/integrations/health` and the **Notes** tab show each service's status. A service shows "ok" only after a successful call. All adapter code paths are exercised offline by `backend/tests/mock_gpu.py`, which matches the workshop API shapes and is test-only.
+
+Local development on a Mac has no GPU token, so Cosmos shows as *not configured* and events come from the measurement pipeline (`provenance: derived`), clearly labelled.
+
+## Deploy (workshop App button → `/app`)
+
+See [`deploy/README.md`](deploy/README.md): `./deploy/build.sh` builds the dashboard (`npm run build`, relative base so it works under `/app/`) and produces ConfigMap-sized tarballs. `deploy/k8s.yaml` runs `python:3.12-slim` with the code mounted, serving API and dashboard same-origin (`/app/api/...`). The video is fetched at boot. Terrain and imagery tiles stream from public tile servers in the browser.
 
 ## Run it
 

@@ -108,6 +108,16 @@ export function EvidencePanel() {
             ))}
           </div>
         )}
+        {res?.archive_source && (
+          <div style={{ marginTop: 10 }}>
+            <div className="section-h" style={{ fontSize: 12 }}>Archive matches <small>{res.archive_source}</small></div>
+            {res.archive_synthesis && <div className="msg bot" style={{ fontSize: 12, marginBottom: 6 }}>{res.archive_synthesis}</div>}
+            {(res.archive_results ?? []).map((r, i) => r.error
+              ? <div key={i} className="err">VSS: {r.error}</div>
+              : <div key={i} className="integr"><span className="mono" style={{ fontSize: 11 }}>{(r.video ?? 'video').split('/').pop()}</span><span className="muted" style={{ fontSize: 11 }}>{r.start_seconds != null ? fmtVideo(r.start_seconds) : ''}{r.similarity != null ? ` · ${(+r.similarity).toFixed(2)}` : ''}</span>{r.caption && <span className="s">{r.caption}</span>}</div>)}
+            {!res.archive_results?.length && <div className="muted" style={{ fontSize: 11.5 }}>No archive matches.</div>}
+          </div>
+        )}
       </div>
       <div className="section">
         <div className="section-h">Event Review Queue <small>{events.filter((e) => e.review_required).length} pending</small></div>

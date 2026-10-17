@@ -274,6 +274,10 @@ export interface SearchResponse {
   model: string;                    // e.g. "nvidia/cosmos-embed1-448p"
   results: SearchResult[];
   latency_ms?: number | null;
+  /** Optional: matches from the team's VSS archive (VAST). Other footage — not georeferenced. */
+  archive_results?: { video?: string | null; start_seconds?: number | null; end_seconds?: number | null; similarity?: number | null; caption?: string | null; segments?: number | null; error?: string }[];
+  archive_synthesis?: string | null;
+  archive_source?: string | null;
 }
 
 export interface AskRequest {

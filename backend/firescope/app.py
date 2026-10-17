@@ -66,7 +66,8 @@ def health():
         if not configured:
             status = "not_configured"
         elif s is None:
-            status = "ok" if detail and not detail.startswith("0 ") else "degraded"
+            status = "ok" if (svc != "vss" and detail and not detail.startswith("0 ")) else "degraded"
+            detail = detail if svc != "vss" else "configured · no call yet"
         else:
             status = "ok" if s["ok"] else "down"
         return {"id": id_, "name": name, "sponsor": sponsor, "status": status, "model": model if configured else None,
@@ -267,11 +268,32 @@ class SearchReq(BaseModel):
     source_id: str | None = None
 
 
+def vss_archive(query: str, k: int = 6) -> tuple[list[dict], str | None]:
+    """VSS hybrid search over the team's VAST-backed archive (other footage). Display-only: results are not georeferenced."""
+    if not nvidia.configured("vss"):
+        return [], None
+    try:
+        d = nvidia.vss("/api/v1/search", {"query": query, "top_k": k, "llm_top_n": 2, "min_similarity": 0.3, "include_public": True})
+        out = []
+        for c in (d.get("chunk_results") or [])[:k]:
+            out.append({"video": c.get("original_video") or c.get("preview_source"), "start_seconds": c.get("best_match_start_sec"), "end_seconds": c.get("best_match_end_sec"),
+                        "segments": c.get("matched_segment_count"), "similarity": c.get("similarity_score") or c.get("best_similarity")})
+        if not out:
+            for r in (d.get("results") or [])[:k]:
+                out.append({"video": r.get("source"), "start_seconds": r.get("start_time") or r.get("start_sec"), "end_seconds": r.get("end_time") or r.get("end_sec"),
+                            "similarity": r.get("similarity_score"), "caption": (r.get("reasoning_content") or "")[:200]})
+        return out, ((d.get("llm_synthesis") or {}).get("response"))
+    except Exception as e:  # noqa: BLE001
+        return [{"error": str(e)[:160]}], None
+
+
 @app.post("/api/search")
 def search(req: SearchReq):
     t = time.time()
     res, model = retrieve(req.query, req.top_k or 8, req.source_id)
-    return {"query": req.query, "model": model, "results": res, "latency_ms": int((time.time() - t) * 1000)}
+    archive, synthesis = vss_archive(req.query)
+    return {"query": req.query, "model": model, "results": res, "latency_ms": int((time.time() - t) * 1000),
+            "archive_results": archive, "archive_synthesis": synthesis, "archive_source": "VSS / VAST" if nvidia.configured("vss") else None}
 
 
 class AskReq(BaseModel):

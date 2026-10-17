@@ -39,3 +39,17 @@ async def infer(req: Request):
 @app.get("/calls")
 def calls():
     return CALLS
+
+# ---- TEST-ONLY VSS retrieval mock (routes from vast-builders-challenge retrieval skills)
+@app.post("/api/v1/auth/login")
+async def vss_login(req: Request):
+    b = await req.json()
+    return {"access_token": "mock-jwt", "token_type": "bearer", "username": b.get("username")}
+
+@app.post("/api/v1/search")
+async def vss_search(req: Request):
+    if req.headers.get("authorization") != "Bearer mock-jwt":
+        from fastapi import HTTPException
+        raise HTTPException(401)
+    return {"results": [], "chunk_results": [{"original_video": "s3://bucket/mock_archive.mp4", "best_match_start_sec": 12.0, "best_match_end_sec": 20.0, "matched_segment_count": 2, "similarity_score": 0.41}],
+            "llm_synthesis": {"response": "MOCK synthesis (test only)."}}
