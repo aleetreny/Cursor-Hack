@@ -2,18 +2,39 @@
 // Usage: node scripts/record-demo.mjs <outDir> [url]   → <outDir>/raw.webm + <outDir>/marks.json
 import { chromium } from 'playwright';
 import { mkdirSync, writeFileSync, readdirSync, renameSync } from 'node:fs';
+// HQ=1 → no Playwright video; CDP screencast of JPEG frames at DPR 2 (3840×2160) with wall-clock timestamps.
+const HQ = process.env.HQ === '1';
+// RES=1440 → native 2560×1440 render with the 1920-wide layout (CSS zoom + matching WebGL pixel ratio)
+const RES = +(process.env.RES ?? 1080);
+const ZOOM = RES / 1080;
+const DPR = HQ && RES === 1080 ? 2 : 1;
 
 const out = process.argv[2] ?? 'demo-out';
 const url = process.argv[3] ?? 'http://localhost:5174/?nointro';
 mkdirSync(out, { recursive: true });
 const W = 1920, H = 1080;
 const browser = await chromium.launch({ channel: 'chrome', args: ['--use-angle=metal', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
-const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, recordVideo: { dir: out, size: { width: W, height: H } } });
+const ctx = await browser.newContext(HQ ? { viewport: { width: Math.round(W * ZOOM), height: Math.round(H * ZOOM) }, deviceScaleFactor: DPR } : { viewport: { width: W, height: H }, deviceScaleFactor: 1, recordVideo: { dir: out, size: { width: W, height: H } } });
 const tPage = Date.now();
 const page = await ctx.newPage();
+if (ZOOM !== 1) await page.addInitScript((z) => { document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.zoom = String(z); }); }, ZOOM);
 await page.goto(url);
 await page.waitForFunction(() => window.__scene?.ready && window.__store?.getState().loaded, null, { timeout: 90000 });
+if (ZOOM !== 1) await page.evaluate((z) => { window.__scene.renderer.setPixelRatio(z); window.dispatchEvent(new Event('resize')); }, ZOOM);
 await page.waitForTimeout(2500);
+
+const frames = [];
+let cdp = null, pending = Promise.resolve();
+if (HQ) {
+  mkdirSync(`${out}/frames`, { recursive: true });
+  cdp = await ctx.newCDPSession(page);
+  cdp.on('Page.screencastFrame', (f) => {
+    const i = frames.length, ts = f.metadata.timestamp;
+    frames.push(ts);
+    pending = pending.then(() => writeFileSync(`${out}/frames/${String(i).padStart(6, '0')}.jpg`, Buffer.from(f.data, 'base64')));
+    cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }).catch(() => {});
+  });
+}
 
 // ---------- overlay layer (lower-thirds, fades, end card) ----------
 await page.addStyleTag({ content: `
@@ -54,9 +75,11 @@ const marks = {};
 const T0 = Date.now();
 const at = async (sec) => { const w = T0 + sec * 1000 - Date.now(); if (w > 0) await page.waitForTimeout(w); };
 const MK = { start: '#ffffff', s1: '#ff0000', s2: '#00ff00', s3: '#0000ff', s4: '#ffff00', s5: '#ff00ff', endcard: '#00ffff', end: '#000000' };
-const mark = async (k) => { marks[k] = (Date.now() - tPage) / 1000; if (MK[k]) await page.evaluate((c) => window.__mk(c), MK[k]); };
+const mark = async (k) => { marks[k] = HQ ? Date.now() / 1000 : (Date.now() - tPage) / 1000; if (MK[k] && !HQ) await page.evaluate((c) => window.__mk(c), MK[k]); };
 const js = (f, a) => page.evaluate(f, a);
 const S = () => 'window.__store.getState()';
+
+if (HQ) { await page.evaluate(() => { document.querySelector('#promo .mk').style.display = 'none'; }); await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 93, everyNthFrame: 1, maxWidth: Math.round(W * ZOOM * DPR), maxHeight: Math.round(H * ZOOM * DPR) }); }
 
 // ================= 0:00 THE PROBLEM — real footage, full camera view =================
 await js(() => { const s = window.__store.getState(); s.set({ mode: 'drones', feedOpen: true, selectedUnitId: null, speed: 1 }); s.setTime(s.t0 + 222000); window.__scene.flyToDrone(); });
@@ -140,6 +163,7 @@ await js(() => window.__lt('Impact', 'From raw footage to spatial intelligence')
 await at(57.2); await js(() => window.__lt(null));
 await at(58.2); await js(() => window.__end(true)); await mark('endcard');
 await at(65.5); await mark('end');
+if (HQ) { await cdp.send('Page.stopScreencast'); await pending; writeFileSync(`${out}/frames.json`, JSON.stringify(frames)); }
 await page.close();
 await ctx.close();
 await browser.close();
