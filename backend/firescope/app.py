@@ -304,14 +304,21 @@ def ask(req: AskReq):
             err = str(e)[:160]
     else:
         err = "no LLM configured"
-    # Extractive fallback — states plainly that no generative model was used
-    top = (hits and [c for c in ctx_items if any(abs(c["start_seconds"] - h["start_seconds"]) < 1 for h in hits[:3])]) or ctx_items[:3]
-    parts = [f"{c['text'].split(' — ')[0]} [{ctx_items.index(c) + 1}]" for c in top[:3]]
-    used = sorted({ctx_items.index(c) + 1 for c in top[:3]})
-    remap = {n: i + 1 for i, n in enumerate(used)}
-    body = "; ".join(re.sub(r"\[(\d+)\]", lambda m: f"[{remap[int(m.group(1))]}]", p) for p in parts)
-    return {"answer": f"Most relevant evidence: {body}. {summary} (Extractive answer: {err}.)", "citations": [cites[n - 1] for n in used],
-            "model": f"extractive fallback · retrieval: {rmodel}", "grounded": bool(used), "latency_ms": int((time.time() - t) * 1000)}
+    # Extractive fallback — no generative model: a chronological, cited digest of the most relevant evidence
+    hit_starts = [h["start_seconds"] for h in hits[:4]]
+    pick = [c for c in ctx_items if c["kind"] == "event" and (any(abs(c["start_seconds"] - h) < C.CLIP_SECONDS for h in hit_starts))]
+    sev = {e["event_id"]: e["severity"] for e in evs}
+    for c in sorted([c for c in ctx_items if c["kind"] == "event"], key=lambda c: {"alert": 0, "watch": 1}.get(sev.get(c.get("event_id")), 2)):
+        if len(pick) >= 4:
+            break
+        if c not in pick:
+            pick.append(c)
+    pick = sorted(pick[:4], key=lambda c: c["start_seconds"])
+    lines = [f"{_fmt(c['start_seconds'])} {c['text'].split(' — ')[0].rstrip('.')} [{i + 1}]" for i, c in enumerate(pick)]
+    answer = (f"Burned ground in the drone's view grew from {first['burned_area_m2']['value']:,.0f} m² to {last['burned_area_m2']['value']:,.0f} m² over {_fmt(last['video_seconds'])}. "
+              f"Key moments: " + "; ".join(lines) + f". (Extractive summary of logged evidence: {err}.)")
+    return {"answer": answer, "citations": [next(x for x in cites if x["start_seconds"] == c["start_seconds"] and x.get("event_id") == c.get("event_id")) for c in pick],
+            "model": f"extractive fallback · retrieval: {rmodel}", "grounded": bool(pick), "latency_ms": int((time.time() - t) * 1000)}
 
 
 # ------------------------------------------------------------------- media

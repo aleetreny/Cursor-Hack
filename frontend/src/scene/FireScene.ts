@@ -263,6 +263,7 @@ export class FireScene {
     sc.updateProjectionMatrix();
 
     this.computeOverlayBounds();
+    this.addPeakLabels();
     this.placeTrees(innerCanvas);
     this.buildFireSystems();
     if (source) this.buildDrone(source);
@@ -356,6 +357,25 @@ void main() {`)
         .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance += fireEm;');
     };
     return mat;
+  }
+
+  /** Label the highest local maxima of the DEM (real elevations, unnamed — we don't invent toponyms). */
+  private addPeakLabels() {
+    const N = this.gridN, R = N + 1, H = this.rawHeights, win = 22, peaks: { i: number; j: number; h: number }[] = [];
+    for (let j = win; j < N - win; j += 3) for (let i = win; i < N - win; i += 3) {
+      const h = H[j * R + i];
+      let isMax = true;
+      for (let dj = -win; dj <= win && isMax; dj += 2) for (let di = -win; di <= win; di += 2) if (H[(j + dj) * R + i + di] > h) { isMax = false; break; }
+      if (isMax) peaks.push({ i, j, h });
+    }
+    peaks.sort((a, b) => b.h - a.h);
+    const [w, s, e, n] = this.innerBBox;
+    peaks.slice(0, 4).forEach((p, k) => {
+      const lon = w + ((e - w) * p.i) / N, lat = n - ((n - s) * p.j) / N;
+      this.addLabel('peak_' + k, `<div class="lbl-peak"><span>▲</span><div>Summit<b>${Math.round(p.h).toLocaleString()} m</b></div></div>`, this.worldAt(lon, lat, 2));
+    });
+    const lm = this.incident?.landmarks ?? [];
+    lm.forEach((l, k) => this.addLabel('lm_' + k, `<div class="lbl-peak place"><span>●</span><div>${l.name}</div></div>`, this.worldAt(l.position[0], l.position[1], 1)));
   }
 
   /** Raw DEM elevation (m, MSL) at world xz. */
