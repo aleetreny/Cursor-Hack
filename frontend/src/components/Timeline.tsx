@@ -51,7 +51,10 @@ export function Timeline() {
 
   // minute ticks
   const ticks: { t: number; label: string; day?: string }[] = [];
-  const stepMs = span > 20 * 60000 ? 300000 : span > 8 * 60000 ? 60000 : 30000;
+  const [trackW, setTrackW] = useState(700);
+  useEffect(() => { const el = track.current; if (!el) return; const ro = new ResizeObserver(() => setTrackW(el.clientWidth)); ro.observe(el); return () => ro.disconnect(); }, []);
+  const maxTicks = Math.max(3, Math.floor(trackW / 58));
+  const stepMs = [30000, 60000, 120000, 300000, 600000, 1800000, 3600000].find((st) => span / st <= maxTicks) ?? 3600000;
   for (let t = Math.ceil(t0 / stepMs) * stepMs; t <= t1; t += stepMs) ticks.push({ t, label: fmtClock(t, false) });
   if (ticks.length) ticks[0].day = fmtDay(t0);
 

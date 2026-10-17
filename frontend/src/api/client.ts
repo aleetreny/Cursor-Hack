@@ -1,6 +1,6 @@
 import type {
   AnalyzeRequest, AnalyzeResponse, AskRequest, AskResponse, EventsResponse, FireStateResponse, HealthResponse, Incident,
-  ObservationsResponse, ProjectionResponse, SearchRequest, SearchResponse, TimelineResponse, UploadResponse, VideoSource, VideoStatusResponse,
+  ObservationsResponse, ProjectionResponse, SearchRequest, WeatherResponse, SearchResponse, TimelineResponse, UploadResponse, VideoSource, VideoStatusResponse,
 } from './types';
 
 /**
@@ -52,6 +52,7 @@ export const api = {
   observations: () => req<ObservationsResponse>('/api/fire/observations', 'observations.json'),
   fireState: (time: string) => req<FireStateResponse>(`/api/fire/state?time=${encodeURIComponent(time)}`, 'state.json'),
   projection: (from: string, horizonMinutes: number) => req<ProjectionResponse>(`/api/fire/projection?from=${encodeURIComponent(from)}&horizon_minutes=${horizonMinutes}`, 'projection.json'),
+  weather: () => req<WeatherResponse>('/api/weather', 'weather.json'),
   events: (sourceId: string) => req<EventsResponse>(`/api/video/${encodeURIComponent(sourceId)}/events`, 'events.json'),
   status: (sourceId: string) => req<VideoStatusResponse>(`/api/video/${encodeURIComponent(sourceId)}/status`, 'status.json'),
   analyze: (body: AnalyzeRequest) => req<AnalyzeResponse>('/api/video/analyze', 'analyze.json', post(body)),

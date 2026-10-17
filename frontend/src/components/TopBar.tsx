@@ -23,8 +23,8 @@ export function TopBar() {
       <div className="brand-sub">Wildfire Video Intelligence</div>
       <div className="tb-sep" />
       <div className="tb-incident">{incident?.name ?? 'Loading…'} <Icon name="chev" size={12} /></div>
-      <div className="tb-meta">{incident?.location}</div>
-      <div className="tb-meta"><Icon name="calendar" size={13} />{t0 ? `${fmtDate(t0)} · ${Math.round((t1 - t0) / 60000)} min` : ''}</div>
+      <div className="tb-meta loc">{incident?.location}</div>
+      <div className="tb-meta date"><Icon name="calendar" size={13} />{t0 ? `${fmtDate(t0)} · ${Math.round((t1 - t0) / 60000)} min` : ''}</div>
       <div className="seg">
         {tab('incident', 'Incident', 'map')}
         {tab('drones', 'Drones', 'drone', sources.length)}

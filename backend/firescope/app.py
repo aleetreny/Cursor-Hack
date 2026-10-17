@@ -136,6 +136,16 @@ def _iso(s: str) -> float:
     return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
 
 
+@app.get("/api/weather")
+def weather(time_: str | None = Query(None, alias="time")):
+    """ERA5 (Open-Meteo) hourly weather at the burn site; with ?time= returns the nearest hour as `at`."""
+    w = load("weather.json", {"hourly": [], "source": None})
+    if time_ and w["hourly"]:
+        t = _iso(time_)
+        w = {**w, "at": min(w["hourly"], key=lambda r: abs(_iso(r["timestamp"]) - t))}
+    return w
+
+
 @app.get("/api/fire/state")
 def fire_state(time_: str = Query(..., alias="time")):
     t = _iso(time_)

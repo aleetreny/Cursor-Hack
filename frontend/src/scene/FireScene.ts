@@ -54,11 +54,12 @@ export class FireScene {
   private innerBBox!: BBox;
   private h0 = 0;
   exaggeration = 1.8;
-  private gridN = 320;
+  private gridN = 448;
   private rawHeights!: Float32Array; // inner grid, metres
   private innerMesh?: THREE.Mesh;
-  private outerMesh?: THREE.Mesh;
   private outerSampler?: (lon: number, lat: number) => number;
+  private ringSamplers: { bbox: BBox; sample: (lon: number, lat: number) => number }[] = [];
+  private rings: THREE.Mesh[] = [];
   private sun!: THREE.DirectionalLight;
 
   // overlays
@@ -107,7 +108,7 @@ export class FireScene {
   constructor(container: HTMLElement, cb: SceneCallbacks = {}) {
     this.container = container;
     this.cb = cb;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
@@ -122,25 +123,28 @@ export class FireScene {
     this.labelRoot.className = 'scene-labels';
     container.appendChild(this.labelRoot);
 
-    this.camera = new THREE.PerspectiveCamera(34, 1, 2, 60000);
+    this.camera = new THREE.PerspectiveCamera(34, 1, 0.5, 200000);
     this.camera.position.set(200, 220, 260);
     this.controls = new OrbitControls(this.camera, renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     this.controls.maxPolarAngle = THREE.MathUtils.degToRad(84);
-    this.controls.minDistance = 15;
-    this.controls.maxDistance = 14000;
+    this.controls.minDistance = 8;
+    this.controls.maxDistance = 40000;
+    this.controls.zoomToCursor = true;
+    this.controls.rotateSpeed = 0.55;
+    this.controls.panSpeed = 0.9;
     this.controls.zoomSpeed = 0.9;
     this.controls.addEventListener('start', () => { this.anim = undefined; });
 
     // atmosphere
     const haze = new THREE.Color('#d9dcd8');
     this.scene.background = haze.clone();
-    this.scene.fog = new THREE.FogExp2(haze.getHex(), 0.00016);
+    this.scene.fog = new THREE.FogExp2(haze.getHex(), 0.000052);
     this.scene.add(this.makeSky());
-    const hemi = new THREE.HemisphereLight('#e9eef5', '#7a6248', 1.15);
+    const hemi = new THREE.HemisphereLight('#dfe6ef', '#6e5440', 0.85);
     this.scene.add(hemi);
-    this.sun = new THREE.DirectionalLight('#fff1dc', 2.6);
+    this.sun = new THREE.DirectionalLight('#ffe9cc', 3.3);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(4096, 4096);
     this.sun.shadow.bias = -0.0004;
@@ -195,9 +199,9 @@ export class FireScene {
   }
 
   private makeSky() {
-    const geo = new THREE.SphereGeometry(40000, 32, 16);
+    const geo = new THREE.SphereGeometry(150000, 32, 16);
     const mat = new THREE.ShaderMaterial({
-      side: THREE.BackSide, depthWrite: false, fog: false,
+      side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
       uniforms: { top: { value: new THREE.Color('#aebccb') }, bottom: { value: new THREE.Color('#dedfd9') } },
       vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
       fragmentShader: 'uniform vec3 top; uniform vec3 bottom; varying vec3 vP; void main(){ float h = clamp(vP.y*2.2, 0., 1.); gl_FragColor = vec4(mix(bottom, top, pow(h, .7)), 1.); }',
@@ -223,15 +227,26 @@ export class FireScene {
     const sampleInner = (lon: number, lat: number) => { const [px, py] = innerDem.px(lon, lat); return dec.sample(px, py); };
     this.h0 = sampleInner(cx, cy);
 
-    const outerBBox: BBox = [cx - 0.11, cy - 0.085, cx + 0.11, cy + 0.085];
-    const outerDem = await loadMosaic(outerBBox, 12, TERRARIUM);
-    const decO = decodeTerrarium(outerDem);
-    this.outerSampler = (lon, lat) => { const [px, py] = outerDem.px(lon, lat); return decO.sample(px, py); };
+    // Nested LOD rings (clipmap-style): fine DEM/imagery near the incident, coarser rings out to the horizon.
+    const RINGS = [
+      { half: [0.085, 0.065], demZ: 13, imgZ: 14, N: 240, img: 2048 },   // ~14 km
+      { half: [0.42, 0.32], demZ: 11, imgZ: 11, N: 200, img: 2048 },     // ~70 km horizon
+    ];
+    const ringData = await Promise.all(RINGS.map(async (r) => {
+      const bbox: BBox = [cx - r.half[0], cy - r.half[1], cx + r.half[0], cy + r.half[1]];
+      const [dem, img] = await Promise.all([loadMosaic(bbox, r.demZ, TERRARIUM), loadMosaic(bbox, r.imgZ, ESRI_IMAGERY)]);
+      const d = decodeTerrarium(dem);
+      return { ...r, bbox, sample: (lon: number, lat: number) => { const [px, py] = dem.px(lon, lat); return d.sample(px, py); }, canvas: cropToBBox(img, bbox, r.img) };
+    }));
+    this.ringSamplers = ringData.map((r) => ({ bbox: r.bbox, sample: r.sample }));
+    this.outerSampler = (lon, lat) => {
+      for (const r of this.ringSamplers) if (lon >= r.bbox[0] && lon <= r.bbox[2] && lat >= r.bbox[1] && lat <= r.bbox[3]) return r.sample(lon, lat);
+      return this.h0;
+    };
 
     this.cb.onProgress?.('Loading aerial imagery');
-    const [innerImg, outerImg] = await Promise.all([loadMosaic(this.innerBBox, 17, ESRI_IMAGERY), loadMosaic(outerBBox, 13, ESRI_IMAGERY)]);
+    const innerImg = await loadMosaic(this.innerBBox, 17, ESRI_IMAGERY);
     const innerCanvas = cropToBBox(innerImg, this.innerBBox, 4096);
-    const outerCanvas = cropToBBox(outerImg, outerBBox, 2048);
 
     this.cb.onProgress?.('Building terrain');
     const N = this.gridN;
@@ -241,22 +256,26 @@ export class FireScene {
 
     this.innerMesh = new THREE.Mesh(this.buildGrid(this.innerBBox, N, (i, j) => this.rawHeights[j * (N + 1) + i]), this.makeTerrainMaterial(innerCanvas, 1));
     this.innerMesh.receiveShadow = this.innerMesh.castShadow = true;
-    const [iw, is, ie, inn] = this.innerBBox;
-    const oN = 220;
-    const outerH = (i: number, j: number) => {
-      const lon = outerBBox[0] + ((outerBBox[2] - outerBBox[0]) * i) / oN, lat = outerBBox[3] - ((outerBBox[3] - outerBBox[1]) * j) / oN;
-      const inside = lon > iw + 0.0012 && lon < ie - 0.0012 && lat > is + 0.0009 && lat < inn - 0.0009;
-      return this.outerSampler!(lon, lat) - (inside ? 25 : 0);
-    };
-    this.outerMesh = new THREE.Mesh(this.buildGrid(outerBBox, oN, outerH), this.makeTerrainMaterial(outerCanvas, 0));
-    this.outerMesh.receiveShadow = true;
-    this.scene.add(this.innerMesh, this.outerMesh);
-    (this.outerMesh.userData as { heightFn: typeof outerH }).heightFn = outerH;
+    let finer: BBox = this.innerBBox;
+    this.rings = ringData.map((r, k) => {
+      const inner = finer, rN = r.N;
+      const cellLon = (r.bbox[2] - r.bbox[0]) / rN, cellLat = (r.bbox[3] - r.bbox[1]) / rN;
+      const hFn = (i: number, j: number) => {
+        const lon = r.bbox[0] + (r.bbox[2] - r.bbox[0]) * (i / rN), lat = r.bbox[3] - (r.bbox[3] - r.bbox[1]) * (j / rN);
+        const inside = lon > inner[0] + cellLon && lon < inner[2] - cellLon && lat > inner[1] + cellLat && lat < inner[3] - cellLat;
+        return r.sample(lon, lat) - (inside ? 30 + k * 60 : 0);   // tuck under the finer ring
+      };
+      const mesh = new THREE.Mesh(this.buildGrid(r.bbox, rN, hFn), this.makeTerrainMaterial(r.canvas, 0));
+      mesh.receiveShadow = k === 0;
+      (mesh.userData as { bbox: BBox }).bbox = r.bbox;
+      finer = r.bbox;
+      return mesh;
+    });
+    this.scene.add(this.innerMesh, ...this.rings);
     (this.innerMesh.userData as { bbox: BBox }).bbox = this.innerBBox;
-    (this.outerMesh.userData as { bbox: BBox }).bbox = outerBBox;
 
     // sun from WSW, fairly low — long warm shadows like the reference
-    const sunDir = new THREE.Vector3(-0.8, 0.42, 0.42).normalize();
+    const sunDir = new THREE.Vector3(-0.85, 0.36, 0.38).normalize();
     this.sun.position.copy(sunDir.multiplyScalar(3000));
     const sc = this.sun.shadow.camera as THREE.OrthographicCamera;
     sc.left = sc.bottom = -1400; sc.right = sc.top = 1400; sc.near = 100; sc.far = 7000;
@@ -301,7 +320,7 @@ export class FireScene {
   private makeTerrainMaterial(imagery: HTMLCanvasElement, inner: number) {
     const tex = new THREE.CanvasTexture(imagery);
     tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 8;
+    tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
     const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.97, metalness: 0 });
     const u = this.uniforms;
     mat.onBeforeCompile = (sh) => {
@@ -395,7 +414,7 @@ void main() {`)
 
   setExaggeration(v: number) {
     this.exaggeration = v;
-    for (const mesh of [this.innerMesh, this.outerMesh]) {
+    for (const mesh of [this.innerMesh, ...this.rings]) {
       if (!mesh) continue;
       const g = mesh.geometry, { N, h } = g.userData as { N: number; h: (i: number, j: number) => number };
       const p = g.attributes.position as THREE.BufferAttribute;
@@ -541,7 +560,7 @@ void main() {`)
     this.updateHotspotLabels(t);
     for (const [id, lab] of this.labels) if (id.startsWith('ev_')) {
       const e = this.events.find((x) => 'ev_' + x.event_id === id);
-      if (e) { lab.el.classList.toggle('future', Date.parse(e.timestamp) > t); lab.el.classList.toggle('sel', e.event_id === this.selectedEvent); }
+      if (e) { lab.el.classList.toggle('future', Date.parse(e.timestamp) > t); const sel = e.event_id === this.selectedEvent; if (lab.el.classList.contains('sel') !== sel) delete lab.el.dataset.w; lab.el.classList.toggle('sel', sel); }
     }
   }
 
@@ -561,13 +580,20 @@ void main() {`)
     const pu = { uTime: this.uniforms.uTime, uScale: { value: 1 }, uSize: { value: 3.6 } };
     this.flames = new THREE.Points(fg, new THREE.ShaderMaterial({
       uniforms: pu, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-      vertexShader: /* glsl */ `attribute float aSeed; uniform float uTime, uScale, uSize; varying float vSeed; varying float vF;
+      vertexShader: /* glsl */ `#include <common>
+#include <logdepthbuf_pars_vertex>
+attribute float aSeed; uniform float uTime, uScale, uSize; varying float vSeed; varying float vF;
         void main(){ vSeed = aSeed; vec3 p = position; float f = fract(uTime*(0.9+aSeed*0.8) + aSeed*7.0); vF = f;
           p.y += f * uSize * 0.55 + uSize*0.35; p.x += sin(uTime*3.+aSeed*20.)*0.25;
           vec4 mv = modelViewMatrix*vec4(p,1.); gl_Position = projectionMatrix*mv;
-          gl_PointSize = clamp(uSize*(1.0 - f*0.45)*(0.75+aSeed*0.7) * uScale / -mv.z, 1.5, 220.); }`,
-      fragmentShader: /* glsl */ `varying float vSeed; varying float vF; uniform float uTime;
-        void main(){ vec2 uv = gl_PointCoord*2.-1.; uv.y = -uv.y;
+          gl_PointSize = clamp(uSize*(1.0 - f*0.45)*(0.75+aSeed*0.7) * uScale / -mv.z, 1.5, 220.);
+          #include <logdepthbuf_vertex>
+        }`,
+      fragmentShader: /* glsl */ `#include <logdepthbuf_pars_fragment>
+varying float vSeed; varying float vF; uniform float uTime;
+        void main(){
+          #include <logdepthbuf_fragment>
+ vec2 uv = gl_PointCoord*2.-1.; uv.y = -uv.y;
           float wob = sin(uv.y*5.0 + uTime*9.0 + vSeed*30.0)*0.12*(uv.y+1.0);
           float w = mix(0.62, 0.08, clamp((uv.y+1.0)*0.5, 0., 1.));            // wide base, pointed tip
           float d = abs(uv.x + wob) / w;
@@ -589,13 +615,20 @@ void main() {`)
     const su = { uTime: this.uniforms.uTime, uScale: pu.uScale };
     this.smoke = new THREE.Points(sg, new THREE.ShaderMaterial({
       uniforms: su, transparent: true, depthWrite: false,
-      vertexShader: /* glsl */ `attribute float aSeed; uniform float uTime, uScale; varying float vL; varying float vSeed;
+      vertexShader: /* glsl */ `#include <common>
+#include <logdepthbuf_pars_vertex>
+attribute float aSeed; uniform float uTime, uScale; varying float vL; varying float vSeed;
         void main(){ vSeed = aSeed; float L = fract(uTime*0.035 + aSeed*13.7); vL = L; vec3 p = position;
           p += vec3(L*L*38.0 + sin(aSeed*40.)*4., L*42.0, -L*L*14.0 + cos(aSeed*30.)*4.);
           vec4 mv = modelViewMatrix*vec4(p,1.); gl_Position = projectionMatrix*mv;
-          gl_PointSize = clamp((5.0 + L*30.0) * uScale / -mv.z, 2., 420.); }`,
-      fragmentShader: /* glsl */ `varying float vL; varying float vSeed;
-        void main(){ vec2 uv = gl_PointCoord*2.-1.; float d = length(uv); float a = smoothstep(1., .1, d) * smoothstep(0., .12, vL) * (1.-vL) * 0.16;
+          gl_PointSize = clamp((5.0 + L*30.0) * uScale / -mv.z, 2., 420.);
+          #include <logdepthbuf_vertex>
+        }`,
+      fragmentShader: /* glsl */ `#include <logdepthbuf_pars_fragment>
+varying float vL; varying float vSeed;
+        void main(){
+          #include <logdepthbuf_fragment>
+ vec2 uv = gl_PointCoord*2.-1.; float d = length(uv); float a = smoothstep(1., .1, d) * smoothstep(0., .12, vL) * (1.-vL) * 0.16;
           vec3 c = mix(vec3(.22,.20,.19), vec3(.62,.60,.58), vL); gl_FragColor = vec4(c, a); }`,
     }));
     this.smoke.frustumCulled = false;
@@ -784,23 +817,34 @@ void main() {`)
   private v = new THREE.Vector3();
   private updateLabels() {
     const w = this.container.clientWidth, h = this.container.clientHeight;
-    const boxes: [number, number, number, number][] = [];
-    const items: { el: HTMLElement; x: number; y: number; pri: number }[] = [];
+    const items: { el: HTMLElement; x: number; y: number; pri: number; kind: 'ev' | 'drone' | 'place' }[] = [];
     for (const [id, { el, pos }] of this.labels) {
       this.v.copy(pos).project(this.camera);
       if (this.v.z > 1 || this.v.z < -1) { el.style.visibility = 'hidden'; continue; }
-      el.style.visibility = '';
       const x = ((this.v.x + 1) / 2) * w, y = ((1 - this.v.y) / 2) * h;
+      if (x < -40 || x > w + 40 || y < -40 || y > h + 40) { el.style.visibility = 'hidden'; continue; }
+      el.style.visibility = '';
       el.style.transform = `translate(${x}px, ${y}px)`;
-      if (id.startsWith('ev_')) items.push({ el, x, y, pri: el.firstElementChild?.classList.contains('sel') ? 2 : el.firstElementChild?.classList.contains('future') ? 0 : 1 });
+      if (id.startsWith('hs_')) continue;
+      const c = el.firstElementChild as HTMLElement | null;
+      const kind = id.startsWith('ev_') ? 'ev' : id.startsWith('drone_') ? 'drone' : 'place';
+      void c;
+      const pri = kind === 'ev' ? (el.classList.contains('sel') ? 4 : el.classList.contains('future') ? 1 : 2) : kind === 'drone' ? 3 : 0;
+      items.push({ el, x, y, pri, kind });
     }
-    // hide the text of event labels that would overlap a higher-priority one (ring stays visible)
+    // greedy collision manager: higher priority first, 6 px padding, keep clear of the map controls band
     items.sort((a, b) => b.pri - a.pri || a.y - b.y);
+    const boxes: number[][] = [[w - 360, h - 64, w, h], [0, 0, 70, 70]];
     for (const it of items) {
-      const bw = it.pri === 2 ? 170 : 66, bx: [number, number, number, number] = [it.x + 8, it.y - 12, it.x + 8 + bw, it.y + 12];
-      const hit = boxes.some((b) => !(bx[2] < b[0] || bx[0] > b[2] || bx[3] < b[1] || bx[1] > b[3]));
-      it.el.classList.toggle('collide', hit);
-      if (!hit) boxes.push(bx);
+      const c = it.el.firstElementChild as HTMLElement | null;
+      // measure with the text visible once, then reuse (avoids flicker when the text is hidden)
+      if (!it.el.dataset.w && c && !it.el.classList.contains('collide')) { it.el.dataset.w = String(c.offsetWidth); it.el.dataset.h = String(c.offsetHeight); }
+      const bw = +(it.el.dataset.w ?? 80), bh = +(it.el.dataset.h ?? 20);
+      const box = it.kind === 'drone' ? [it.x - bw / 2 - 6, it.y - bh - 6, it.x + bw / 2 + 6, it.y + 6] : [it.x - 10, it.y - bh / 2 - 6, it.x + bw + 6, it.y + bh / 2 + 6];
+      const hit = boxes.some((b) => !(box[2] < b[0] || box[0] > b[2] || box[3] < b[1] || box[1] > b[3]));
+      if (it.kind === 'ev') it.el.classList.toggle('collide', hit && it.pri < 4);
+      else it.el.style.visibility = hit && it.pri < 3 ? 'hidden' : '';
+      if (!hit || it.pri >= 3) boxes.push(box);
     }
   }
 
@@ -887,7 +931,7 @@ void main() {`)
     if (now - this.lastHover < 60 || !this.ready || e.buttons) return;
     this.lastHover = now;
     this.raycaster.setFromCamera(this.pointer, this.camera);
-    const hit = this.raycaster.intersectObjects([this.innerMesh!, this.outerMesh!].filter(Boolean), false)[0];
+    const hit = this.raycaster.intersectObjects([this.innerMesh!, ...this.rings].filter(Boolean), false)[0];
     if (!hit) { this.cb.onHover?.(null); return; }
     const { x, z } = hit.point;
     const [lon, lat] = toLonLat(this.frame, x, z);

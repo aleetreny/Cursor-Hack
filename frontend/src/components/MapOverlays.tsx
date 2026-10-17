@@ -49,7 +49,7 @@ export function MapOverlays() {
       </div>
 
       {hover && (
-        <div className="hovertip" style={{ left: hover.x, top: hover.y }}>
+        <div className="hovertip" style={{ left: hover.x, top: hover.y, transform: `translate(${hover.x > (document.querySelector('.map')?.clientWidth ?? 9999) - 290 ? 'calc(-100% - 14px)' : '14px'}, ${hover.y > (document.querySelector('.map')?.clientHeight ?? 9999) - 110 ? 'calc(-100% - 14px)' : '14px'})` }}>
           <div><b>{Math.round(hover.elevation).toLocaleString()} m</b> · {Math.round(hover.slope)}° slope · {aspectName(hover.aspect)}-facing</div>
           <div><span className={'dot' + (hover.inBurned ? ' burn' : '')} />{hover.inBurned ? 'Inside observed burned area' : hover.inPerimeter ? 'Inside planned burn cell' : 'Outside burn cell'}</div>
           <div className="c">{formatLat(hover.lat)} {formatLon(hover.lon)}</div>
@@ -67,7 +67,7 @@ export function MapOverlays() {
         </div>
         <div className="ctlgrp">
           <button onClick={() => sceneRef.current?.zoomBy(1.4)} title="Zoom out">−</button>
-          <button style={{ minWidth: 44, justifyContent: 'center' }} onClick={() => sceneRef.current?.flyHome()} title="Reset view">{cam.zoom.toFixed(1)}×</button>
+          <button style={{ minWidth: 44, justifyContent: 'center' }} onClick={() => sceneRef.current?.flyHome()} title="Reset view">{cam.zoom >= 1 ? cam.zoom.toFixed(1) : cam.zoom.toFixed(2)}×</button>
           <button onClick={() => sceneRef.current?.zoomBy(1 / 1.4)} title="Zoom in">+</button>
         </div>
         <div className="ctlgrp">

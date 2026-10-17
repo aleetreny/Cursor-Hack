@@ -33,7 +33,7 @@ export function RightPanel() {
   return (
     <aside className="right">
       <div className="tabs">{tab('layers', 'Layers')}{tab('analysis', 'Analysis')}{tab('evidence', 'Evidence')}{tab('notes', 'Notes')}</div>
-      {panel === 'layers' && <div className="scroll"><LayersSection /><IncidentOverview /><ObservationCard /></div>}
+      {panel === 'layers' && <div className="scroll"><LayersSection /><IncidentOverview /><WeatherCard /><ObservationCard /></div>}
       {panel === 'analysis' && <AgentPanel />}
       {panel === 'evidence' && <EvidencePanel />}
       {panel === 'notes' && <div className="scroll"><NotesSection /></div>}
@@ -52,14 +52,14 @@ function LayersSection() {
         const on = typeof v === 'boolean' ? v : (v as number) > 0.001;
         const unavailable = (l.id === 'groundTruth' && !hasGT) || (l.id === 'projection' && !hasProj);
         return (
-          <div key={l.id} className={'layer' + (on && !unavailable ? '' : ' off')} title={unavailable ? 'Not provided by the current data source' : undefined}>
+          <div key={l.id} className={'layer' + (l.kind === 'toggle' ? ' toggle' : '') + (on && !unavailable ? '' : ' off')} title={unavailable ? 'Not provided by the current data source' : undefined}>
             <input type="checkbox" className="cb" checked={on} onChange={(e) => setLayer(l.id, (l.kind === 'opacity' ? (e.target.checked ? (l.def ?? 1) : 0) : e.target.checked) as never)} />
             <div className="sw" style={{ background: l.sw }} />
             <span>{l.label}</span>
             {l.kind === 'opacity'
               ? <input type="range" className="rng" min={0} max={1} step={0.01} value={v as number} onChange={(e) => setLayer(l.id, +e.target.value as never)} />
-              : <span />}
-            <span className="pct">{l.kind === 'opacity' ? `${Math.round((v as number) * 100)}%` : unavailable ? 'n/a' : on ? 'on' : ''}</span>
+              : null}
+            <span className="pct">{l.kind === 'opacity' ? `${Math.round((v as number) * 100)}%` : unavailable ? 'n/a' : ''}</span>
           </div>
         );
       })}
@@ -148,5 +148,29 @@ function NotesSection() {
       </div>
       <div className="section"><div className="section-h">Attribution</div>{incident?.attribution.map((a) => <div key={a} className="muted" style={{ fontSize: 11.5 }}>{a}</div>)}</div>
     </>
+  );
+}
+
+const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+function WeatherCard() {
+  const { weather, time } = useStore();
+  const at = useMemo(() => {
+    const h = weather?.hourly ?? [];
+    return h.length ? h.reduce((a, b) => (Math.abs(Date.parse(b.timestamp) - time) < Math.abs(Date.parse(a.timestamp) - time) ? b : a)) : null;
+  }, [weather, time]);
+  const dir = at?.wind_dir_deg != null ? COMPASS[Math.round(at.wind_dir_deg / 22.5) % 16] : null;
+  return (
+    <div className="section">
+      <div className="section-h"><span>Weather <small>(ERA5 · {at ? fmtClock(Date.parse(at.timestamp), false) + ' UTC' : 'n/a'})</small></span><span className="prov external">external</span></div>
+      <div className="metrics">
+        <div className="metric"><span className="ic"><Icon name="smoke" /></span><span className="lab">Wind</span><span className="val">{fmtNum(at?.wind_kmh, 1)} <small>km/h</small></span><span className="sub">{dir ? `from ${dir} (${Math.round(at!.wind_dir_deg!)}°)` : '—'}</span></div>
+        <div className="metric"><span className="ic"><Icon name="flame" color="#d2402a" /></span><span className="lab">Temp</span><span className="val">{fmtNum(at?.temp_c, 1)} <small>°C</small></span></div>
+        <div className="metric"><span className="ic"><Icon name="target" /></span><span className="lab">RH</span><span className="val">{fmtNum(at?.rh_pct)} <small>%</small></span></div>
+        <div className="metric"><span className="ic"><Icon name="delta" /></span><span className="lab">Gusts</span><span className="val">{fmtNum(at?.gust_kmh, 1)} <small>km/h</small></span></div>
+        <div className="metric"><span className="ic"><Icon name="db" /></span><span className="lab">Soil moist.</span><span className="val">{at?.soil_moisture_m3m3 != null ? fmtNum(at.soil_moisture_m3m3 * 100) : '—'} <small>%vol</small></span><span className="sub">0–7 cm</span></div>
+        <div className="metric"><span className="ic"><Icon name="area" /></span><span className="lab">VPD</span><span className="val">{fmtNum(at?.vpd_kpa, 2)} <small>kPa</small></span></div>
+      </div>
+      <div className="muted" style={{ fontSize: 10.5, marginTop: 8 }}>{weather?.source ? `${weather.source} · ${weather.grid}. Reanalysis, not an on-site sensor.` : 'No weather source connected.'}</div>
+    </div>
   );
 }

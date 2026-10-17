@@ -317,3 +317,9 @@ export interface ProjectionResponse {
   assumptions: string[];
   steps: { timestamp: ISODate; feature: FireFeature }[];
 }
+
+/* ----------------------------------------------------------------- weather */
+
+export interface WeatherHour { timestamp: ISODate; temp_c: number | null; rh_pct: number | null; wind_kmh: number | null; wind_dir_deg: number | null; gust_kmh: number | null; soil_moisture_m3m3: number | null; vpd_kpa: number | null }
+/** GET /api/weather?time=… — historical reanalysis at the site (not an on-site measurement). */
+export interface WeatherResponse { source: string | null; grid?: string; provenance?: Provenance; elevation_m?: number | null; hourly: WeatherHour[]; at?: WeatherHour }

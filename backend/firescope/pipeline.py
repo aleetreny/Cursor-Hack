@@ -213,6 +213,11 @@ def run(limit_seconds: float | None = None) -> dict:
     for name, obj in [("incident", incident), ("sources", [source]), ("timeline", timeline), ("observations", observations),
                       ("events_cv", {"source_id": SOURCE_ID, "events": events}), ("clips", clips), ("eval", eval_out)]:
         (OUT / f"{name}.json").write_text(json.dumps(obj, separators=(",", ":")))
+    try:
+        from .weather import fetch
+        fetch()
+    except Exception as e:  # noqa: BLE001 — weather is optional context
+        print("weather fetch failed:", e)
     print(f"done: {len(frames)} frames, {len(features)} features, {len(hotspots)} hotspots, {len(events)} events, eval {eval_summary} in {time.time() - t_start:.0f}s")
     return eval_out
 
