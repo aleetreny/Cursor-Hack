@@ -12,6 +12,7 @@ rm -rf "$OUT"; mkdir -p "$OUT/www" "$OUT/app/firescope"
 cp -R frontend/dist/. "$OUT/www/"
 rm -rf "$OUT/www/fixtures" "$OUT/www/media"
 echo "window.__FIRESCOPE__ = { apiBase: '/app' };" > "$OUT/www/config.js"   # backend also serves this route
+cp deploy/HANDOFF.md "$OUT/HANDOFF.md"
 cp backend/main.py "$OUT/app/main.py"
 cp backend/firescope/{__init__,app,common,config,cosmos_job,nvidia,weather}.py "$OUT/app/firescope/"
 cp backend/requirements-api.txt "$OUT/app/requirements.txt"
