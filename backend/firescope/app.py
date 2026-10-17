@@ -54,26 +54,39 @@ def events() -> list[dict]:
 @app.get("/api/integrations/health")
 def health():
     st = nvidia.STATUS
+    clips = load("clips_cosmos.json", {})
+    described = len([c for c in clips.values() if "caption" in c])
+    vectors = len([c for c in clips.values() if c.get("vector")])
+    yolo_n = len([c for c in clips.values() if c.get("yolo")])
+    ev = load("eval.json", {"mean": {}})
+    gpu = nvidia.configured("gpu")
+
     def item(id_, name, sponsor, svc, model, configured, detail=None):
         s = st.get(svc)
-        status = "not_configured" if not configured else ("ok" if s and s["ok"] else "degraded" if s else "ok")
-        if configured and not s:
-            detail = detail or "configured · no call yet this session"
+        if not configured:
+            status = "not_configured"
+        elif s is None:
+            status = "ok" if detail and not detail.startswith("0 ") else "degraded"
+        else:
+            status = "ok" if s["ok"] else "down"
         return {"id": id_, "name": name, "sponsor": sponsor, "status": status, "model": model if configured else None,
-                "endpoint": s["endpoint"] if s else None, "last_success": s["at"] if s and s["ok"] else None,
-                "latency_ms": s["latency_ms"] if s else None, "detail": (s["detail"] if s and not s["ok"] else detail)}
-    cosmos_count = len([l for l in (C.PROCESSED / "nvidia_calls.jsonl").read_text().splitlines() if '"ok": true' in l]) if (C.PROCESSED / "nvidia_calls.jsonl").exists() else 0
-    clips = load("clips_cosmos.json", {})
-    ev = load("eval.json", {"mean": {}})
+                "endpoint": (s or {}).get("endpoint"), "last_success": s["at"] if s and s["ok"] else None,
+                "latency_ms": (s or {}).get("latency_ms"), "detail": (s["detail"] if s and not s["ok"] else detail)}
+
     return {"ok": True, "version": app.version, "integrations": [
-        item("nvidia_cosmos_reason", "Cosmos Reason", "NVIDIA", "cosmos_reason", C.COSMOS_REASON_MODEL, nvidia.configured("reason"),
-             f"{len([c for c in clips.values() if 'caption' in c])} clips described · {cosmos_count} successful calls logged"),
-        item("nvidia_embed", "Cosmos Embed / NV-Embed retrieval", "NVIDIA", "embed", C.COSMOS_EMBED_MODEL if C.COSMOS_EMBED_BASE else C.EMBED_MODEL_FALLBACK, nvidia.configured("embed")),
-        item("nvidia_llm", "Agent LLM (NIM)", "NVIDIA", "agent", C.LLM_MODEL, nvidia.configured("reason")),
-        {"id": "vast", "name": "VAST Data Platform", "sponsor": "VAST Data", "status": "ok" if C.VAST_ENDPOINT else "not_configured", "model": None, "endpoint": C.VAST_ENDPOINT or None, "detail": None},
+        item("nvidia_cosmos_reason", "Cosmos Reason", "NVIDIA", "cosmos_reason", C.COSMOS_REASON_MODEL, gpu, f"{described} clips described"),
+        item("nvidia_cosmos_embed", "Cosmos Embed1 (video search)", "NVIDIA", "cosmos_embed", nvidia.embed_model(), gpu, f"{vectors} clip vectors indexed"),
+        item("yolo11", "YOLO11 detector", "NVIDIA VSS stack", "yolo", "yolo11s", gpu, f"{yolo_n} clips scanned"),
+        item("vast_vss", "VAST / VSS retrieval", "VAST Data", "vss", "vss2 search + agent", nvidia.configured("vss"), "archive search via /api/v1/search"),
+        item("llm", "Agent LLM", "W&B / CoreWeave" if C.LLM_BASE != C.COSMOS_REASON_BASE else "NVIDIA", "agent", C.LLM_MODEL, nvidia.configured("llm") or gpu),
         {"id": "cv_pipeline", "name": "FireScope CV + georeferencing", "sponsor": "FireScope", "status": "ok", "model": "HSV segmentation + DEM ray cast",
          "endpoint": "local", "detail": f"mean IoU {ev['mean'].get('iou', '—')} vs BurnedAreaUAV masks ({ev.get('frames_evaluated', 0)} frames)"},
     ]}
+
+
+@app.on_event("startup")
+def _auto():
+    cosmos_job.maybe_auto_start()
 
 
 # ------------------------------------------------------------- incident/data
@@ -181,8 +194,8 @@ class AnalyzeReq(BaseModel):
 def analyze(req: AnalyzeReq):
     if req.source_id != C.SOURCE_ID:
         raise HTTPException(422, "Only the georeferenced drone replay can be analysed end-to-end in this build")
-    if not nvidia.configured("reason"):
-        raise HTTPException(503, "Cosmos Reason is not configured (set NVIDIA_API_KEY or COSMOS_REASON_BASE in backend/.env)")
+    if not nvidia.configured("gpu"):
+        raise HTTPException(503, "Cosmos Reason is not configured on this server (GPU_BEARER_TOKEN comes from the K8s Secret)")
     cosmos_job.start_background(every=req.every or 3)
     return {"job_id": f"cosmos-{int(time.time())}", "source_id": req.source_id, "processing": {k: cosmos_job.JOB[k] for k in ("state", "progress", "clips_total", "clips_done", "message")}}
 
@@ -226,10 +239,11 @@ def retrieve(query: str, k: int = 8, source_id: str | None = None) -> tuple[list
     docs = idx["docs"]
     evs = events()
     ev_by_clip = {int(e["start_seconds"] // C.CLIP_SECONDS): e for e in evs}
-    if docs and "vector" in docs[0]:
+    vdocs = [d for d in docs if d.get("vector")]
+    if vdocs:
         try:
             qv = nvidia.embed([query], "query")[0]
-            scored = sorted(((_cos(qv, d["vector"]), d) for d in docs), key=lambda x: -x[0])[:k]
+            scored = sorted(((_cos(qv, d["vector"]), d) for d in vdocs), key=lambda x: -x[0])[:k]
             return [{**{f: d[f] for f in ("clip_id", "source_id", "start_seconds", "end_seconds", "timestamp", "thumbnail_url", "caption")}, "similarity": round(s, 4),
                      "event_id": (ev_by_clip.get(int(d["start_seconds"] // C.CLIP_SECONDS)) or {}).get("event_id")} for s, d in scored], idx["model"]
         except Exception:  # noqa: BLE001 — fall through to lexical, and say so in the model label
@@ -289,7 +303,7 @@ def ask(req: AskReq):
     summary = (f"Observed burned area (georeferenced, approximate): {first['burned_area_m2']['value']} m² at {_fmt(first['video_seconds'])} → {last['burned_area_m2']['value']} m² at {_fmt(last['video_seconds'])}. "
                f"Segmentation mean IoU vs manual masks: {load('eval.json', {'mean': {}})['mean'].get('iou')}.")
     cites = [{"source_id": c["source_id"], "start_seconds": c["start_seconds"], "end_seconds": c["end_seconds"], "timestamp": c["timestamp"], "event_id": c.get("event_id"), "label": f"{_fmt(c['start_seconds'])}–{_fmt(c['end_seconds'])}"} for c in ctx_items]
-    if nvidia.configured("reason"):
+    if nvidia.configured("gpu") or nvidia.configured("llm"):
         listing = "\n".join(f"[{i + 1}] {_fmt(c['start_seconds'])}–{_fmt(c['end_seconds'])} ({c['kind']}): {c['text']}" for i, c in enumerate(ctx_items))
         sys = ("You are FireScope, a wildfire video analysis assistant. Answer ONLY from the evidence list, which comes from NVIDIA Cosmos Reason clip analyses and "
                "computer-vision measurements of a recorded drone video (replay, not live). Cite evidence as [n]. Be concise (≤90 words). "
@@ -297,7 +311,7 @@ def ask(req: AskReq):
         msgs = [{"role": "system", "content": sys}, *[{"role": m["role"], "content": m["content"]} for m in (req.history or [])[-4:]],
                 {"role": "user", "content": f"Evidence:\n{listing}\n\nSummary: {summary}\n\nQuestion: {req.question}"}]
         try:
-            ans = nvidia.chat(msgs, C.LLM_MODEL, C.COSMOS_REASON_BASE, max_tokens=700, service="agent")
+            ans = nvidia.chat(msgs, C.LLM_MODEL, C.LLM_BASE, max_tokens=900, service="agent")
             ans = re.sub(r"<think>.*?</think>", "", ans, flags=re.S).strip()
             used = sorted({int(n) for n in re.findall(r"\[(\d+)\]", ans) if 0 < int(n) <= len(cites)})
             remap = {n: i + 1 for i, n in enumerate(used)}

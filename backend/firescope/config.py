@@ -49,22 +49,31 @@ SAMPLE_EVERY_FRAMES = 100        # 4 s at 25 fps, matches the annotation cadence
 CLIP_SECONDS = 12.0
 HORIZON_FRAC = 0.21              # rows above this fraction of the frame are far-field (beyond the access road): excluded
 
-# NVIDIA / sponsor endpoints (OpenAI-compatible). Fill in backend/.env — never commit keys.
+# ---- Workshop GPU models (vast-builders-challenge gpu/README) — token via env / K8s Secret, never in the bundle
+GPU_HOST = os.environ.get("GPU_HOST", "166.19.38.112")
+GPU_BEARER_TOKEN = os.environ.get("GPU_BEARER_TOKEN", "") or os.environ.get("COSMOS_API_KEY", "")
+COSMOS_TOKEN_CMD = os.environ.get("COSMOS_TOKEN_CMD", "")
+COSMOS_REASON_BASE = os.environ.get("COSMOS_REASON_BASE", f"http://{GPU_HOST}:8001/v1")
+COSMOS_REASON_MODEL = os.environ.get("COSMOS_REASON_MODEL", "nvidia/cosmos3-nano-reasoner")
+COSMOS_EMBED_BASE = os.environ.get("COSMOS_EMBED_BASE", f"http://{GPU_HOST}:8003/v1")
+COSMOS_EMBED_MODEL = os.environ.get("COSMOS_EMBED_MODEL", "")          # discovered from /v1/models when empty
+YOLO_URL = os.environ.get("YOLO_URL", f"http://{GPU_HOST}:8002")
+# Agent LLM: defaults to Cosmos Reason; can point at W&B / CoreWeave inference (OpenAI-compatible)
+LLM_BASE = os.environ.get("LLM_BASE", COSMOS_REASON_BASE)
+LLM_MODEL = os.environ.get("LLM_MODEL", COSMOS_REASON_MODEL)
+LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
+# build.nvidia.com (optional alternative)
 NVIDIA_API_BASE = os.environ.get("NVIDIA_API_BASE", "https://integrate.api.nvidia.com/v1")
 NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", "")
-COSMOS_REASON_MODEL = os.environ.get("COSMOS_REASON_MODEL", "nvidia/cosmos3-nano-reasoner")
-COSMOS_REASON_BASE = os.environ.get("COSMOS_REASON_BASE", NVIDIA_API_BASE)
-# Bearer token for the workshop endpoint: either the value itself, or a command whose stdout is the token
-# (e.g. an ssh one-liner) — the command output is kept in memory only, never written to disk or logs.
-COSMOS_API_KEY = os.environ.get("COSMOS_API_KEY", "")
-COSMOS_TOKEN_CMD = os.environ.get("COSMOS_TOKEN_CMD", "")
-COSMOS_EMBED_BASE = os.environ.get("COSMOS_EMBED_BASE", "")
-COSMOS_EMBED_MODEL = os.environ.get("COSMOS_EMBED_MODEL", "nvidia/cosmos-embed1")
-LLM_MODEL = os.environ.get("LLM_MODEL", COSMOS_REASON_MODEL)
+# VSS retrieval backend ($INGRESS_URL) — login with team user/password (K8s Secret)
+VSS_URL = os.environ.get("VSS_URL", "").rstrip("/")
+VSS_USERNAME = os.environ.get("VSS_USERNAME", "")
+VSS_PASSWORD = os.environ.get("VSS_PASSWORD", "")
 VAST_ENDPOINT = os.environ.get("VAST_ENDPOINT", "")
+WANDB_API_KEY = os.environ.get("WANDB_API_KEY", "")
+AUTO_ANALYZE = os.environ.get("AUTO_ANALYZE", "") in ("1", "true", "yes")
 MEDIA_DIR = Path(os.environ.get("MEDIA_DIR", PROCESSED / "media"))
 # If set, media is served from this absolute URL prefix (e.g. an object store) instead of /media
 MEDIA_URL = os.environ.get("MEDIA_URL", "").rstrip("/")
 FRONTEND_DIST = Path(os.environ.get("FRONTEND_DIST", ROOT / "frontend" / "dist"))
 WANDB_API_KEY = os.environ.get("WANDB_API_KEY", "")
-EMBED_MODEL_FALLBACK = os.environ.get("EMBED_MODEL", "nvidia/llama-3.2-nv-embedqa-1b-v1")

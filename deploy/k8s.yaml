@@ -5,7 +5,7 @@
 #   kubectl -n $NS create configmap firescope-web  --from-file=deploy/out/web.tgz
 #   kubectl -n $NS create configmap firescope-data --from-file=deploy/out/data.tgz
 #   kubectl -n $NS create configmap firescope-thumbs --from-file=deploy/out/thumbs.tgz
-#   kubectl -n $NS create secret generic firescope-env --from-literal=COSMOS_REASON_BASE=... --from-literal=COSMOS_API_KEY=... --from-literal=MEDIA_URL=...
+#   kubectl -n $NS create secret generic firescope-env --from-literal=GPU_BEARER_TOKEN=... --from-literal=VSS_URL=... --from-literal=VSS_USERNAME=... --from-literal=VSS_PASSWORD=...
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -25,10 +25,13 @@ spec:
             - { name: PORT, value: "8080" }
             - { name: COSMOS_REASON_MODEL, value: "nvidia/cosmos3-nano-reasoner" }
             - { name: LLM_MODEL, value: "nvidia/cosmos3-nano-reasoner" }
+            - { name: COSMOS_EMBED_MODEL, value: "nvidia/cosmos-embed1" }
+            - { name: AUTO_ANALYZE, value: "1" }        # run the real Cosmos/Embed/YOLO pass at boot
           envFrom:
             - secretRef: { name: firescope-env, optional: true }
           ports: [{ containerPort: 8080 }]
-          readinessProbe: { httpGet: { path: /health, port: 8080 }, initialDelaySeconds: 20, periodSeconds: 5 }
+          readinessProbe: { httpGet: { path: /health, port: 8080 }, initialDelaySeconds: 30, periodSeconds: 5, failureThreshold: 40 }
+          resources: { requests: { cpu: 250m, memory: 512Mi }, limits: { memory: 2Gi } }
           volumeMounts:
             - { name: appdir, mountPath: /app }
             - { name: web, mountPath: /bundle/web }

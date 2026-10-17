@@ -12,9 +12,9 @@ One container serves both the API and the built 3D dashboard. The dashboard uses
 
 All artefacts are under the 1 MiB ConfigMap limit. **The video is not bundled.**
 
-## 2. Video (113 MB at 960p; `deploy/media/drone_replay_01.mp4` is a 640×360 copy)
+## 2. Video
 
-Host it anywhere reachable by browsers that supports HTTP Range requests, for example the team's VAST S3 bucket or any static host. Then set `MEDIA_URL` to the prefix that contains `drone_replay_01.mp4`. The API rewrites `media_url` to `${MEDIA_URL}/drone_replay_01.mp4`. Without `MEDIA_URL` the dashboard still works; only the drone camera window shows "Video unavailable".
+Not in any ConfigMap. At boot, `start.sh` downloads `media/drone_replay_01_640.mp4` (25.6 MB, CC-BY-4.0, see `media/ATTRIBUTION.md`) from this branch's public raw URL into `/srv/data/media`. The API then serves it same-origin at `/app/media/drone_replay_01.mp4` with Range requests. You can override the source with `VIDEO_SOURCE_URL`, or serve it elsewhere with `MEDIA_URL`.
 
 ## 3. Apply (on the VM, team namespace)
 
@@ -25,12 +25,15 @@ kubectl -n $NS create configmap firescope-code --from-file=deploy/out/code/fires
 kubectl -n $NS create configmap firescope-web    --from-file=deploy/out/web.tgz    --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n $NS create configmap firescope-data   --from-file=deploy/out/data.tgz   --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n $NS create configmap firescope-thumbs --from-file=deploy/out/thumbs.tgz --dry-run=client -o yaml | kubectl apply -f -
-# server-side secrets (never in the browser bundle): Cosmos endpoint + token, optional media URL
+# server-side secrets (never in the browser bundle): GPU token for Cosmos Reason / Embed1 / YOLO11, VSS login
+TEAM_CONFIG=/config/${NS}.config
 kubectl -n $NS create secret generic firescope-env \
-  --from-literal=COSMOS_REASON_BASE=http://166.19.38.112:8001/v1 \
-  --from-literal=COSMOS_API_KEY="$(grep '^GPU_BEARER_TOKEN=' /config/${NS}.config | cut -d= -f2-)" \
-  --from-literal=MEDIA_URL="<https://…/prefix>" \
+  --from-literal=GPU_BEARER_TOKEN="$(grep '^GPU_BEARER_TOKEN=' $TEAM_CONFIG | cut -d= -f2-)" \
+  --from-literal=VSS_URL="$(grep '^INGRESS_URL=' $TEAM_CONFIG | cut -d= -f2-)" \
+  --from-literal=VSS_USERNAME="$(grep '^USERNAME=' $TEAM_CONFIG | cut -d= -f2-)" \
+  --from-literal=VSS_PASSWORD="$(grep '^PASSWORD=' $TEAM_CONFIG | cut -d= -f2-)" \
   --dry-run=client -o yaml | kubectl apply -f -
+# optional W&B inference for the agent: add LLM_BASE / LLM_API_KEY / LLM_MODEL to the same Secret
 NS=$NS APP_HOST=$APP_HOST envsubst '$APP_HOST' < deploy/k8s.yaml | kubectl -n $NS apply -f -
 kubectl -n $NS rollout restart deploy/firescope && kubectl -n $NS rollout status deploy/firescope
 curl -s http://$APP_HOST/app/health
@@ -45,6 +48,13 @@ After code changes, re-run `build.sh`, re-apply the ConfigMaps, and `rollout res
 | `DATA_DIR` | `/srv/data` | Processed observations (`drone_replay_01/*.json`) |
 | `FRONTEND_DIST` | `/srv/web` | Built dashboard, served at `/` |
 | `MEDIA_DIR` / `MEDIA_URL` | `/srv/data/media` / — | Local media (thumbnails) / external video prefix |
-| `COSMOS_REASON_BASE`, `COSMOS_API_KEY`, `COSMOS_REASON_MODEL` | — / — / `nvidia/cosmos3-nano-reasoner` | NVIDIA Cosmos Reason NIM for `/api/ask` and analysis |
+| `GPU_BEARER_TOKEN` | Secret | Bearer for the workshop GPU models |
+| `COSMOS_REASON_BASE` / `COSMOS_REASON_MODEL` | `http://166.19.38.112:8001/v1` / `nvidia/cosmos3-nano-reasoner` | Clip analysis + agent |
+| `COSMOS_EMBED_BASE` / `COSMOS_EMBED_MODEL` | `:8003/v1` / `nvidia/cosmos-embed1` | 256-d video + text embeddings → `/api/search` |
+| `YOLO_URL` | `:8002` | YOLO11 objects per clip |
+| `VSS_URL`, `VSS_USERNAME`, `VSS_PASSWORD` | Secret | VSS retrieval (VAST) login for archive search |
+| `LLM_BASE`, `LLM_API_KEY`, `LLM_MODEL` | Cosmos Reason | Optional W&B / CoreWeave OpenAI-compatible agent LLM |
+| `AUTO_ANALYZE` | `1` in k8s.yaml | Runs the real Cosmos Reason + Embed1 + YOLO11 pass at boot (progress in Drones → Video Intelligence, and `/api/integrations/health`) |
 
-Note: the Cosmos *clip analysis job* (`python -m firescope.cosmos_job`) needs the original video plus ffmpeg, so run it where the data lives (Mac or VM) and redeploy `data.tgz`. In the pod, `/api/ask` calls Cosmos live.
+The analysis pass (`cosmos_job`) cuts 12 s clips from the downloaded video with the `imageio-ffmpeg` wheel. Results land in `/srv/data` and survive until the pod restarts; then it runs again.
+Code paths were verified offline against `backend/tests/mock_gpu.py` (same routes and shapes as the workshop GPU README).

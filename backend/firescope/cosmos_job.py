@@ -12,6 +12,8 @@ import threading
 import time
 from pathlib import Path
 
+import httpx
+
 
 from . import config as C
 from . import nvidia
@@ -23,16 +25,34 @@ JOB: dict = {"state": "idle", "progress": 0.0, "clips_total": 0, "clips_done": 0
 _lock = threading.Lock()
 
 
+def video_source() -> Path:
+    """Original dataset video if present (dev), else download the replay copy from MEDIA_URL (K8s pod)."""
+    if C.VIDEO.exists():
+        return C.VIDEO
+    dst = C.PROCESSED / "media" / f"{C.SOURCE_ID}.mp4"
+    if not dst.exists():
+        if not C.MEDIA_URL:
+            raise RuntimeError("no source video: set MEDIA_URL (or provide the dataset)")
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        with httpx.stream("GET", f"{C.MEDIA_URL}/{C.SOURCE_ID}.mp4", timeout=300, follow_redirects=True) as r:
+            r.raise_for_status()
+            with dst.open("wb") as f:
+                for chunk in r.iter_bytes(1 << 20):
+                    f.write(chunk)
+    return dst
+
+
 def cut_clip(i: int, start: float, dur: float) -> tuple[Path, list[Path]]:
     import imageio_ffmpeg
     FF = imageio_ffmpeg.get_ffmpeg_exe()
+    src = str(video_source())
     CLIPDIR.mkdir(parents=True, exist_ok=True)
     mp4, frames = CLIPDIR / f"clip_{i:04d}.mp4", [CLIPDIR / f"clip_{i:04d}_{k}.jpg" for k in range(4)]
     if not mp4.exists():
-        subprocess.run([FF, "-loglevel", "error", "-y", "-ss", f"{start}", "-t", f"{dur}", "-i", str(C.VIDEO), "-an", "-vf", "scale=640:-2,fps=8", "-c:v", "libx264", "-preset", "veryfast", "-crf", "30", "-movflags", "+faststart", str(mp4)], check=True)
+        subprocess.run([FF, "-loglevel", "error", "-y", "-ss", f"{start}", "-t", f"{dur}", "-i", src, "-an", "-vf", "scale=640:-2,fps=8", "-c:v", "libx264", "-preset", "veryfast", "-crf", "30", "-movflags", "+faststart", str(mp4)], check=True)
     for k, f in enumerate(frames):
         if not f.exists():
-            subprocess.run([FF, "-loglevel", "error", "-y", "-ss", f"{start + dur * (k + 0.5) / 4}", "-i", str(C.VIDEO), "-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "4", str(f)], check=True)
+            subprocess.run([FF, "-loglevel", "error", "-y", "-ss", f"{start + dur * (k + 0.5) / 4}", "-i", src, "-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "4", str(f)], check=True)
     return mp4, frames
 
 
@@ -65,6 +85,15 @@ def run(every: int = 1, max_clips: int | None = None, only: list[int] | None = N
                 d = nvidia.cosmos_describe_clip(mp4, frames, c["end_seconds"] - c["start_seconds"])
                 d["latency_ms"] = int((time.time() - t) * 1000)
                 d["model"] = C.COSMOS_REASON_MODEL
+                try:   # visual embedding of the clip itself (Cosmos Embed1, 256-d) — query text lands in the same space
+                    d["vector"] = nvidia.embed([nvidia.b64(mp4, "video/mp4")], "query")[0]
+                    d["vector_kind"] = "video"
+                except Exception as e:  # noqa: BLE001
+                    d["embed_error"] = str(e)[:160]
+                try:   # YOLO11 objects (people / vehicles in view)
+                    d["yolo"] = nvidia.yolo_infer(mp4)
+                except Exception as e:  # noqa: BLE001
+                    d["yolo_error"] = str(e)[:160]
                 done[c["clip_id"]] = {**c, **d}
                 out_path.write_text(json.dumps(done, indent=1))
             except nvidia.NotConfigured as e:
@@ -100,6 +129,16 @@ def build_events(desc: dict[str, dict], cv_events: list[dict]) -> list[dict]:
             e["provenance"] = "model"
             e["cv_measurement"] = cv_events and next((x["description"] for x in cv_events if x["event_id"] == e["event_id"]), None)
         events.append(e)
+    # YOLO11: people / vehicles in view while flames are visible → review alert (decision support)
+    WATCH = {"person", "car", "truck", "bus", "motorcycle", "bicycle"}
+    for k, d in sorted(by_clip.items()):
+        objs = sorted(WATCH & {str(o).lower() for o in (d.get("yolo") or {}).get("object_classes", [])})
+        if objs and d.get("flames_visible"):
+            events.append({"event_id": "", "source_id": C.SOURCE_ID, "start_seconds": d["start_seconds"], "end_seconds": d["end_seconds"], "timestamp": d["timestamp"],
+                           "event_type": "fire_near_road_or_structure", "title": f"{', '.join(objs).capitalize()} in view near flames",
+                           "description": f"YOLO11 detected {', '.join(objs)} in a clip where Cosmos Reason reports visible flames. {d.get('caption', '')}".strip(),
+                           "visual_evidence": [f"{o} detected" for o in objs] + (d.get("visual_evidence") or [])[:1], "confidence": None, "review_required": True,
+                           "severity": "alert", "processing_model": f"yolo11s + {d['model']}", "location": None, "image_region": None, "thumbnail_url": d.get("thumbnail_url"), "provenance": "model"})
     have = {int(e["start_seconds"] // C.CLIP_SECONDS) for e in events}
     for k, d in sorted(by_clip.items()):
         if k in have:
@@ -123,17 +162,17 @@ def build_events(desc: dict[str, dict], cv_events: list[dict]) -> list[dict]:
 
 
 def build_index(desc: dict[str, dict], events: list[dict]) -> None:
-    docs = [{"clip_id": k, **{f: v[f] for f in ("source_id", "start_seconds", "end_seconds", "timestamp", "thumbnail_url")}, "caption": f"{v.get('caption', '')} {v.get('change', '')} smoke: {v.get('smoke', '')}".strip()}
-            for k, v in desc.items() if "caption" in v]
-    if not docs:
-        return
-    try:
-        vecs = nvidia.embed([d["caption"] for d in docs], "passage")
-        for d, v in zip(docs, vecs):
-            d["vector"] = v
-        model = C.COSMOS_EMBED_MODEL if C.COSMOS_EMBED_BASE else C.EMBED_MODEL_FALLBACK
-    except Exception as e:  # noqa: BLE001
-        model = f"none ({str(e)[:80]})"
+    """Search index = Cosmos Embed1 video vectors per clip (+ the Cosmos caption for display / lexical fallback)."""
+    docs = []
+    for k, v in desc.items():
+        if "caption" not in v:
+            continue
+        doc = {"clip_id": k, **{f: v[f] for f in ("source_id", "start_seconds", "end_seconds", "timestamp", "thumbnail_url")},
+               "caption": f"{v.get('caption', '')} {v.get('change', '')}".strip()}
+        if v.get("vector"):
+            doc["vector"] = v["vector"]
+        docs.append(doc)
+    model = nvidia.embed_model() + " (video)" if any("vector" in d for d in docs) else None
     (OUT / "index.json").write_text(json.dumps({"model": model, "docs": docs}))
 
 
@@ -149,6 +188,12 @@ def _safe(kw):
     except Exception as e:  # noqa: BLE001
         with _lock:
             JOB.update(state="error", message=str(e)[:300])
+
+
+def maybe_auto_start() -> None:
+    """K8s: AUTO_ANALYZE=1 runs the real Cosmos pass at boot (once per pod) if it has not been run yet."""
+    if C.AUTO_ANALYZE and nvidia.configured("gpu") and not (OUT / "events_cosmos.json").exists():
+        start_background(every=2)
 
 
 if __name__ == "__main__":
