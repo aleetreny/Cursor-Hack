@@ -3,8 +3,11 @@ import { useLayoutEffect, useRef, useState } from 'react';
 export interface Pt { x: number; y: number | null }
 
 /** Small area/line chart in the reference's style: solid to the cursor, faded after it. */
-export function MiniChart({ pts, cursor, color, kind = 'area', xTicks, yTicks, cursorY, fill, zero = true }: {
+export function MiniChart({ pts, cursor, color, kind = 'area', xTicks, yTicks, cursorY, fill, zero = true, bands = [], marks = [], label }: {
   zero?: boolean; pts: Pt[]; cursor?: number | null; color: string; kind?: 'area' | 'line'; xTicks: { x: number; label: string }[]; yTicks?: number[]; cursorY?: number | null; fill?: string;
+  /** shaded x ranges drawn behind the series */ bands?: { x0: number; x1: number; color: string }[];
+  /** labelled point markers on the x axis (e.g. the drone position) */ marks?: { x: number; label: string; color: string }[];
+  /** accessible description of the chart */ label?: string;
 }) {
   const ref = useRef<SVGSVGElement>(null);
   const [size, setSize] = useState({ w: 260, h: 70 });
@@ -33,18 +36,21 @@ export function MiniChart({ pts, cursor, color, kind = 'area', xTicks, yTicks, c
   const cy = cursorY ?? (cursor != null ? interp(valid, cursor) : null);
   const gid = 'g' + color.replace(/[^a-z0-9]/gi, '');
   return (
-    <div className="cbody"><svg ref={ref}>
+    <div className="cbody"><svg ref={ref} role="img" aria-label={label}>
       <defs>
         <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={fill ?? color} stopOpacity=".55" /><stop offset="1" stopColor={fill ?? color} stopOpacity=".12" /></linearGradient>
       </defs>
       {yt.map((v, i) => (
         <g key={i}><line x1={L} x2={L + w} y1={Y(v)} y2={Y(v)} stroke="#e2dbd0" strokeWidth={1} /><text x={L - 5} y={Y(v) + 3} textAnchor="end">{fmtTick(v)}</text></g>
       ))}
-      {xTicks.map((t, i) => <text key={i} x={X(t.x)} y={T + h + 12} textAnchor="middle">{t.label}</text>)}
+      {bands.map((b, i) => <rect key={'b' + i} x={X(Math.max(x0, b.x0))} y={T} width={Math.max(0, X(Math.min(x1, b.x1)) - X(Math.max(x0, b.x0)))} height={h} fill={b.color} />)}
+      {/* first/last tick labels hug the plot edges so they never run into the y-axis labels */}
+      {xTicks.map((t, i) => <text key={i} x={X(t.x)} y={T + h + 12} textAnchor={i === 0 && X(t.x) - L < 16 ? 'start' : i === xTicks.length - 1 && L + w - X(t.x) < 16 ? 'end' : 'middle'}>{t.label}</text>)}
       {kind === 'area' && <path d={area(past)} fill={`url(#${gid})`} />}
       {kind === 'area' && <path d={area(future)} fill={fill ?? color} opacity={0.12} />}
       <path d={path(past)} fill="none" stroke={color} strokeWidth={1.5} />
       <path d={path(future)} fill="none" stroke={color} strokeWidth={1.2} opacity={0.35} strokeDasharray={kind === 'line' ? '3 2' : undefined} />
+      {marks.map((m, i) => <g key={'m' + i}><circle cx={X(m.x)} cy={T + h} r={3} fill={m.color} stroke="#fff" strokeWidth={1} /><text x={X(m.x)} y={T + 8} textAnchor={X(m.x) - L < 30 ? 'start' : L + w - X(m.x) < 30 ? 'end' : 'middle'} fill={m.color} style={{ fontWeight: 650 }}>{m.label}</text></g>)}
       {cx != null && (
         <g>
           <line x1={cx} x2={cx} y1={T - 4} y2={T + h} stroke="#3d3832" strokeWidth={1} />

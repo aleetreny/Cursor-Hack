@@ -84,7 +84,7 @@ if (HQ) { await page.evaluate(() => { document.querySelector('#promo .mk').style
 // ================= 0:00 THE PROBLEM — real footage, full camera view =================
 await js(() => { const s = window.__store.getState(); s.set({ mode: 'drones', feedOpen: true, selectedUnitId: null, speed: 1 }); s.setTime(s.t0 + 222000); window.__scene.flyToDrone(); });
 await page.waitForTimeout(700);
-await page.locator('.feed-bar button[title="Full camera view"]').click({ timeout: 5000 });
+await page.locator('.feed-bar button[aria-label="Full camera view"]').click({ timeout: 5000 });
 await page.waitForTimeout(400);
 await mark('start');
 await js(() => { window.__store.getState().set({ playing: true }); window.__fade(false); window.__vig(true); });
@@ -95,7 +95,7 @@ await at(7.6); await js(() => window.__lt(null));
 await at(8.2);
 await js(() => {
   const s = window.__store.getState();
-  document.querySelector('.feed-bar button[title="Full camera view"]')?.click();
+  document.querySelector('.feed-bar button[aria-label="Full camera view"]')?.click();
   s.set({ playing: false, feedOpen: false, mode: 'incident', panel: 'layers', speed: 48 });
   s.setLayer('projection', true);
   s.setTime(s.t0 + (s.t1 - s.t0) * 0.08);

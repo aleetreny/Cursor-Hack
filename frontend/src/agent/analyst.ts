@@ -189,9 +189,16 @@ const A: Record<Intent, (x: Ctx) => string> = {
   spread(x) {
     const { c, lang } = x, [p] = peaks(c, 1), f1 = c.frames[c.frames.length - 1];
     const avg = ((f1.burned_area_m2.value ?? 0) - (c.frames[0].burned_area_m2.value ?? 0)) / (f1.video_seconds / 60);
-    return t(lang,
-      `Burned area in the drone's view grew by ${area(avg, lang)} per minute on average, peaking at +${area(p.d, lang)} per minute around ${mmss(p.vs)} ${atPeak(x, p)}. This is area growth inside the camera's view, not a measured rate of spread of the fire head in metres per minute: the drone sees only a small patch of ground, so the front's linear speed is not measured.`,
-      `El área quemada en la vista del dron creció de media ${area(avg, lang)} por minuto, con un máximo de +${area(p.d, lang)} por minuto hacia el ${mmss(p.vs)} ${atPeak(x, p)}. Es crecimiento de área dentro de la vista de la cámara, no una velocidad de propagación del frente medida en metros por minuto: el dron solo ve un trozo pequeño de terreno, así que la velocidad lineal del frente no se mide.`);
+    const ros = c.frames.map((f) => ({ f, v: f.front_advance_m_min?.value })).filter((r): r is { f: typeof f1; v: number } => r.v != null);
+    const rosTxt = ros.length ? (() => {
+      const mean = ros.reduce((a, r) => a + r.v, 0) / ros.length, top = ros.reduce((a, r) => (r.v > a.v ? r : a));
+      return t(lang,
+        `The visible front advanced ${num(mean, lang, 1)} m/min on average and up to ${num(top.v, lang, 1)} m/min around ${mmss(top.f.video_seconds)} ${atClip(x, top.f.video_seconds)} (leading edge of the burned outline compared with one minute earlier). `,
+        `El frente visible avanzó de media ${num(mean, lang, 1)} m/min y hasta ${num(top.v, lang, 1)} m/min hacia el ${mmss(top.f.video_seconds)} ${atClip(x, top.f.video_seconds)} (borde delantero del contorno quemado comparado con un minuto antes). `);
+    })() : '';
+    return rosTxt + t(lang,
+      `Burned area in view grew ${area(avg, lang)} per minute on average, with a peak of +${area(p.d, lang)} in one minute at ${mmss(p.vs)} ${atPeak(x, p)}. Both describe only the part of the front the drone could see.`,
+      `El área quemada en la vista creció de media ${area(avg, lang)} por minuto, con un pico de +${area(p.d, lang)} en un minuto en el ${mmss(p.vs)} ${atPeak(x, p)}. Las dos cifras describen solo la parte del frente que veía el dron.`);
   },
   area(x) {
     const { c, lang, vs } = x, f0 = c.frames[0], f1 = c.frames[c.frames.length - 1], fn = frameAt(c, vs);

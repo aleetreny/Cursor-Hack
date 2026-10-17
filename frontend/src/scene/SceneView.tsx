@@ -5,7 +5,8 @@ import { useStore } from '../state/store';
 
 /** Global handle so panels can drive the camera (fly-to, 2D/3D, etc.). */
 export const sceneRef: { current: FireScene | null } = { current: null };
-export const profileRef: { current: { d: number; elev: number; burned: boolean }[]; listeners: Set<() => void> } = { current: [], listeners: new Set() };
+export type Profile = { d: number; elev: number; burned: boolean; inCell: boolean }[] & { fireD?: number; droneD?: number | null; bearing?: number };
+export const profileRef: { current: Profile; listeners: Set<() => void> } = { current: [], listeners: new Set() };
 
 export function SceneView() {
   const el = useRef<HTMLDivElement>(null);
@@ -52,12 +53,23 @@ export function SceneView() {
         const k = String(Math.floor(st.time / 4000));
         if (k !== lastFrameKey) { lastFrameKey = k; updateProfile(); }
       }
-      if (st.layers !== prev.layers) { scene.setLayers(st.layers); if (st.layers.projection !== prev.layers.projection) { scene.setScenario(st.layers.projection); if (!st.layers.projection) useStore.getState().set({ scenario: { on: false, hours: 0, ha: 0 } }); } }
+      if (st.layers !== prev.layers) {
+        scene.setLayers(st.layers);
+        if (st.layers.projection !== prev.layers.projection) {
+          scene.setScenario(st.layers.projection);
+          if (!st.layers.projection) useStore.getState().set({ scenario: { on: false, hours: 0, ha: 0, lapse: 1 } });
+          // the scenario box is ~8 km wide: frame it when it appears, come back to the fire when it goes (the presenter sets its own shots)
+          if (!st.presenting) { if (st.layers.projection) scene.frameScenario(); else scene.flyHome(); }
+        }
+      }
       if (st.view !== prev.view) scene.set2D(st.view === '2d');
       if (st.events !== prev.events) scene.setEvents(st.events);
       if (st.selectedEventId !== prev.selectedEventId) scene.setSelectedEvent(st.selectedEventId);
       if (st.mode !== prev.mode) scene.setOpsMode(st.mode);
-      if (st.selectedUnitId !== prev.selectedUnitId) { scene.setSelectedUnit(st.selectedUnitId); if (st.selectedUnitId && !st.follow) scene.flyToUnit(st.selectedUnitId, st.selectedUnitId.startsWith('FT-') ? 160 : 320); }
+      if (st.selectedUnitId !== prev.selectedUnitId) {
+        scene.setSelectedUnit(st.selectedUnitId);
+        if (st.selectedUnitId && !st.follow) { if (st.selectedUnitId.startsWith('FT-')) scene.flyToUnitAndFire(st.selectedUnitId, 220, st.feedOpen ? 0.5 : 1); else scene.flyToUnit(st.selectedUnitId, 320); }
+      }
       if (st.follow !== prev.follow) scene.setFollow(st.follow);
       if (st.exaggeration !== prev.exaggeration) scene.setExaggeration(st.exaggeration);
       if (st.compare !== prev.compare) scene.setCompare(st.compare.on ? st.compare.before : null);
@@ -71,7 +83,7 @@ export function SceneView() {
 function updateProfile() {
   const sc = sceneRef.current;
   if (!sc) return;
-  profileRef.current = sc.profileAlongView();
+  profileRef.current = sc.profileAcrossCell();
   profileRef.listeners.forEach((f) => f());
 }
 

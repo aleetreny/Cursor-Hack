@@ -12,7 +12,8 @@
 |---|---|
 | 0 · Repositorio y publicación | ✅ 17 oct 2026: `main` publica en https://aleetreny.github.io/Cursor-Hack/ |
 | 1 · Autocontenido y honestidad | ✅ 17 oct 2026: paquetes de incidente con manifest, analista bilingüe en el navegador, búsqueda ES/EN, sin integraciones muertas en la interfaz, README y PITCH reescritos |
-| 2 – 8 | Pendientes |
+| 2 · Arreglos funcionales y visuales | ✅ 18 oct 2026: 0 solapes en 25 estados × 5 tamaños de escritorio (1280–2560), 0 controles sin efecto, estado en la URL y enlaces profundos, menús accesibles, ROS real en m/min y perfil del terreno útil |
+| 3 – 8 | Pendientes |
 
 ## 0. Resumen ejecutivo
 

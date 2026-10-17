@@ -5,7 +5,7 @@ import { Timeline } from './components/Timeline';
 import { MapOverlays } from './components/MapOverlays';
 import { DroneFeed } from './components/DroneFeed';
 import { Presenter } from './components/Presenter';
-import { SceneView, sceneRef } from './scene/SceneView';
+import { SceneView, sceneRef, selectEvent } from './scene/SceneView';
 import { useStore } from './state/store';
 import { loadAll } from './state/load';
 
@@ -15,6 +15,7 @@ export default function App() {
   const feedOpen = useStore((s) => s.feedOpen);
   const loaded = useStore((s) => s.loaded);
   const presenting = useStore((s) => s.presenting);
+  const toast = useStore((s) => s.toast);
 
   useEffect(() => { loadAll(); }, []);
 
@@ -38,6 +39,12 @@ export default function App() {
       if (e.key === 'ArrowRight') s.setTime(s.time + 8000);
       if (e.key === 'ArrowLeft') s.setTime(s.time - 8000);
       if (e.key === 'h') sceneRef.current?.flyHome();
+      if (e.key === 'Home') s.setTime(s.t0);
+      if (e.key === 'End') s.setTime(s.t1);
+      if (e.key === '[' || e.key === ']') {
+        const ev = e.key === ']' ? s.events.find((x) => Date.parse(x.timestamp) > s.time + 1000) : [...s.events].reverse().find((x) => Date.parse(x.timestamp) < s.time - 1000);
+        if (ev) selectEvent(ev.event_id);
+      }
       if (e.key === '2') s.set({ view: '2d' });
       if (e.key === '3') s.set({ view: '3d' });
     };
@@ -60,6 +67,7 @@ export default function App() {
         <RightPanel />
       </div>
       {loaded && presenting && <Presenter />}
+      {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   );
 }

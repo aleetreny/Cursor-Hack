@@ -25,7 +25,7 @@ export interface SceneCallbacks {
   onDroneClick?: (id: string) => void;
   onUnitClick?: (id: string) => void;
   onFollowEnd?: () => void;
-  onScenario?: (s: { on: boolean; hours: number; ha: number }) => void;
+  onScenario?: (s: { on: boolean; hours: number; ha: number; lapse: number }) => void;
   onReady?: () => void;
   onProgress?: (msg: string) => void;
 }
@@ -101,7 +101,7 @@ export class FireScene {
   private scen?: { N: number; arr: Uint8Array; cell: number; tMaxS: number; bucket: number };
   private sFlames?: THREE.Points;
   private sSmoke?: THREE.Points;
-  scenarioInfo = { on: false, hours: 0, ha: 0 };
+  scenarioInfo = { on: false, hours: 0, ha: 0, lapse: 1 };
 
   // data
   private incident?: Incident;
@@ -171,6 +171,7 @@ export class FireScene {
 
     // overlays
     this.maskCanvas.width = this.maskCanvas.height = 2048;
+    this.maskCanvas.getContext('2d', { willReadFrequently: true });   // sampled per pixel by hover and the terrain profile
     this.decalCanvas.width = this.decalCanvas.height = 2048;
     this.maskTex = new THREE.CanvasTexture(this.maskCanvas);
     this.maskTex.anisotropy = 8;
@@ -307,7 +308,7 @@ export class FireScene {
     this.redrawOverlays(true);
 
     this.setInitialCamera();
-    if (!/[?&]nointro/.test(location.search)) this.intro();
+    if (!/[?&](nointro|cam)=?/.test(location.search)) this.intro();
     this.ready = true;
     this.cb.onReady?.();
   }
@@ -935,6 +936,7 @@ varying float vL; varying float vSeed;
     this.sSmoke!.geometry.setDrawRange(0, ns);
     this.scenarioInfo.ha = (burned * sc.cell * sc.cell) / 10000;
     this.scenarioInfo.hours = (T * sc.tMaxS) / 3600;
+    this.scenarioInfo.lapse = sc.tMaxS / (span / 1000);   // the recording's timeline is replayed as a time-lapse of the scenario
     this.cb.onScenario?.({ ...this.scenarioInfo });
   }
 
@@ -1046,6 +1048,7 @@ varying float vL; varying float vSeed;
     this.labels.get(id)?.el.remove();
     const el = document.createElement('div');
     el.className = 'scene-label';
+    el.style.visibility = 'hidden';   // until the next frame positions it (otherwise it flashes at the top-left corner)
     el.innerHTML = html;
     if (onClick) { el.style.pointerEvents = 'auto'; el.style.cursor = 'pointer'; el.addEventListener('click', (e) => { e.stopPropagation(); onClick(); }); }
     this.labelRoot.appendChild(el);
@@ -1084,8 +1087,23 @@ varying float vL; varying float vSeed;
   }
 
   private v = new THREE.Vector3();
+  /** Map-pane UI that labels must never sit under: drone camera window, map controls, attribution, compass, banners. */
+  private reserved: number[][] = [];
+  private reservedAt = 0;
+  private refreshReserved() {
+    const now = performance.now();
+    if (now - this.reservedAt < 250) return;
+    this.reservedAt = now;
+    const map = this.container.parentElement, c = this.container.getBoundingClientRect();
+    if (!map) return;
+    this.reserved = [...map.querySelectorAll<HTMLElement>(':scope > .feed, :scope > .mapctl, :scope > .attribution, :scope > .compass, :scope > .banner > *')]
+      .map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0)
+      .map((r) => [r.left - c.left - 4, r.top - c.top - 4, r.right - c.left + 4, r.bottom - c.top + 4]);
+  }
   private updateLabels() {
     const w = this.container.clientWidth, h = this.container.clientHeight;
+    this.refreshReserved();
+    const hsPts: { el: HTMLElement; x: number; y: number }[] = [];
     const items: { el: HTMLElement; x: number; y: number; pri: number; kind: 'ev' | 'drone' | 'place' }[] = [];
     for (const [id, { el, pos }] of this.labels) {
       this.v.copy(pos).project(this.camera);
@@ -1094,27 +1112,63 @@ varying float vL; varying float vSeed;
       if (x < -40 || x > w + 40 || y < -40 || y > h + 40) { el.style.visibility = 'hidden'; continue; }
       el.style.visibility = '';
       el.style.transform = `translate(${x}px, ${y}px)`;
-      if (id.startsWith('hs_')) continue;
+      if (id.startsWith('hs_')) { hsPts.push({ el, x, y }); continue; }
       const c = el.firstElementChild as HTMLElement | null;
       const kind = id.startsWith('ev_') ? 'ev' : id.startsWith('drone_') || id.startsWith('unit_') ? 'drone' : 'place';
       if (id.startsWith('unit_') && el.style.display === 'none') continue;
       void c;
-      const pri = el.classList.contains('sel') ? 4 : kind === 'ev' ? (el.classList.contains('future') ? 1 : 2) : id.startsWith('drone_') ? 3 : kind === 'drone' ? 2.5 : 0;
+      // a selected unit outranks the selected event outside Incident mode, so the two never overlap
+      const sel = el.classList.contains('sel'), selEv = sel && kind === 'ev';
+      const pri = selEv ? (this.opsMode === 'incident' ? 4 : 3.4) : sel ? 4 : kind === 'ev' ? (el.classList.contains('future') ? 1 : 2) : id.startsWith('drone_') ? 3 : kind === 'drone' ? 2.5 : 0;
       items.push({ el, x, y, pri, kind });
     }
-    // greedy collision manager: higher priority first, 6 px padding, keep clear of the map controls band
+    // greedy collision manager: higher priority first, 6 px padding. Nothing may sit under the map UI (reserved),
+    // event pins closer than 13 px merge into one pin with a count, and flame dots under a pin are hidden.
     items.sort((a, b) => b.pri - a.pri || a.y - b.y);
-    const boxes: number[][] = [[w - 360, h - 64, w, h], [0, 0, 70, 70]];
+    const over = (a: number[], b: number[]) => !(a[2] < b[0] || a[0] > b[2] || a[3] < b[1] || a[1] > b[3]);
+    const boxes: number[][] = [];
+    const pins: { x: number; y: number; el: HTMLElement; n: number }[] = [];
     for (const it of items) {
       const c = it.el.firstElementChild as HTMLElement | null;
       // measure with the text visible once, then reuse (avoids flicker when the text is hidden)
       if (!it.el.dataset.w && c && !it.el.classList.contains('collide')) { it.el.dataset.w = String(c.offsetWidth); it.el.dataset.h = String(c.offsetHeight); }
       const bw = +(it.el.dataset.w ?? 80), bh = +(it.el.dataset.h ?? 20);
       const box = it.kind === 'drone' ? [it.x - bw / 2 - 6, it.y - bh - 6, it.x + bw / 2 + 6, it.y + 6] : [it.x - 10, it.y - bh / 2 - 6, it.x + bw + 6, it.y + bh / 2 + 6];
-      const hit = boxes.some((b) => !(box[2] < b[0] || box[0] > b[2] || box[3] < b[1] || box[1] > b[3]));
-      if (it.kind === 'ev') it.el.classList.toggle('collide', hit && it.pri < 4);
-      else it.el.style.visibility = hit && it.pri < 3 ? 'hidden' : '';
-      if (!hit || it.pri >= 3) boxes.push(box);
+      if (it.kind === 'ev') {
+        const ring = [it.x - 9, it.y - 9, it.x + 9, it.y + 9];
+        const host = pins.find((p) => Math.hypot(p.x - it.x, p.y - it.y) < 16);
+        // a pin that would sit on another pin, on a placed label or under the map UI folds into the nearest pin (count badge)
+        if (host || this.reserved.some((r) => over(ring, r)) || (it.pri < 4 && boxes.some((b) => over(ring, b)))) {
+          it.el.style.visibility = 'hidden'; it.el.classList.add('collide');
+          const near = host ?? pins.reduce<typeof pins[number] | null>((a, p) => { const d = Math.hypot(p.x - it.x, p.y - it.y); return d < 40 && (!a || d < Math.hypot(a.x - it.x, a.y - it.y)) ? p : a; }, null);
+          if (near) near.n++;
+          continue;
+        }
+        pins.push({ x: it.x, y: it.y, el: it.el, n: 1 });
+        // text to the right of the pin, or flipped to its left when the right side is taken
+        const boxL = [it.x - bw - 6, box[1], it.x + 10, box[3]];
+        const hitR = boxes.some((b) => over(box, b)) || this.reserved.some((r) => over(box, r));
+        const hitL = boxes.some((b) => over(boxL, b)) || this.reserved.some((r) => over(boxL, r));
+        const flip = hitR && !hitL, use = flip ? boxL : box;
+        c?.classList.toggle('flip', flip);
+        const collide = hitR && hitL && (it.pri < 4 || this.reserved.some((r) => over(use, r)));
+        it.el.classList.toggle('collide', collide);
+        boxes.push(collide ? ring : use);
+      } else {
+        const hit = this.reserved.some((r) => over(box, r)) || (it.pri < 3 && boxes.some((b) => over(box, b)));
+        it.el.style.visibility = hit ? 'hidden' : '';
+        if (!hit) boxes.push(box);
+      }
+    }
+    for (const p of pins) {
+      const pin = p.el.firstElementChild as HTMLElement | null, n = p.n > 1 ? String(p.n) : '';
+      if (pin && (pin.dataset.count ?? '') !== n) { if (n) pin.dataset.count = n; else delete pin.dataset.count; }
+    }
+    const dots: { x: number; y: number }[] = [];
+    for (const d of hsPts) {
+      const inside = (r: number[]) => d.x > r[0] - 4 && d.x < r[2] + 4 && d.y > r[1] - 4 && d.y < r[3] + 4;
+      const hide = pins.some((p) => Math.hypot(p.x - d.x, p.y - d.y) < 14) || dots.some((q) => Math.hypot(q.x - d.x, q.y - d.y) < 14) || this.reserved.some(inside) || boxes.some(inside);
+      if (hide) d.el.style.visibility = 'hidden'; else dots.push(d);
     }
   }
 
@@ -1158,6 +1212,32 @@ varying float vL; varying float vSeed;
     this.anim = { t0: performance.now(), dur, from: { p: this.camera.position.clone(), t: this.controls.target.clone() }, to: { p: target.clone().add(offs), t: target.clone() } };
   }
   flyToLonLat(lon: number, lat: number, dist = 110) { this.flyTo(this.worldAt(lon, lat), dist); }
+  /** Camera position + target (world metres), for shareable links. */
+  cameraState() { const p = this.camera.position, t = this.controls.target; return [p.x, p.y, p.z, t.x, t.y, t.z].map((v) => Math.round(v * 10) / 10); }
+  setCameraState(v: number[], ms = 0) {
+    if (v.length !== 6 || v.some((n) => !isFinite(n))) return;
+    const t = new THREE.Vector3(v[3], v[4], v[5]);
+    this.flyTo(t, undefined, Math.max(1, ms), new THREE.Vector3(v[0], v[1], v[2]).sub(t));
+  }
+  /** Wide shot that shows the whole simulated large-fire box. */
+  frameScenario(ms = 2800) { this.controls.autoRotate = false; this.flyTo(this.focusPoint(), undefined, ms, new THREE.Vector3(-3600, 1650, 2600)); }
+  /** Fly so that a unit and the observed fire are both in view. `leftShare` < 1 keeps them in the left part of the
+   *  map (e.g. 0.52 when the drone camera window covers the right half). */
+  flyToUnitAndFire(id: string, minDist = 220, leftShare = 1) {
+    const p = this.unitWorld(id); if (!p) return;
+    const f = this.focusPoint(), mid = p.clone().add(f).multiplyScalar(0.5), sep = p.distanceTo(f);
+    const dist = THREE.MathUtils.clamp((sep * 1.6 + 120) / Math.max(0.4, leftShare), minDist, 3000);
+    const dir = this.camera.position.clone().sub(this.controls.target).setY(0);
+    if (dir.lengthSq() < 1) dir.copy(this.viewDir()).multiplyScalar(-1);
+    const e = THREE.MathUtils.degToRad(34);
+    const off = dir.normalize().multiplyScalar(Math.cos(e) * dist).add(new THREE.Vector3(0, Math.sin(e) * dist, 0));
+    if (leftShare < 1) {   // slide the view so the subject's centre lands in the middle of the visible left part
+      const right = off.clone().negate().normalize().cross(new THREE.Vector3(0, 1, 0)).normalize();
+      const halfW = dist * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect;
+      mid.add(right.multiplyScalar(halfW * (1 - leftShare)));
+    }
+    this.flyTo(mid, undefined, 1600, off);
+  }
   flyHome() { this.flyTo(this.focusPoint(), undefined, 1400, this.homeOffset()); }
   /** Cinematic framing of the fire zone: distance (m), elevation angle (deg), azimuth offset from the drone's view (rad). */
   flyFrame(dist = 260, elevDeg = 30, az = 0.45, ms = 2600) {
@@ -1238,18 +1318,27 @@ varying float vL; varying float vSeed;
     if (this.raycaster.intersectObject(this.drone, true).length) this.cb.onDroneClick?.(this.drone.userData.sourceId);
   };
 
-  /** DEM profile along the drone's line of sight (real elevation), with burned flags from the current mask. */
-  profileAlongView(len = 160, n = 64) {
-    const pose = this.source?.pose;
-    if (!pose || !this.frame || !this.ready) return [];
-    const [x0, z0] = toXZ(this.frame, pose.position[0], pose.position[1]);
-    const v = this.viewDir();
-    const out: { d: number; elev: number; burned: boolean }[] = [];
+  /** DEM profile along the burn cell's long axis, through the observed fire: where the burn sits on the slope. */
+  profileAcrossCell(n = 120) {
+    const ring = this.incident?.reference_perimeter?.geometry.coordinates[0] as [number, number][] | undefined;
+    if (!ring?.length || !this.frame || !this.ready) return [];
+    const pts = ring.map(([lon, lat]) => toXZ(this.frame!, lon, lat));
+    // principal axis of the cell outline
+    const mx = pts.reduce((a, p) => a + p[0], 0) / pts.length, mz = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+    let sxx = 0, szz = 0, sxz = 0;
+    for (const [x, z] of pts) { sxx += (x - mx) ** 2; szz += (z - mz) ** 2; sxz += (x - mx) * (z - mz); }
+    const ang = 0.5 * Math.atan2(2 * sxz, sxx - szz), ux = Math.cos(ang), uz = Math.sin(ang);
+    const proj = pts.map(([x, z]) => (x - mx) * ux + (z - mz) * uz), lo = Math.min(...proj) - 60, hi = Math.max(...proj) + 60;
+    const f = this.focusPoint(), off = (f.x - mx) * ux + (f.z - mz) * uz, cx = f.x - off * ux, cz = f.z - off * uz;   // line through the fire
+    const pose = this.source?.pose, dp = pose ? toXZ(this.frame, pose.position[0], pose.position[1]) : null;
+    const out: { d: number; elev: number; burned: boolean; inCell: boolean }[] = [];
     for (let i = 0; i <= n; i++) {
-      const d = (len * i) / n, x = x0 + v.x * d, z = z0 + v.z * d;
-      out.push({ d, elev: this.elevationAt(x, z), burned: this.sampleMask(x, z) > 0.5 });
+      const s = lo + ((hi - lo) * i) / n, x = cx + ux * s, z = cz + uz * s;
+      const [lon, lat] = toLonLat(this.frame, x, z);
+      out.push({ d: s - lo, elev: this.elevationAt(x, z), burned: this.sampleMask(x, z) > 0.5, inCell: this.inPerimeter(lon, lat) });
     }
-    return out;
+    const droneD = dp ? (dp[0] - cx) * ux + (dp[1] - cz) * uz - lo : null;
+    return Object.assign(out, { fireD: off - lo, droneD, bearing: (THREE.MathUtils.radToDeg(Math.atan2(ux, -uz)) + 360) % 360 });
   }
 
   private sampleMask(x: number, z: number) {
@@ -1267,6 +1356,30 @@ varying float vL; varying float vSeed;
   /* --------------------------------------------------------------- loop */
 
   private lastCam = 0;
+  private lastCamKey = '';
+  /** First terrain hit of the camera ray through a screen point (ray-marched on the height field). */
+  private groundHit(ndcX: number, ndcY: number): THREE.Vector3 | null {
+    if (!this.frame || !this.rawHeights) return null;
+    this.raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera);
+    const o = this.raycaster.ray.origin, d = this.raycaster.ray.direction, p = new THREE.Vector3();
+    let t = 0.5, prev = 0;
+    for (let i = 0; i < 400 && t < 60000; i++) {
+      p.copy(d).multiplyScalar(t).add(o);
+      if (p.y <= this.groundY(p.x, p.z)) {
+        let a = prev, b = t;                                   // refine by bisection
+        for (let k = 0; k < 18; k++) { const m = (a + b) / 2; p.copy(d).multiplyScalar(m).add(o); if (p.y <= this.groundY(p.x, p.z)) b = m; else a = m; }
+        return p.copy(d).multiplyScalar(b).add(o);
+      }
+      prev = t; t = t * 1.04 + 0.5;
+    }
+    return null;
+  }
+  /** Ground metres per screen pixel around the centre of the view (what the scale bar shows). */
+  private groundMetersPerPx(): number | null {
+    const w = this.container.clientWidth || 1, dx = 120 / w;           // ±120/w in NDC = 120 px apart on screen
+    const a = this.groundHit(-dx, 0), b = this.groundHit(dx, 0);
+    return a && b ? a.distanceTo(b) / 120 : null;
+  }
   /** Advance one frame without rAF (used when the tab is hidden, e.g. for automated screenshots). */
   renderOnce(dt = 1 / 30) { this.step(dt); }
   private loop = () => {
@@ -1290,14 +1403,23 @@ varying float vL; varying float vSeed;
     for (const r of this.rotors) r.rotation.y += dt * 40;
     this.updateUnits(dt);
     if (this.drone) this.drone.position.y += Math.sin(this.uniforms.uTime.value * 1.3) * 0.004;
+    if (this.drone && this.frustum) {
+      this.v.copy(this.drone.position).project(this.camera);
+      const onScreen = this.v.z < 1 && Math.abs(this.v.x) < 1.05 && Math.abs(this.v.y) < 1.05;
+      (this.frustum.material as THREE.LineBasicMaterial).opacity = onScreen ? 0.55 : 0.12;
+    }
     this.composer.render();
     this.updateLabels();
     const now = performance.now();
     if (now - this.lastCam > 100) {
       this.lastCam = now;
-      const dist = this.camera.position.distanceTo(this.controls.target);
-      const mpp = (2 * dist * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) / (this.container.clientHeight || 1);
-      this.cb.onCamera?.({ azimuth: THREE.MathUtils.radToDeg(this.controls.getAzimuthalAngle()), zoom: this.defaultDist / dist, metersPerPx: mpp, polar: THREE.MathUtils.radToDeg(this.controls.getPolarAngle()) });
+      const key = this.cameraState().join(',') + ':' + this.container.clientWidth + 'x' + this.container.clientHeight;
+      if (key !== this.lastCamKey) {
+        this.lastCamKey = key;
+        const dist = this.camera.position.distanceTo(this.controls.target);
+        const mpp = this.groundMetersPerPx() ?? (2 * dist * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) / (this.container.clientHeight || 1);
+        this.cb.onCamera?.({ azimuth: THREE.MathUtils.radToDeg(this.controls.getAzimuthalAngle()), zoom: this.defaultDist / dist, metersPerPx: mpp, polar: THREE.MathUtils.radToDeg(this.controls.getPolarAngle()) });
+      }
     }
   }
 }

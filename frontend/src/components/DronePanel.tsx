@@ -19,8 +19,8 @@ export function DronePanel() {
   return (
     <div className="scroll">
       <div className="section" style={{ padding: '10px 0 6px' }}>
-        <div className="section-h" style={{ padding: '0 12px' }}><span>Drone Fleet <small>{drones.length + sources.length} of {drones.length + sources.length} airborne</small></span>
-          <span style={{ fontSize: 10.5, fontWeight: 700, color: '#b8641c', letterSpacing: '.05em' }}>● REPLAY</span></div>
+        <div className="section-h" style={{ padding: '0 12px' }}><span>Drone Fleet <small>{sources.length} real · {drones.length} simulated</small></span>
+          <span style={{ fontSize: 10.5, fontWeight: 700, color: '#b8641c', letterSpacing: '.05em' }} title="UAV-01 is a recorded flight, replayed in sync with the timeline">● REPLAY</span></div>
         {sources.map((s) => (
           <div key={s.id} className={'fleet-row' + (!simSel && s.id === src?.id ? ' sel' : '')} onClick={() => { set({ selectedSourceId: s.id, selectedUnitId: null, feedOpen: true, follow: null }); sceneRef.current?.flyToDrone(); }}>
             <div className="fleet-ic"><Icon name="drone" size={15} /></div>
@@ -57,7 +57,7 @@ export function DronePanel() {
               <dt>Position</dt><dd className="mono" style={{ fontSize: 11 }}>{formatLat(st.lat)} {formatLon(st.lon)}</dd>
             </dl>
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <button className="btn-red" onClick={() => set({ feedOpen: !feedOpen })}><Icon name="full" size={12} /> {feedOpen ? 'Hide camera view' : 'Full camera view'}</button>
+              <button className="btn-red" onClick={() => set({ feedOpen: !feedOpen })}><Icon name="video" size={12} /> {feedOpen ? 'Hide camera view' : 'Show camera view'}</button>
               <button className={'btn-dark'} onClick={() => set({ follow: follow?.id === simSel.id ? null : { id: simSel.id, mode: 'chase' } })}>{follow?.id === simSel.id ? 'Stop follow' : 'Follow'}</button>
             </div>
             <div className="muted" style={{ fontSize: 10.5, marginTop: 8 }}>Simulated aircraft and camera: the view is rendered from the 3D twin, not recorded footage.</div>
@@ -82,7 +82,7 @@ export function DronePanel() {
             <dt>Georef.</dt><dd>{src.georeferencing.method.replace(/_/g, ' ')} · {src.georeferencing.accuracy}</dd>
           </dl>
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button className="btn-red" onClick={() => set({ feedOpen: !feedOpen })}><Icon name="full" size={12} /> {feedOpen ? 'Hide camera view' : 'Show camera view'}</button>
+            <button className="btn-red" onClick={() => set({ feedOpen: !feedOpen })}><Icon name="video" size={12} /> {feedOpen ? 'Hide camera view' : 'Show camera view'}</button>
             <button className="btn-dark" onClick={() => sceneRef.current?.flyToDrone()}>Follow</button>
           </div>
         </div>

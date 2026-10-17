@@ -14,6 +14,8 @@ const P: Record<string, string> = {
   plus: 'M8 3v10M3 8h10',
   full: 'M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10',
   x: 'M4 4l8 8M12 4l-8 8',
+  download: 'M8 2.5v8M4.8 7.5L8 10.7l3.2-3.2M3 13.5h10',
+  prev: 'M12 3.5v9l-6-4.5zM5 3.5H3v9h2z',
   flame: 'M8 1.5c.5 2.5 3.5 3.8 3.5 7.2a3.5 3.5 0 01-7 0c0-1.7 1-2.6 1.5-3.4.3 1.2 1 1.7 1.5 1.8C7.2 5.3 7.4 3.4 8 1.5z',
   tri: 'M8 3l5.5 9.5h-11z',
   smoke: 'M3 11.5h8.5a2.5 2.5 0 000-5 3.5 3.5 0 00-6.7-.8A2.6 2.6 0 003 11.5z',
@@ -32,7 +34,7 @@ const P: Record<string, string> = {
   spark: 'M8 1.5l1.5 4.5 4.5 1.5-4.5 1.5L8 13.5 6.5 9 2 7.5 6.5 6z',
   upload: 'M8 11V2.5M4.5 6L8 2.5 11.5 6M2.5 11v2.5h11V11',
 };
-const FILLED = new Set(['play', 'pause', 'step', 'flame', 'tri']);
+const FILLED = new Set(['play', 'pause', 'step', 'prev', 'flame', 'tri']);
 
 export function Icon({ name, size = 14, color, fill, style }: { name: string; size?: number; color?: string; fill?: boolean; style?: React.CSSProperties }) {
   const filled = fill ?? FILLED.has(name);

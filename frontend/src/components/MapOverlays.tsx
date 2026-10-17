@@ -13,7 +13,7 @@ function niceScale(mpp: number) {
 const fmtM = (m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`);
 
 export function MapOverlays() {
-  const { cam, view, set, hover, loadMsg, loadError, loaded, compare, time, features, layers, incident, scenario } = useStore();
+  const { cam, view, set, hover, loadMsg, loadError, loaded, compare, time, features, layers, incident, scenario, feedOpen } = useStore();
   const sc = niceScale(cam.metersPerPx || 1);
   const burnedAt = (t: number) => {
     let best: number | null = null, bt = -Infinity;
@@ -31,7 +31,7 @@ export function MapOverlays() {
         </div>
       </div>
 
-      <div className="compass" onClick={() => sceneRef.current?.resetNorth()} title="Reset north">
+      <div className="compass" role="button" tabIndex={0} aria-label="Reset north" onClick={() => sceneRef.current?.resetNorth()} onKeyDown={(e) => { if (e.key === 'Enter') sceneRef.current?.resetNorth(); }} title="Reset north">
         <svg width="36" height="36" viewBox="0 0 36 36" style={{ transform: `rotate(${cam.azimuth}deg)` }}>
           <path d="M18 9l4.5 14L18 20l-4.5 3z" fill="#fff" />
           <path d="M18 9v11l-4.5 3z" fill="#d8d2c8" />
@@ -39,11 +39,11 @@ export function MapOverlays() {
         </svg>
       </div>
 
-      <div className="banner">
+      <div className={'banner' + (feedOpen ? ' left' : '')}>
         {compare.on && compare.before != null && (
           <span className="pill"><Icon name="compare" size={12} /> BEFORE {fmtClock(compare.before)} ┆ CURRENT {fmtClock(time)} · Δ burned <b>{delta != null && delta >= 0 ? '+' : ''}{da.v} {da.u}</b></span>
         )}
-        {layers.projection && <span className="pill exp">SIMULATED FIRE SCENARIO · T+{Math.floor(scenario.hours)}h{String(Math.round((scenario.hours % 1) * 60)).padStart(2, '0')} · {Math.round(scenario.ha).toLocaleString()} ha · NOT A FORECAST</span>}
+        {layers.projection && <span className="pill exp" title={`Illustrative wind- and slope-driven spread on the real terrain. The 15-minute timeline replays the scenario as a ×${Math.round(scenario.lapse)} time-lapse.`}>SIMULATED FIRE SCENARIO · T+{Math.floor(scenario.hours)}h{String(Math.floor((scenario.hours % 1) * 60)).padStart(2, '0')} · {Math.round(scenario.ha).toLocaleString('en-US')} ha · ×{Math.round(scenario.lapse).toLocaleString('en-US')} time-lapse · NOT A FORECAST</span>}
       </div>
 
       {hover && !useStore.getState().presenting && (
@@ -64,12 +64,12 @@ export function MapOverlays() {
           <button className={view === '3d' ? 'on' : ''} onClick={() => set({ view: '3d' })}>3D</button>
         </div>
         <div className="ctlgrp">
-          <button onClick={() => sceneRef.current?.zoomBy(1.4)} title="Zoom out">−</button>
-          <button style={{ minWidth: 44, justifyContent: 'center' }} onClick={() => sceneRef.current?.flyHome()} title="Reset view">{cam.zoom >= 1 ? cam.zoom.toFixed(1) : cam.zoom.toFixed(2)}×</button>
-          <button onClick={() => sceneRef.current?.zoomBy(1 / 1.4)} title="Zoom in">+</button>
+          <button onClick={() => sceneRef.current?.zoomBy(1.4)} title="Zoom out" aria-label="Zoom out">−</button>
+          <button style={{ minWidth: 44, justifyContent: 'center' }} onClick={() => sceneRef.current?.flyHome()} title="Reset view (H)">{cam.zoom >= 1 ? cam.zoom.toFixed(1) : cam.zoom.toFixed(2)}×</button>
+          <button onClick={() => sceneRef.current?.zoomBy(1 / 1.4)} title="Zoom in" aria-label="Zoom in">+</button>
         </div>
         <div className="ctlgrp">
-          <button onClick={() => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()} title="Fullscreen"><Icon name="full" size={13} /></button>
+          <button onClick={() => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()} title="Fullscreen" aria-label="Fullscreen"><Icon name="full" size={13} /></button>
         </div>
       </div>
       <div className="attribution">{incident?.attribution.join(' · ')} · DEM ×{useStore.getState().exaggeration} vertical</div>

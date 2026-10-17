@@ -133,6 +133,8 @@ export interface TimelineFrame {
   active_fire_area_m2: Metric;      // currently visibly burning
   area_change_m2: Metric;           // vs previous frame
   hotspot_count: Metric;
+  /** Rate of spread of the visible front (static export; absent from the backend API). */
+  front_advance_m_min?: Metric;
   has_ground_truth: boolean;
 }
 

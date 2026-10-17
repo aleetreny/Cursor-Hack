@@ -24,6 +24,7 @@ The interface recreates the "FireTrace" wildfire forensic prototype (Dilum Sanja
 | Burned area / flames | `backend/firescope/segment.py`: RGB segmentation with temporal accumulation | Model output, **evaluated against the manual masks** (below) |
 | Georeferencing | Pinhole camera, rays marched onto the DEM (`geo.py`) | **Approximate** (`camera_model_dem`) |
 | Events | Measured changes: area growth, flames outside the scar, smoke surges, peak flame extent | Derived, `confidence: null`, `review_required: true` |
+| Rate of spread | Leading edge of the burned outline vs one minute earlier (90th percentile of the displacement, `frontend/scripts/lib/front-advance.mjs`): mean 2.8 m/min, peak 10.4 m/min | Derived, visible front only |
 | Ask | Incident analyst in the browser (`frontend/src/agent/analyst.ts`): detects the intent of the question (where, when, how much, fastest growth, spot fires, smoke, weather, drone, accuracy, risk, resources…), answers from the recorded data in English or Spanish, and cites the clips it used | Derived. Rule-based, **no language model, nothing generated** |
 | Search | Keyword search (EN/ES) over the recorded events and per-clip measurements (`frontend/src/agent/search.ts`) | Derived. Searches what was measured, not the pixels |
 | Hotspots | Visible-flame blob centroids. **RGB cannot measure temperature**, so `temperature_c` is always `null` | Model |

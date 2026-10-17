@@ -1,5 +1,6 @@
 import { api } from '../api/client';
 import { useStore } from './store';
+import { startUrlSync } from './url';
 
 export async function loadAll() {
   const set = useStore.getState().set;
@@ -16,9 +17,11 @@ export async function loadAll() {
       t0, t1, time: first ? Math.min(t1, Date.parse(first.timestamp) + 20000) : t0 + (t1 - t0) * 0.35,
       selectedSourceId: sources[0]?.id ?? null, loaded: true, loadMsg: 'Loading terrain',
     });
+    startUrlSync();   // ?t=&mode=&cam=… → view, and keep the address bar in sync from now on
   } catch (e) {
     set({ loadError: e instanceof Error ? e.message : String(e) });
   }
   api.weather().then((weather) => set({ weather })).catch(() => set({ weather: null }));
   api.manifest().then((manifest) => set({ manifest })).catch(() => set({ manifest: null }));
+  api.incidents().then((incidents) => set({ incidents })).catch(() => set({ incidents: [] }));
 }

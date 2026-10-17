@@ -25,11 +25,16 @@ export class ApiError extends Error {
   constructor(status: number, message: string, path: string) { super(message); this.status = status; this.path = path; }
 }
 
+let index: Promise<IncidentIndex> | null = null;
+const loadIndex = () => {
+  index ??= fetch(`${import.meta.env.BASE_URL}incidents/index.json`).then((r) => { if (!r.ok) throw new ApiError(r.status, 'Incident index missing', 'incidents/index.json'); return r.json() as Promise<IncidentIndex>; });
+  index.catch(() => { index = null; });
+  return index;
+};
 let pkg: Promise<string> | null = null;
 /** URL of the incident package to load (static mode): ?incident=<id>, else the index default. */
 export function incidentBase(): Promise<string> {
-  pkg ??= fetch(`${import.meta.env.BASE_URL}incidents/index.json`)
-    .then((r) => { if (!r.ok) throw new ApiError(r.status, 'Incident index missing', 'incidents/index.json'); return r.json() as Promise<IncidentIndex>; })
+  pkg ??= loadIndex()
     .then((ix) => {
       const want = new URLSearchParams(location.search).get('incident');
       const e = ix.incidents.find((x) => x.id === want) ?? ix.incidents.find((x) => x.id === ix.default) ?? ix.incidents[0];
@@ -61,6 +66,8 @@ export function mediaUrl(u: string | null | undefined): string | undefined {
 }
 
 export const api = {
+  /** Static mode only: the incidents published in this build. */
+  incidents: async (): Promise<IncidentIndex['incidents']> => (IS_STATIC ? (await loadIndex()).incidents : []),
   /** Static mode only: what the incident package contains and how each part was made. */
   manifest: (): Promise<IncidentManifest | null> => (IS_STATIC ? req<IncidentManifest>('', 'manifest.json') : Promise.resolve(null)),
   incident: () => req<Incident>('/api/incident', 'incident.json'),

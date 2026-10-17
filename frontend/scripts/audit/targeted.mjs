@@ -117,10 +117,10 @@ await page.evaluate(() => window.__store.getState().set({ mode: 'incident', feed
 // feed full + Escape
 await page.evaluate(() => window.__store.getState().set({ mode: 'drones', feedOpen: true }));
 await page.waitForTimeout(600);
-await page.locator('.feed-bar button[title="Full camera view"]').click(); await page.waitForTimeout(200);
+await page.locator('.feed-bar button[aria-label="Full camera view"]').click(); await page.waitForTimeout(200);
 await page.keyboard.press('Escape'); await page.waitForTimeout(200);
 note('Escape exits full camera view', !(await page.locator('.feed.full').count()));
-if (await page.locator('.feed.full').count()) await page.locator('.feed-bar button[title="Full camera view"]').click();
+if (await page.locator('.feed.full').count()) await page.locator('.feed-bar button[aria-label="Full camera view"]').click();
 // feed hides map labels underneath?
 note('Feed drag handle exists (real)', await page.evaluate(() => getComputedStyle(document.querySelector('.feed-bar')).cursor));
 await page.evaluate(() => window.__store.getState().set({ selectedUnitId: 'FT-04' })); await page.waitForTimeout(800);
@@ -131,7 +131,7 @@ note('Sim feed has zoom', await page.locator('.feed-bar button[title="Zoom in"]'
 await page.evaluate(() => { const s = window.__store.getState(); s.set({ mode: 'incident', selectedUnitId: null, feedOpen: false }); s.setTime(s.t1 - 2000); s.set({ playing: true, speed: 8 }); });
 await page.waitForTimeout(1200);
 note('Playback stops at end (no loop)', { playing: await st('s.playing'), atEnd: await st('s.time === s.t1') });
-await page.locator('.tl-ctrl button[title=Play]').click(); await page.waitForTimeout(500);
+await page.locator('.tl-ctrl button[aria-label=Play]').click(); await page.waitForTimeout(500);
 note('Play at end restarts from start?', { playing: await st('s.playing'), t: await st('Math.round((s.time - s.t0)/1000)') });
 
 // resize robustness

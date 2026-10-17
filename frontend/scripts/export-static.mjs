@@ -6,6 +6,7 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { frontAdvance } from './lib/front-advance.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const PUBLIC = join(ROOT, 'frontend', 'public');
@@ -33,14 +34,18 @@ for (const { source, default: isDefault } of INCIDENTS) {
   const media = (u) => (typeof u === 'string' && u.startsWith('/media/') ? `${rel}media/${u.slice('/media/'.length)}` : u);
 
   const events = read('events_cv.json');
-  const timeline = { ...read('timeline.json'), events: events.events };
+  const observations = read('observations.json');
+  // rate of spread of the visible front (m/min), derived from the georeferenced outlines
+  const ros = frontAdvance(observations.features);
+  const tl = read('timeline.json');
+  const timeline = { ...tl, events: events.events, frames: tl.frames.map((f) => ({ ...f, front_advance_m_min: { value: ros.get(f.timestamp) ?? null, unit: 'm/min', provenance: 'derived', method: 'P90 distance of the new burned outline from the outline 60 s earlier, median of 3 frames' } })) };
   const ev = read('eval.json');
   const sources = read('sources.json').map((s) => ({ ...s, media_url: media(s.media_url), thumbnail_url: media(s.thumbnail_url) }));
   write('incident.json', incident);
   write('sources.json', sources);
   write('timeline.json', timeline);
   write('events.json', events);
-  write('observations.json', read('observations.json'));
+  write('observations.json', observations);
   write('weather.json', read('weather.json'));
   write('clips.json', read('clips.json').map((c) => ({ ...c, thumbnail_url: media(c.thumbnail_url) })));
   write('eval.json', { model: ev.model, frames_evaluated: ev.frames_evaluated, mean: ev.mean, notes: ev.notes });
@@ -59,12 +64,13 @@ for (const { source, default: isDefault } of INCIDENTS) {
     start: incident.start, end: incident.end, center: incident.center,
     packaged: new Date().toISOString(),
     files: { incident: 'incident.json', sources: 'sources.json', timeline: 'timeline.json', events: 'events.json', observations: 'observations.json', weather: 'weather.json', clips: 'clips.json', eval: 'eval.json' },
-    counts: { frames: timeline.frames.length, events: events.events.length, clips: read('clips.json').length, features: read('observations.json').features.length },
+    counts: { frames: timeline.frames.length, events: events.events.length, clips: read('clips.json').length, features: observations.features.length },
     // how each part of the picture was produced — rendered as "How this works" in the app
     methods: [
       { id: 'footage', name: 'Drone footage', provenance: 'real', detail: `${src.label}, ${Math.round(src.duration_seconds / 60)} min RGB replay (${src.width}×${src.height} source), shown as DRONE REPLAY` },
       { id: 'pose', name: 'Camera pose', provenance: 'real', detail: `DJI XMP metadata of the dataset photos: ${src.pose.altitude_agl_m} m AGL, gimbal ${src.pose.pitch_deg}°, HFOV ${src.pose.hfov_deg}°` },
       { id: 'segmentation', name: 'Burned area, flames, smoke', provenance: 'model', detail: `${ev.model} on one frame every 4 s; mean IoU ${ev.mean.iou.toFixed(2)} (image) / ${ev.mean.ground_iou.toFixed(2)} (ground) vs ${ev.frames_evaluated} hand-drawn masks` },
+      { id: 'ros', name: 'Rate of spread', provenance: 'derived', detail: 'Leading edge of the burned outline vs one minute earlier (90th percentile of the displacement, m/min). Only the visible front.' },
       { id: 'georef', name: 'Georeferencing', provenance: 'derived', detail: `${src.georeferencing.method.replace(/_/g, ' ')} (${src.georeferencing.accuracy}): pinhole camera, rays marched onto the DEM` },
       { id: 'events', name: 'Events', provenance: 'derived', detail: `${events.events.length} events from measured changes (growth, flames outside the scar, smoke, peak flame extent); all need human review` },
       { id: 'weather', name: 'Weather', provenance: 'external', detail: `${w.source} (${w.grid}); reanalysis, not an on-site sensor` },

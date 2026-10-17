@@ -27,18 +27,24 @@ window.__geom = function () {
     }
   }
   function zOf(el) { let z = 0; for (let e = el; e && e.nodeType === 1; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.position !== 'static' && cs.zIndex !== 'auto') { z = +cs.zIndex; break; } } return z; }
+  // Overlays that cover the app by design (dropdowns, tooltip, toasts, presentation slides/cards): text under them is
+  // occluded, not overlapping, and they are not reported as covering anything.
+  const DESIGNED = '.menu-pop, .hovertip, .toast, .pz-slide, .pz-caption, .pz-bar, .feed.full, .loading:not(.done)';
+  const covers0 = [...document.querySelectorAll(DESIGNED)].filter((e) => eff(e) > 0.15).map((e) => ({ e, r: e.getBoundingClientRect() }));
+  const occluded = (b) => covers0.some((o) => !o.e.contains(b.el) && (b.x0 + b.x1) / 2 > o.r.left && (b.x0 + b.x1) / 2 < o.r.right && (b.y0 + b.y1) / 2 > o.r.top && (b.y0 + b.y1) / 2 < o.r.bottom);
+  const vis = boxes.filter((b) => !occluded(b));
   const textOverlaps = [];
-  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
-    const a = boxes[i], b = boxes[j];
+  for (let i = 0; i < vis.length; i++) for (let j = i + 1; j < vis.length; j++) {
+    const a = vis[i], b = vis[j];
     if (a.el === b.el || a.el.contains(b.el) || b.el.contains(a.el)) continue;
     const ix = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), iy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0);
     if (ix > 2 && iy > 2) textOverlaps.push({ a: desc(a.el), ra: region(a.el), b: desc(b.el), rb: region(b.el), px: Math.round(ix * iy), at: [Math.round(Math.max(a.x0, b.x0)), Math.round(Math.max(a.y0, b.y0))] });
   }
   // 2) overlay boxes vs text underneath: floating overlays covering text of other regions
-  const overlays = [...document.querySelectorAll('.feed, .mapctl .ctlgrp, .mapctl .scalebar, .compass, .banner .pill, .hovertip, .pz-cap, .pz-bar, .menu-pop, .scene-label > *, .attribution, .legend, .pz-no')].filter((e) => eff(e) > 0.15).map((e) => ({ e, r: e.getBoundingClientRect() })).filter((o) => o.r.width > 2 && o.r.height > 2);
+  const overlays = [...document.querySelectorAll('.feed:not(.full), .mapctl .ctlgrp, .mapctl .scalebar, .compass, .banner .pill, .scene-label > *, .attribution, .legend')].filter((e) => eff(e) > 0.15 && !e.closest(DESIGNED)).map((e) => ({ e, r: e.getBoundingClientRect() })).filter((o) => o.r.width > 2 && o.r.height > 2 && !covers0.some((c) => !c.e.contains(o.e) && (o.r.left + o.r.right) / 2 > c.r.left && (o.r.left + o.r.right) / 2 < c.r.right && (o.r.top + o.r.bottom) / 2 > c.r.top && (o.r.top + o.r.bottom) / 2 < c.r.bottom));
   const covers = [];
-  for (const o of overlays) for (const b of boxes) {
-    if (o.e.contains(b.el)) continue;
+  for (const o of overlays) for (const b of vis) {
+    if (o.e.contains(b.el) || b.el.closest(DESIGNED)) continue;   // tooltips/menus sit above everything by design
     if (b.el.closest('.scene-label') && o.e.closest('.scene-label')) { /* label vs label handled by text overlap */ }
     const ix = Math.min(o.r.right, b.x1) - Math.max(o.r.left, b.x0), iy = Math.min(o.r.bottom, b.y1) - Math.max(o.r.top, b.y0);
     if (ix > 3 && iy > 3) {

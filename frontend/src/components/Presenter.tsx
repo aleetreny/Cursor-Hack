@@ -111,14 +111,14 @@ const STEPS: Step[] = [
   },
   {
     id: 'ros', title: 'Rate of Spread chart', dur: 10, spot: '.charts .chart:nth-child(2)', at: 'bl',
-    kicker: 'Rate of spread', head: 'When the fire accelerates', tags: ['MEASURED'],
-    body: <>New burned area per minute, averaged over 40 seconds. Peaks are surges; the biggest ones become “rapid growth” alerts in Key Events.</>,
+    kicker: 'Rate of spread', head: 'How fast the front moves', tags: ['MEASURED'],
+    body: <>Metres per minute: the leading edge of the burned outline compared with one minute earlier. The surges line up with the “rapid growth” alerts in Key Events.</>,
     enter: () => {},
   },
   {
-    id: 'elev', title: 'Elevation Profile', dur: 10, spot: '.charts .chart:nth-child(3)', at: 'br',
-    kicker: 'Elevation profile', head: 'The ground under the drone’s line of sight', tags: ['REAL', 'MEASURED'],
-    body: <>Real elevation along the drone’s view, from 0 to 160 m. The marker shows where the burned front sits on that line, so slope and fire position can be read together.</>,
+    id: 'elev', title: 'Terrain profile', dur: 10, spot: '.charts .chart:nth-child(3)', at: 'br',
+    kicker: 'Terrain profile', head: 'Where the burn sits on the hillside', tags: ['REAL', 'MEASURED'],
+    body: <>Real elevation along the planned burn cell, through the fire. Shaded is the cell, red is what has burned in the drone’s view, and the dot is the drone, so slope and fire position can be read together.</>,
     enter: () => { st().set({ playing: false }); },
   },
   {

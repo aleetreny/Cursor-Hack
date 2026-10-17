@@ -79,8 +79,8 @@ for (const [w, h] of [[1874, 1080], [1920, 1080], [1600, 900], [1440, 900], [136
   ok('scrub updates fire overlay', !!burnId, burnId);
 
   // play / pause
-  await page.locator('.tl-ctrl button[title=Play]').click(); await page.waitForTimeout(700);
-  const tp = await st('s.time'); await page.locator('.tl-ctrl button[title=Pause]').click();
+  await page.locator('.tl-ctrl button[aria-label=Play]').click(); await page.waitForTimeout(700);
+  const tp = await st('s.time'); await page.locator('.tl-ctrl button[aria-label=Pause]').click();
   ok('play advances time', tp > t1 || (await st('s.time')) >= (await st('s.t1')) - 1);
 
   // key event → seek + select + camera fly
@@ -114,10 +114,10 @@ for (const [w, h] of [[1874, 1080], [1920, 1080], [1600, 900], [1440, 900], [136
   ok('IR look applies LUT + simulated label', (await page.locator('.feed video').getAttribute('style')).includes('lut-ironbow') && /SIMULATED/.test(await page.locator('.hud .tr').textContent()));
   await page.locator('.feed-bar button[title="Zoom in"]').click();
   ok('feed zoom', (await page.locator('.feed video').getAttribute('style')).includes('scale(1.5)'));
-  await page.locator('.feed-bar button[title="Full camera view"]').click(); await page.waitForTimeout(300);
+  await page.locator('.feed-bar button[aria-label="Full camera view"]').click(); await page.waitForTimeout(300);
   const full = await rect(page, '.feed'), map2 = await rect(page, '.map');
   ok('full camera view fills map pane only', full.w > map2.w * 0.95 && full.r <= map2.r + 1 && full.b <= map2.b + 1);
-  await page.locator('.feed-bar button[title="Full camera view"]').click();
+  await page.locator('.feed-bar button[aria-label="Full camera view"]').click();
   await page.screenshot({ path: `${out}/walk_drones.png` });
 
   // simulated drone: rendered camera view is non-empty
@@ -175,6 +175,29 @@ for (const [w, h] of [[1874, 1080], [1920, 1080], [1600, 900], [1440, 900], [136
   ok('analyst: 4 questions → 4 distinct answers', new Set(answers).size === 4, answers.map((a) => a.slice(0, 32)).join(' | '));
   ok('analyst answers in Spanish when asked in Spanish', /estacionario|sobre el suelo/.test(answers[1]));
   ok('analyst cites the fastest growth at 05:44', /05:44/.test(answers[0]) && /632/.test(answers[0]));
+
+  // phase 2: menus dismiss, share encodes the view, deep links, restart at the end, real rate of spread
+  await page.locator('.tb-menu', { hasText: 'View' }).click(); await page.keyboard.press('Escape');
+  ok('menus close with Escape', (await page.locator('.menu-pop').count()) === 0);
+  await page.locator('.speed').click(); await page.mouse.click(300, 400); await page.waitForTimeout(150);
+  ok('speed menu closes on outside click', (await page.locator('.menu-pop').count()) === 0);
+  await page.evaluate(() => { const s = window.__store.getState(); s.set({ mode: 'drones', feedOpen: true }); s.setTime(s.t0 + 300000); });
+  await page.waitForTimeout(700);
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.locator('.tb-menu', { hasText: 'Share' }).click(); await page.waitForTimeout(300);
+  const link = await page.evaluate(() => navigator.clipboard.readText());
+  ok('share copies a link with time, mode and camera', /[?&]t=300\b/.test(link) && /mode=drones/.test(link) && /cam=/.test(link), link.slice(-60));
+  ok('share shows a confirmation', /copied/i.test(await page.locator('.toast').innerText().catch(() => '')));
+  const p2 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await p2.goto(link); await p2.waitForFunction(() => window.__store?.getState().loaded && window.__store.getState().loadMsg === '', null, { timeout: 60000 }); await p2.waitForTimeout(400);
+  ok('deep link restores mode and time', await p2.evaluate(() => { const s = window.__store.getState(); return s.mode === 'drones' && Math.abs(s.time - s.t0 - 300000) < 1500; }));
+  await p2.close();
+  await page.evaluate(() => { const s = window.__store.getState(); s.set({ mode: 'incident', feedOpen: false }); s.setTime(s.t1); });
+  await page.locator('.tl-ctrl button[aria-label=Play]').click(); await page.waitForTimeout(300);
+  ok('play at the end restarts from the start', await st('s.playing && s.time - s.t0 < 20000'));
+  await page.evaluate(() => window.__store.getState().set({ playing: false }));
+  ok('rate of spread chart is in metres per minute', /Rate of Spread\s*\(m\/min/.test(await page.locator('.charts').innerText()));
+  ok('terrain profile chart present', /Terrain Profile/.test(await page.locator('.charts').innerText()));
 
   // about: how each part was produced, from the incident manifest
   await page.locator('.tabs button', { hasText: 'About' }).click();

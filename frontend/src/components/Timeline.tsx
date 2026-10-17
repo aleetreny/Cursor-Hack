@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useStore } from '../state/store';
 import { profileRef, selectEvent } from '../scene/SceneView';
 import { fmtClock, fmtDay, fmtDayClock } from '../lib/format';
+import { downloadCsv, useDismiss } from '../lib/ui';
 import type { AnalysisEvent, EventType } from '../api/types';
 import { Icon } from './Icon';
 import { MiniChart, type Pt } from './MiniChart';
@@ -20,6 +21,18 @@ export function eventIcon(t: EventType, sev: AnalysisEvent['severity'], size = 1
   return <Icon name="tri" size={size} color={c} />;
 }
 
+/** Contiguous x ranges of a profile where `test` holds, as chart bands. */
+function spans<T extends { d: number }>(p: T[], test: (q: T) => boolean, color: string) {
+  const out: { x0: number; x1: number; color: string }[] = [];
+  let start: number | null = null;
+  p.forEach((q, i) => { if (test(q) && start == null) start = q.d; if ((!test(q) || i === p.length - 1) && start != null) { out.push({ x0: start, x1: q.d, color }); start = null; } });
+  return out;
+}
+function profileTicks(len: number) {
+  const step = [100, 200, 250, 500, 1000].find((s) => len / s <= 5) ?? 1000;
+  return Array.from({ length: Math.floor(len / step) + 1 }, (_, i) => ({ x: i * step, label: i * step >= 1000 ? `${(i * step) / 1000} km` : `${i * step} m` }));
+}
+
 function smooth(pts: Pt[], n: number): Pt[] {
   return pts.map((p, i) => {
     const w = pts.slice(Math.max(0, i - n + 1), i + 1).filter((q) => q.y != null);
@@ -36,6 +49,8 @@ export function Timeline() {
   const track = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<'time' | 'before' | null>(null);
   const [speedOpen, setSpeedOpen] = useState(false);
+  const speedRef = useRef<HTMLDivElement>(null);
+  useDismiss(speedOpen, () => setSpeedOpen(false), speedRef);
   const span = t1 - t0 || 1;
   const pct = (t: number) => ((t - t0) / span) * 100;
 
@@ -62,6 +77,11 @@ export function Timeline() {
   const bubbleX = (t: number) => Math.min(trackW - BW / 2, Math.max(BW / 2, (pct(t) / 100) * trackW));
   const curX = (pct(time) / 100) * trackW;
   const hideRange = curX > trackW - 300, hideSub = curX < 260;
+  const mergeBubbles = compare.on && compare.before != null && Math.abs(bubbleX(time) - bubbleX(compare.before)) < BW + 8;
+  const stepEvent = (dir: 1 | -1) => {
+    const e = dir > 0 ? events.find((x) => Date.parse(x.timestamp) > time + 1000) : [...events].reverse().find((x) => Date.parse(x.timestamp) < time - 1000);
+    if (e) selectEvent(e.event_id);
+  };
   // cluster markers closer than 18 px; the most severe event leads the cluster
   const SEV = { alert: 0, watch: 1, info: 2 } as const;
   const clusters: { x: number; items: typeof events }[] = [];
@@ -79,7 +99,6 @@ export function Timeline() {
   const ser = (fn: (f: (typeof frames)[number]) => number | null | undefined): Pt[] => frames.map((f) => ({ x: Date.parse(f.timestamp), y: fn(f) ?? null }));
   const stepS = frames.length > 1 ? (Date.parse(frames[1].timestamp) - Date.parse(frames[0].timestamp)) / 1000 : 4;
   const profile = useProfile();
-  const frontIdx = profile.findIndex((p) => p.burned);
 
   const simCtx = useSimCtx();
   const selUnit = useStore((st) => st.selectedUnitId);
@@ -115,7 +134,9 @@ export function Timeline() {
     ]
     : [
       { title: 'Burned Area', unit: 'm²', pts: ser((f) => f.burned_area_m2.value), color: '#c9503a', kind: 'area' as const, prov: frames[0]?.burned_area_m2.provenance },
-      { title: 'Rate of Spread', unit: 'm²/min · 40 s avg', pts: smooth(ser((f) => (f.area_change_m2.value == null ? null : Math.max(0, (f.area_change_m2.value / stepS) * 60))), 10), color: '#cf3b2a', kind: 'line' as const, prov: frames[0]?.area_change_m2.provenance },
+      frames[0]?.front_advance_m_min
+        ? { title: 'Rate of Spread', unit: 'm/min · visible front', pts: ser((f) => f.front_advance_m_min?.value), color: '#cf3b2a', kind: 'line' as const, prov: frames[0].front_advance_m_min.provenance }
+        : { title: 'Area Growth', unit: 'm²/min · 40 s avg', pts: smooth(ser((f) => (f.area_change_m2.value == null ? null : Math.max(0, (f.area_change_m2.value / stepS) * 60))), 10), color: '#cf3b2a', kind: 'line' as const, prov: frames[0]?.area_change_m2.provenance },
     ];
 
   return (
@@ -125,12 +146,13 @@ export function Timeline() {
           <div className="tl-head"><span>Timeline <span className="muted" style={{ fontWeight: 400, fontSize: 11.5, marginLeft: 6, transition: 'opacity .25s', opacity: hideSub ? 0 : 1 }}>UTC · drone replay</span></span><span className="range" style={{ transition: 'opacity .25s', opacity: hideRange ? 0 : 1 }}>{t0 ? `${fmtDayClock(t0)} – ${fmtClock(t1)}` : ''}</span></div>
           <div className="tl-row">
             <div className="tl-ctrl">
-              <button onClick={() => set({ playing: true })} className={playing ? 'on' : ''} title="Play"><Icon name="play" size={12} /></button>
-              <button onClick={() => set({ playing: false })} className={!playing ? 'on' : ''} title="Pause"><Icon name="pause" size={12} /></button>
-              <button onClick={() => { const nx = events.find((e) => Date.parse(e.timestamp) > time + 1000); if (nx) selectEvent(nx.event_id); }} title="Next event"><Icon name="step" size={12} /></button>
-              <div style={{ position: 'relative' }}>
-                <button className="speed" onClick={() => setSpeedOpen(!speedOpen)}>{speed}× <Icon name="chev" size={10} /></button>
-                {speedOpen && <div className="menu-pop" style={{ top: 'auto', bottom: 28, left: 0, minWidth: 70 }}>{SPEEDS.map((s) => <button key={s} onClick={() => { set({ speed: s }); setSpeedOpen(false); }}>{s}×</button>)}</div>}
+              <button onClick={() => { if (time >= t1 - 500) setTime(t0); set({ playing: true }); }} className={playing ? 'on' : ''} title="Play (Space)" aria-label="Play"><Icon name="play" size={12} /></button>
+              <button onClick={() => set({ playing: false })} className={!playing ? 'on' : ''} title="Pause (Space)" aria-label="Pause"><Icon name="pause" size={12} /></button>
+              <button onClick={() => stepEvent(-1)} title="Previous event ([)" aria-label="Previous event" disabled={!events.some((e) => Date.parse(e.timestamp) < time - 1000)}><Icon name="prev" size={12} /></button>
+              <button onClick={() => stepEvent(1)} title="Next event (])" aria-label="Next event" disabled={!events.some((e) => Date.parse(e.timestamp) > time + 1000)}><Icon name="step" size={12} /></button>
+              <div style={{ position: 'relative' }} ref={speedRef}>
+                <button className="speed" onClick={() => setSpeedOpen(!speedOpen)} aria-haspopup="menu" aria-expanded={speedOpen} title="Playback speed">{speed}× <Icon name="chev" size={10} /></button>
+                {speedOpen && <div className="menu-pop" role="menu" style={{ top: 'auto', bottom: 28, left: 0, minWidth: 70 }}>{SPEEDS.map((s) => <button key={s} role="menuitemradio" aria-checked={s === speed} onClick={() => { set({ speed: s }); setSpeedOpen(false); }}>{s}×</button>)}</div>}
               </div>
             </div>
             <div className="track" ref={track} onPointerDown={(e) => { const r = track.current!.getBoundingClientRect(); setTime(t0 + ((e.clientX - r.left) / r.width) * span); set({ playing: false }); setDrag('time'); }}>
@@ -148,11 +170,11 @@ export function Timeline() {
               })}
               {compare.on && compare.before != null && (
                 <>
-                  <div className="bubble before" style={{ left: bubbleX(compare.before) }}>Before {fmtClock(compare.before)}</div>
-                  <div className="handle before" style={{ left: `${pct(compare.before)}%` }} onPointerDown={(e) => { e.stopPropagation(); setDrag('before'); }} />
+                  {!mergeBubbles && <div className="bubble before" style={{ left: bubbleX(compare.before) }}>Before {fmtClock(compare.before)}</div>}
+                  <div className="handle before" style={{ left: `${pct(compare.before)}%` }} onPointerDown={(e) => { e.stopPropagation(); setDrag('before'); }} title="Drag to change the 'before' time" />
                 </>
               )}
-              <div className="bubble" style={{ left: bubbleX(time) }}>{fmtDayClock(time)}</div>
+              <div className={'bubble' + (mergeBubbles ? ' wide' : '')} style={{ left: mergeBubbles ? Math.min(trackW - 95, Math.max(95, (bubbleX(time) + bubbleX(compare.before!)) / 2)) : bubbleX(time) }}>{mergeBubbles ? `${fmtClock(compare.before!)} → ${fmtClock(time)}` : fmtDayClock(time)}</div>
               <div className="handle" style={{ left: `${pct(time)}%` }} />
               <div className="ticks">
                 {ticks.map((k) => <div key={k.t} className="tick" style={{ left: `${pct(k.t)}%` }}>{k.label}</div>)}
@@ -163,15 +185,20 @@ export function Timeline() {
         <div className="charts">
           {charts.map((c) => (
             <div className="chart" key={c.title}>
-              <div className="chart-h"><span>{c.title} <small>({c.unit})</small>{c.prov && <span className={'prov ' + c.prov}>{c.prov === 'demo_parameter' ? 'sim' : c.prov}</span>}</span><span className="muted">⋮</span></div>
-              <MiniChart pts={c.pts} cursor={time} color={c.color} kind={c.kind} xTicks={xLab()} />
+              <div className="chart-h"><span>{c.title} <small>({c.unit})</small>{c.prov && <span className={'prov ' + c.prov}>{c.prov === 'demo_parameter' ? 'sim' : c.prov}</span>}</span>
+                <button className="chart-dl" title="Download CSV" aria-label={`Download ${c.title} as CSV`} onClick={() => downloadCsv(`${c.title.toLowerCase().replace(/\W+/g, '-')}.csv`, ['time_utc', `${c.title} (${c.unit})`], c.pts.map((p) => [new Date(p.x).toISOString(), p.y]))}><Icon name="download" size={12} /></button></div>
+              <MiniChart pts={c.pts} cursor={time} color={c.color} kind={c.kind} xTicks={xLab()} label={`${c.title} over the recording`} />
             </div>
           ))}
-          {mode !== 'drones' && mode !== 'resources' && (
+          {mode !== 'drones' && mode !== 'resources' && profile.length > 1 && (
             <div className="chart">
-              <div className="chart-h"><span>Elevation Profile <small>(drone line of sight)</small><span className="prov external">DEM</span></span><span className="muted">⋮</span></div>
-              <MiniChart pts={profile.map((p) => ({ x: p.d, y: p.elev }))} cursor={frontIdx >= 0 ? profile[frontIdx].d : null} color="#5f7a4c" fill="#7f9a68" kind="area" zero={false}
-                xTicks={[0, 40, 80, 120, 160].map((d) => ({ x: d, label: `${d} m` }))} />
+              <div className="chart-h" title="Elevation along the planned burn cell's long axis, through the observed fire. Shaded: inside the cell · red: burned in the drone's view · dot: drone.">
+                <span>Terrain Profile <small>(along the burn cell)</small><span className="prov external">DEM</span></span>
+                <button className="chart-dl" title="Download CSV" aria-label="Download the terrain profile as CSV" onClick={() => downloadCsv('terrain-profile.csv', ['distance_m', 'elevation_m', 'inside_cell', 'burned_in_view'], profile.map((p) => [Math.round(p.d), +p.elev.toFixed(1), p.inCell ? 1 : 0, p.burned ? 1 : 0]))}><Icon name="download" size={12} /></button></div>
+              <MiniChart pts={profile.map((p) => ({ x: p.d, y: p.elev }))} cursor={profile.fireD ?? null} color="#5f7a4c" fill="#7f9a68" kind="area" zero={false}
+                bands={[...spans(profile, (p) => p.inCell, 'rgba(120,110,95,.13)'), ...spans(profile, (p) => p.burned, 'rgba(201,80,58,.45)')]}
+                marks={profile.droneD != null ? [{ x: profile.droneD, label: 'UAV-01', color: '#d2402a' }] : []}
+                xTicks={profileTicks(profile[profile.length - 1].d)} label="Terrain elevation along the burn cell, with the burned area and the drone marked" />
             </div>
           )}
         </div>

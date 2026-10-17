@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useStore } from '../state/store';
 import { SIM_UNITS, opsTotals, unitState, type SimUnit } from '../sim/ops';
 import { useSimCtx } from '../sim/useSim';
@@ -10,6 +11,9 @@ const GROUPS: [SimUnit['group'], string][] = [['aircraft', 'Aircraft'], ['engine
 export function ResourcesPanel() {
   const { time, selectedUnitId, set, follow } = useStore();
   const ctx = useSimCtx();
+  const scroll = useRef<HTMLDivElement>(null);
+  // the selected unit's card sits above the list: bring it into view when the selection changes
+  useEffect(() => { if (selectedUnitId) scroll.current?.scrollTo({ top: 0, behavior: 'smooth' }); }, [selectedUnitId]);
   if (!ctx) return null;
   const tot = opsTotals(time, ctx);
   const units = SIM_UNITS.filter((u) => u.group !== 'drones');
@@ -18,7 +22,7 @@ export function ResourcesPanel() {
   const air = sel?.group === 'aircraft';
   const mode = (m: 'chase' | 'overview' | 'ride') => set({ follow: follow?.id === sel!.id && follow.mode === m ? null : { id: sel!.id, mode: m } });
   return (
-    <div className="scroll">
+    <div className="scroll" ref={scroll}>
       <div className="section">
         <div className="section-h"><span>Resources <small>{units.length} units</small></span><span className="sim-tag">SIMULATED</span></div>
         <div className="kpis">
@@ -27,24 +31,6 @@ export function ResourcesPanel() {
           <div><div className="v">{fmtNum(tot.chains)}</div><div className="l">chains line</div></div>
           <div><div className="v">{tot.personnel}</div><div className="l">personnel</div></div>
         </div>
-      </div>
-      <div className="section" style={{ padding: '4px 0 8px' }}>
-        {GROUPS.map(([g, label]) => (
-          <div key={g}>
-            <div className="grp-h">{label} ({units.filter((u) => u.group === g).length})</div>
-            {units.filter((u) => u.group === g).map((u) => {
-              const s = unitState(u, time, ctx);
-              const q = u.capUnit === 'gal' ? `${fmtNum(s.load)} gal` : u.capUnit === 'chains' ? `${fmtNum(s.lineChains ?? 0)} ch` : `${u.personnel} pers`;
-              return (
-                <div key={u.id} className={'unit-row' + (u.id === selectedUnitId ? ' sel' : '')} onClick={() => set({ selectedUnitId: u.id, follow: null })}>
-                  <div className="unit-ic">{ICON[u.kind]}</div>
-                  <div style={{ minWidth: 0 }}><div className="nm">{u.id} <span>{u.name}</span></div><div className="st">● {s.status}</div></div>
-                  <div className="q">{q}</div>
-                </div>
-              );
-            })}
-          </div>
-        ))}
       </div>
       {sel && st ? (
         <div className="section">
@@ -69,15 +55,33 @@ export function ResourcesPanel() {
           </dl>
           <div className="btnrow">
             {air
-              ? <><button className={'btn-seg' + (follow?.mode === 'chase' ? ' on' : '')} onClick={() => mode('chase')}>Chase</button><button className="btn-seg" disabled title="No cockpit model in this build">Cockpit</button></>
+              ? <><button className={'btn-seg' + (follow?.mode === 'chase' ? ' on' : '')} onClick={() => mode('chase')}>Chase</button></>
               : <button className={'btn-seg' + (follow?.mode === 'ride' ? ' on' : '')} onClick={() => mode('ride')}>Ride along</button>}
             <button className={'btn-seg' + (follow?.mode === 'overview' ? ' on' : '')} onClick={() => mode('overview')}>Overview</button>
           </div>
           <div className="muted" style={{ fontSize: 10.5, marginTop: 8 }}>Simulated exercise unit — deterministic track driven by the timeline. Not live telemetry.</div>
         </div>
       ) : (
-        <div className="section"><div className="section-h">Operations</div><div className="muted" style={{ fontSize: 12, lineHeight: 1.45 }}>Select an aircraft to chase it, or an engine, crew or dozer to ride along. Drops leave retardant (red) and water (blue) lines; crews cut fire line (brown) along the planned cell boundary.</div></div>
+        <div className="section"><div className="section-h">Operations <span className="sim-tag">SIMULATED</span></div><div className="muted" style={{ fontSize: 12, lineHeight: 1.45 }}>Select an aircraft to chase it, or an engine, crew or dozer to ride along. Drops leave retardant (red) and water (blue) lines; crews cut fire line (brown) along the planned cell boundary.</div></div>
       )}
+      <div className="section" style={{ padding: '4px 0 8px' }}>
+        {GROUPS.map(([g, label]) => (
+          <div key={g}>
+            <div className="grp-h">{label} ({units.filter((u) => u.group === g).length})</div>
+            {units.filter((u) => u.group === g).map((u) => {
+              const s = unitState(u, time, ctx);
+              const q = u.capUnit === 'gal' ? `${fmtNum(s.load)} gal` : u.capUnit === 'chains' ? `${fmtNum(s.lineChains ?? 0)} ch` : `${u.personnel} pers`;
+              return (
+                <div key={u.id} className={'unit-row' + (u.id === selectedUnitId ? ' sel' : '')} onClick={() => set({ selectedUnitId: u.id, follow: null })}>
+                  <div className="unit-ic">{ICON[u.kind]}</div>
+                  <div style={{ minWidth: 0 }}><div className="nm">{u.id} <span>{u.name}</span></div><div className="st">● {s.status}</div></div>
+                  <div className="q">{q}</div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

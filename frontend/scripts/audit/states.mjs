@@ -19,14 +19,14 @@ const STATES = [
   ['07-view-menu', S(`s.set({ mode: 'incident', panel: 'layers' }); setTimeout(() => [...document.querySelectorAll('.tb-menu')].find(b => b.textContent.includes('View'))?.click(), 50);`)],
   ['08-analysis-menu', S(`setTimeout(() => [...document.querySelectorAll('.tb-menu')].find(b => b.textContent.includes('Analysis'))?.click(), 50);`)],
   ['09-speed-menu', S(`document.querySelector('.tb-menu')?.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true })); setTimeout(() => document.querySelector('.speed')?.click(), 50);`)],
-  ['10-2d', S(`document.querySelector('.speed')?.click(); s.set({ view: '2d' });`), 1800],
+  ['10-2d', S(`s.set({ view: '2d' });`), 1800],
   ['11-compare', S(`s.set({ view: '3d', compare: { on: true, before: s.t0 + 120000 } });`), 1600],
-  ['12-scenario', S(`s.set({ compare: { on: false, before: null } }); s.setLayer('projection', true); s.set({ playing: true, speed: 8 }); setTimeout(() => window.__scene.flyHome(), 50);`), 5000],
+  ['12-scenario', S(`s.set({ compare: { on: false, before: null } }); s.setLayer('projection', true); s.set({ playing: true, speed: 8 });`), 5000],
   ['13-groundtruth', S(`s.setLayer('projection', false); s.set({ playing: false }); s.setLayer('groundTruth', true);`), 1200],
   ['14-drones-real', S(`s.setLayer('groundTruth', false); s.set({ mode: 'drones', feedOpen: true, selectedUnitId: null, follow: null });`), 1800],
   ['15-drones-real-ir-zoom', `(() => { [...document.querySelectorAll('.feed-bar button')].find(b => b.textContent === 'IR*')?.click(); document.querySelector('.feed-bar button[title="Zoom in"]')?.click(); })()`, 800],
-  ['16-drones-real-full', `(() => document.querySelector('.feed-bar button[title="Full camera view"]')?.click())()`, 800],
-  ['17-drones-sim-FT-03', S(`document.querySelector('.feed.full .feed-bar button[title="Full camera view"]')?.click(); s.set({ selectedUnitId: 'FT-03', feedOpen: true });`), 2000],
+  ['16-drones-real-full', `(() => document.querySelector('.feed-bar button[aria-label="Full camera view"]')?.click())()`, 800],
+  ['17-drones-sim-FT-03', S(`document.querySelector('.feed.full .feed-bar button[aria-label="Full camera view"]')?.click(); s.set({ selectedUnitId: 'FT-03', feedOpen: true });`), 2000],
   ['18-drones-sim-follow', `(() => [...document.querySelectorAll('.btn-dark')].find(b => b.textContent.includes('Follow'))?.click())()`, 2500],
   ['19-resources-none', S(`s.set({ mode: 'resources', selectedUnitId: null, follow: null, feedOpen: false }); s.setTime(s.t0 + 8 * 60000); window.__scene.flyHome();`), 1800],
   ['20-resources-T-910-chase', S(`s.set({ selectedUnitId: 'T-910' }); setTimeout(() => [...document.querySelectorAll('.btn-seg')].find(b => b.textContent === 'Chase')?.click(), 200);`), 2500],
@@ -54,6 +54,7 @@ for (const [w, h, dpr] of VIEWPORTS) {
   report[vp] = {};
   for (const [name, js, wait = 900, special] of STATES) {
     try {
+      if (!name.startsWith('25')) { await page.keyboard.press('Escape'); await page.mouse.move(5, 300); }   // close menus / full views from the previous state
       await page.evaluate(js);
       await page.waitForTimeout(wait);
       if (special === 'hover') { const m = await page.evaluate(() => { const r = document.querySelector('.map').getBoundingClientRect(); return { x: r.x + r.width * 0.55, y: r.y + r.height * 0.55 }; }); await page.mouse.move(m.x, m.y); await page.waitForTimeout(400); }

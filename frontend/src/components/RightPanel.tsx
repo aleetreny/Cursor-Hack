@@ -14,7 +14,7 @@ const LAYERS: LayerRow[] = [
   { id: 'imagery', label: 'Aerial Imagery', sw: 'linear-gradient(135deg,#6f7a62,#a59c84 50%,#5b6650)', kind: 'opacity', prov: 'external', def: 0.18 },
   { id: 'burned', label: 'Burned Area', sw: 'linear-gradient(135deg,#2a1e1c,#5a3a34 60%,#a24a35)', kind: 'opacity', prov: 'model', def: 0.95 },
   { id: 'active', label: 'Active Fire', sw: 'radial-gradient(circle at 40% 40%,#ffe08a,#ff7a1a 45%,#c0290f)', kind: 'opacity', prov: 'model', def: 1 },
-  { id: 'change', label: 'Change Since Prev.', sw: 'linear-gradient(135deg,#f0a35a,#d9542a)', kind: 'opacity', prov: 'derived', def: 0.6 },
+  { id: 'change', label: 'Recent Change', sw: 'linear-gradient(135deg,#f0a35a,#d9542a)', kind: 'opacity', prov: 'derived', def: 0.6 },
   { id: 'hotspots', label: 'Flame Hotspots', sw: 'radial-gradient(circle,#ffd27a 25%,#ff7a2a 45%,#f3ece2 50%)', kind: 'toggle', prov: 'model' },
   { id: 'smoke', label: 'Smoke', sw: 'linear-gradient(135deg,#b7b2ac,#7d7873)', kind: 'toggle' },
   { id: 'footprint', label: 'Drone Footprint', sw: 'linear-gradient(135deg,#efeae2,#c9c1b4)', kind: 'toggle', prov: 'derived' },
@@ -73,7 +73,7 @@ function IncidentOverview() {
   const src = sources[0];
   return (
     <div className="section">
-      <div className="section-h">Incident Overview <span className="act">Edit</span></div>
+      <div className="section-h">Incident Overview</div>
       <dl className="kv">
         <dt>Incident</dt><dd>{incident?.name}</dd>
         <dt>Incident ID</dt><dd className="mono" style={{ fontSize: 11.5 }}>{incident?.id}</dd>
@@ -167,7 +167,7 @@ function WeatherCard() {
     <div className="section">
       <div className="section-h"><span>Weather <small>(ERA5 · {at ? fmtClock(Date.parse(at.timestamp), false) + ' UTC' : 'n/a'})</small></span><span className="prov external">external</span></div>
       <div className="metrics">
-        <div className="metric"><span className="ic"><Icon name="smoke" /></span><span className="lab">Wind</span><span className="val">{fmtNum(at?.wind_kmh, 1)} <small>km/h</small></span><span className="sub">{dir ? `from ${dir} (${Math.round(at!.wind_dir_deg!)}°)` : '—'}</span></div>
+        <div className="metric"><span className="ic"><Icon name="smoke" /></span><span className="lab">Wind</span><span className="val">{fmtNum(at?.wind_kmh, 1)} <small>km/h</small></span><span className="sub" title="Direction the wind blows from">{dir ? `from ${dir} ${Math.round(at!.wind_dir_deg!)}°` : '—'}</span></div>
         <div className="metric"><span className="ic"><Icon name="flame" color="#d2402a" /></span><span className="lab">Temp</span><span className="val">{fmtNum(at?.temp_c, 1)} <small>°C</small></span></div>
         <div className="metric"><span className="ic"><Icon name="target" /></span><span className="lab">RH</span><span className="val">{fmtNum(at?.rh_pct)} <small>%</small></span></div>
         <div className="metric"><span className="ic"><Icon name="delta" /></span><span className="lab">Gusts</span><span className="val">{fmtNum(at?.gust_kmh, 1)} <small>km/h</small></span></div>
