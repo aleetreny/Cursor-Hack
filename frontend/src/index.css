@@ -133,15 +133,15 @@ input[type=range].rng::-webkit-slider-thumb { appearance: none; width: 11px; hei
 .tl-ctrl button { width: 26px; height: 24px; border-radius: 5px; display: grid; place-items: center; color: var(--ink-2); }
 .tl-ctrl button.on { background: #3d3832; color: #fff; }
 .tl-ctrl .speed { width: auto; padding: 0 6px; gap: 3px; display: flex; border: 1px solid var(--line); background: var(--card); font-size: 12px; }
-.track { position: relative; height: 56px; cursor: pointer; user-select: none; margin: 0 22px 0 26px; }
+.track { position: relative; height: 62px; cursor: pointer; user-select: none; margin: 0 22px 0 26px; }
 .track .rail { position: absolute; left: 0; right: 0; top: 12px; height: 3px; background: #d7d0c5; border-radius: 2px; }
 .track .rail .fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #e9b4a5, #e08870); border-radius: 2px; }
 .track .handle { position: absolute; top: 6px; width: 15px; height: 15px; margin-left: -7.5px; border-radius: 50%; background: #2f2b27; border: 3px solid #fff; box-shadow: 0 0 0 1px #2f2b27; }
 .track .handle.before { background: #fff; box-shadow: 0 0 0 1.5px #6b655d; }
-.track .bubble { position: absolute; top: -20px; transform: translateX(-50%); background: #3d3832; color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
+.track .bubble { position: absolute; top: -20px; transform: translateX(-50%); width: 124px; text-align: center; box-sizing: border-box; z-index: 2; background: #3d3832; color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
 .track .bubble.before { background: #fff; color: var(--ink); border: 1px solid #bdb5aa; }
-.track .mk { position: absolute; top: 22px; transform: translateX(-50%); }
-.track .ticks { position: absolute; left: 0; right: 0; top: 30px; height: 26px; }
+.track .mk { position: absolute; top: 22px; transform: translateX(-50%); line-height: 0; }
+.track .ticks { position: absolute; left: 0; right: 0; top: 38px; height: 18px; }
 .track .tick { position: absolute; transform: translateX(-50%); font-size: 11px; color: var(--ink-2); text-align: center; line-height: 1.15; white-space: nowrap; }
 .track .tick b { display: block; font-weight: 600; color: var(--ink); }
 .charts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); min-height: 0; }
@@ -398,3 +398,6 @@ input[type=range].rng::-webkit-slider-thumb { appearance: none; width: 11px; hei
 .pz-dots i b { position: absolute; left: 0; top: 0; bottom: 0; background: #ffb07a; }
 .tb-present { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 650; color: #fff; padding: 5px 12px; border-radius: 7px; margin-right: 8px; background: linear-gradient(135deg, #d2402a, #ea7a2c); box-shadow: 0 2px 8px rgba(210,64,42,.3); }
 .tb-present:hover { filter: brightness(1.06); }
+.track .mk { cursor: pointer; opacity: .88; }
+.track .mk.sel { opacity: 1; filter: drop-shadow(0 0 3px rgba(210,64,42,.7)); }
+.track .mk-n { position: absolute; left: 8px; top: -6px; min-width: 13px; height: 13px; padding: 0 3px; border-radius: 7px; background: #3d3832; color: #fff; font-size: 8.5px; font-weight: 700; line-height: 13px; text-align: center; }

@@ -57,6 +57,19 @@ export function Timeline() {
   const [trackW, setTrackW] = useState(700);
   useEffect(() => { const el = track.current; if (!el) return; const ro = new ResizeObserver(() => setTrackW(el.clientWidth)); ro.observe(el); return () => ro.disconnect(); }, []);
   const maxTicks = Math.max(3, Math.floor(trackW / 58));
+  // keep the time bubble inside the track; fade the header labels it would cover
+  const BW = 124;
+  const bubbleX = (t: number) => Math.min(trackW - BW / 2, Math.max(BW / 2, (pct(t) / 100) * trackW));
+  const curX = (pct(time) / 100) * trackW;
+  const hideRange = curX > trackW - 300, hideSub = curX < 260;
+  // cluster markers closer than 18 px; the most severe event leads the cluster
+  const SEV = { alert: 0, watch: 1, info: 2 } as const;
+  const clusters: { x: number; items: typeof events }[] = [];
+  for (const e of events) {
+    const x = (pct(Date.parse(e.timestamp)) / 100) * trackW, last = clusters[clusters.length - 1];
+    if (last && x - last.x < 18) last.items.push(e); else clusters.push({ x, items: [e] });
+  }
+  for (const c of clusters) c.items.sort((a, b) => SEV[a.severity] - SEV[b.severity] || Date.parse(a.timestamp) - Date.parse(b.timestamp));
   const stepMs = [30000, 60000, 120000, 300000, 600000, 1800000, 3600000].find((st) => span / st <= maxTicks) ?? 3600000;
   for (let t = Math.ceil(t0 / stepMs) * stepMs; t <= t1; t += stepMs) ticks.push({ t, label: fmtClock(t, false) });
   if (ticks.length) ticks[0].day = fmtDay(t0);
@@ -109,7 +122,7 @@ export function Timeline() {
     <div className="bottom">
       <div className="tl">
         <div className="tl-top">
-          <div className="tl-head"><span>Timeline <span className="muted" style={{ fontWeight: 400, fontSize: 11.5, marginLeft: 6 }}>UTC · drone replay</span></span><span className="range">{t0 ? `${fmtDayClock(t0)} – ${fmtClock(t1)}` : ''}</span></div>
+          <div className="tl-head"><span>Timeline <span className="muted" style={{ fontWeight: 400, fontSize: 11.5, marginLeft: 6, transition: 'opacity .25s', opacity: hideSub ? 0 : 1 }}>UTC · drone replay</span></span><span className="range" style={{ transition: 'opacity .25s', opacity: hideRange ? 0 : 1 }}>{t0 ? `${fmtDayClock(t0)} – ${fmtClock(t1)}` : ''}</span></div>
           <div className="tl-row">
             <div className="tl-ctrl">
               <button onClick={() => set({ playing: true })} className={playing ? 'on' : ''} title="Play"><Icon name="play" size={12} /></button>
@@ -122,17 +135,24 @@ export function Timeline() {
             </div>
             <div className="track" ref={track} onPointerDown={(e) => { const r = track.current!.getBoundingClientRect(); setTime(t0 + ((e.clientX - r.left) / r.width) * span); set({ playing: false }); setDrag('time'); }}>
               <div className="rail"><div className="fill" style={{ width: `${pct(time)}%` }} /></div>
-              {events.map((e) => (
-                <div key={e.event_id} className="mk" style={{ left: `${pct(Date.parse(e.timestamp))}%`, opacity: e.event_id === selectedEventId ? 1 : 0.85 }} title={e.title}
-                  onPointerDown={(ev) => { ev.stopPropagation(); selectEvent(e.event_id); }}>{eventIcon(e.event_type, e.severity, 11)}</div>
-              ))}
+              {clusters.map((c) => {
+                const lead = c.items.find((e) => e.event_id === selectedEventId) ?? c.items[0];
+                const sel = c.items.some((e) => e.event_id === selectedEventId);
+                return (
+                  <div key={lead.event_id} className={'mk' + (sel ? ' sel' : '')} style={{ left: c.x }}
+                    title={c.items.map((e) => `${fmtClock(Date.parse(e.timestamp), false)}  ${e.title}`).join('\n')}
+                    onPointerDown={(ev) => { ev.stopPropagation(); selectEvent(lead.event_id); }}>
+                    {eventIcon(lead.event_type, lead.severity, 11)}{c.items.length > 1 && <span className="mk-n">{c.items.length}</span>}
+                  </div>
+                );
+              })}
               {compare.on && compare.before != null && (
                 <>
-                  <div className="bubble before" style={{ left: `${pct(compare.before)}%` }}>Before {fmtClock(compare.before)}</div>
+                  <div className="bubble before" style={{ left: bubbleX(compare.before) }}>Before {fmtClock(compare.before)}</div>
                   <div className="handle before" style={{ left: `${pct(compare.before)}%` }} onPointerDown={(e) => { e.stopPropagation(); setDrag('before'); }} />
                 </>
               )}
-              <div className="bubble" style={{ left: `${pct(time)}%` }}>{fmtDayClock(time)}</div>
+              <div className="bubble" style={{ left: bubbleX(time) }}>{fmtDayClock(time)}</div>
               <div className="handle" style={{ left: `${pct(time)}%` }} />
               <div className="ticks">
                 {ticks.map((k) => <div key={k.t} className="tick" style={{ left: `${pct(k.t)}%` }}>{k.label}</div>)}

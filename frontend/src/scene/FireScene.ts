@@ -433,6 +433,7 @@ void main() {`)
 
   /** Raw DEM elevation (m, MSL) at world xz. */
   elevationAt(x: number, z: number): number {
+    if (!this.rawHeights || !this.frame) return this.h0;   // terrain not loaded yet (e.g. timeline scrubbed during load)
     const [lon, lat] = toLonLat(this.frame, x, z);
     const [w, s, e, n] = this.innerBBox;
     if (lon >= w && lon <= e && lat >= s && lat <= n) {
@@ -1066,6 +1067,7 @@ varying float vL; varying float vSeed;
 
   private hsShown = '';
   private updateHotspotLabels(t: number) {
+    if (!this.ready) return;
     // show RGB-flame hotspots of the current frame as small pulsing dots
     const cur = this.latestAt(this.hotspots, t);
     const ts = cur?.properties.timestamp ?? '';
@@ -1239,7 +1241,7 @@ varying float vL; varying float vSeed;
   /** DEM profile along the drone's line of sight (real elevation), with burned flags from the current mask. */
   profileAlongView(len = 160, n = 64) {
     const pose = this.source?.pose;
-    if (!pose || !this.frame) return [];
+    if (!pose || !this.frame || !this.ready) return [];
     const [x0, z0] = toXZ(this.frame, pose.position[0], pose.position[1]);
     const v = this.viewDir();
     const out: { d: number; elev: number; burned: boolean }[] = [];
@@ -1251,6 +1253,7 @@ varying float vL; varying float vSeed;
   }
 
   private sampleMask(x: number, z: number) {
+    if (!(this.maskBounds.z > this.maskBounds.x)) return 0;
     const b = this.maskBounds, u = (x - b.x) / (b.z - b.x), v = (z - b.y) / (b.w - b.y);
     if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
     return this.maskCanvas.getContext('2d')!.getImageData(Math.floor(u * 2047), Math.floor(v * 2047), 1, 1).data[0] / 255;
