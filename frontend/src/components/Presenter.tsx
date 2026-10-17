@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useStore } from '../state/store';
-import { sceneRef, selectEvent } from '../scene/SceneView';
+import { sceneRef } from '../scene/SceneView';
 import { mediaUrl } from '../api/client';
 import { Logo } from './Icon';
 
@@ -147,15 +147,15 @@ const STEPS: Step[] = [
     },
   },
   {
-    id: 'alert', title: 'Evidence-linked alerts', dur: 13, spot: '.feed', at: 'bl',
-    kicker: 'Video understanding', head: 'Alerts with the proof attached', tags: ['MEASURED', 'REVIEW REQUIRED'],
-    body: <>Rapid growth, flames ahead of the front, dense smoke… Each alert opens the footage at the exact second, with the region to review boxed on the video.</>,
+    id: 'live', title: 'Live drone video', spot: '.feed', at: 'bl', dur: 0,
+    kicker: 'Drone video, in real time', head: 'The footage, playing in sync with the map', tags: ['REAL', 'MODEL'],
+    body: <>The recorded drone video plays at 1× while the burn scar and flames update on the terrain below. NVIDIA Cosmos Reason watches every 12-second clip and reports what is visible, what changed and which regions to review. It is {cosmosLine()}.</>,
     enter: async () => {
-      const s = st(); s.setLayer('groundTruth', false); s.set({ view: '3d', panel: 'layers' });
-      const e = s.events.find((x) => x.event_type === 'visible_fire_expansion' && x.severity === 'alert') ?? s.events[0];
-      await sleep(700); if (e) selectEvent(e.event_id, false);
-      sc().flyFrame(240, 30, 0.65, 2600);
-      await sleep(2000); st().set({ mode: 'drones', feedOpen: true, selectedUnitId: null });
+      const s = st(); s.setLayer('groundTruth', false);
+      base({ view: '3d', panel: 'layers', mode: 'drones', feedOpen: true, selectedUnitId: null, playing: false, speed: 1 });
+      s.setTime(s.t0 + 214000);
+      sc().flyFrame(250, 28, 0.6, 2400);
+      await sleep(900); st().set({ playing: true, speed: 1 });
     },
   },
   {

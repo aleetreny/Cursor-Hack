@@ -15,5 +15,4 @@ backend/.venv/
 __pycache__/
 deploy/out/
 deploy/media/
-firescope-deploy/
 demo/*.mp4
