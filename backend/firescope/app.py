@@ -380,6 +380,13 @@ def healthz():
     return {"ok": True}
 
 
+@app.get("/config.js")
+def runtime_config():
+    """The dashboard served by this API always talks to it same-origin (relative to the page, so /app works)."""
+    from fastapi.responses import Response
+    return Response("window.__FIRESCOPE__ = { apiBase: '.' };\n", media_type="application/javascript", headers={"Cache-Control": "no-store"})
+
+
 if C.FRONTEND_DIST.exists():
     # Same-origin dashboard: works at / locally and under an Ingress prefix (e.g. /app, stripped by nginx)
     from fastapi.staticfiles import StaticFiles

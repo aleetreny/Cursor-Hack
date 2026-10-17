@@ -38,7 +38,7 @@ export function DronePanel() {
             <div><div className="l">Heading</div><div className="v">{fmtNum(heading)}°</div><div className="u">{heading != null ? ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(heading / 45) % 8] : ''}</div></div>
             <div><div className="l">Field of view</div><div className="v">{fmtNum(p?.hfov_deg, 1)}°</div><div className="u">horizontal</div></div>
             <div><div className="l">Video time</div><div className="v mono" style={{ fontSize: 17 }}>{fmtVideo(vs)}</div><div className="u">of {fmtVideo(src.duration_seconds)}</div></div>
-            <div><div className="l">Clips analyzed</div><div className="v">{src.processing.clips_done}</div><div className="u">of {src.processing.clips_total}</div></div>
+            <div><div className="l">12 s clips</div><div className="v">{src.processing.clips_done}</div><div className="u">CV pass · of {src.processing.clips_total}</div></div>
           </div>
           <dl className="kv">
             <dt>Aircraft</dt><dd>DJI Phantom 4 Pro (FC6310)</dd>
