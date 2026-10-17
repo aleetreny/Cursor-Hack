@@ -784,7 +784,7 @@ void main() {`)
     const yaw = THREE.MathUtils.degToRad(this.source?.pose?.yaw_deg ?? -45);
     return new THREE.Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
   }
-  private homeOffset() { return this.viewDir().multiplyScalar(-175).add(new THREE.Vector3(0, 44, 0)).applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.42); }
+  private homeOffset() { return this.viewDir().multiplyScalar(-118).add(new THREE.Vector3(0, 34, 0)).applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.38); }
 
   private setInitialCamera() {
     const t = this.focusPoint();

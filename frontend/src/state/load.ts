@@ -9,7 +9,7 @@ export async function loadAll() {
     const events = sources[0] ? (await api.events(sources[0].id).catch(() => ({ events: timeline.events }))).events : timeline.events;
     const t0 = Date.parse(timeline.start), t1 = Date.parse(timeline.end);
     // open on an instant where the front is clearly active
-    const first = events.find((e) => e.severity === 'alert') ?? events[0];
+    const first = events.find((e) => e.event_type === 'visible_fire_expansion' && e.severity === 'alert') ?? events.find((e) => e.severity === 'alert') ?? events[0];
     set({
       incident, sources, timeline, features: obs.features, hotspots: obs.hotspots ?? [],
       events: [...events].sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp)),

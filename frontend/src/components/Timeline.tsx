@@ -17,6 +17,13 @@ export function eventIcon(t: EventType, sev: AnalysisEvent['severity'], size = 1
   return <Icon name="tri" size={size} color={c} />;
 }
 
+function smooth(pts: Pt[], n: number): Pt[] {
+  return pts.map((p, i) => {
+    const w = pts.slice(Math.max(0, i - n + 1), i + 1).filter((q) => q.y != null);
+    return { x: p.x, y: w.length ? w.reduce((a, q) => a + (q.y as number), 0) / w.length : null };
+  });
+}
+
 function useProfile() {
   return useSyncExternalStore((cb) => { profileRef.listeners.add(cb); return () => profileRef.listeners.delete(cb); }, () => profileRef.current);
 }
@@ -63,7 +70,7 @@ export function Timeline() {
     ]
     : [
       { title: 'Burned Area', unit: 'm²', pts: ser((f) => f.burned_area_m2.value), color: '#c9503a', kind: 'area' as const, prov: frames[0]?.burned_area_m2.provenance },
-      { title: 'Rate of Change', unit: 'm²/min', pts: ser((f) => (f.area_change_m2.value == null ? null : (f.area_change_m2.value / stepS) * 60)), color: '#cf3b2a', kind: 'line' as const, prov: frames[0]?.area_change_m2.provenance },
+      { title: 'Rate of Spread', unit: 'm²/min · 40 s avg', pts: smooth(ser((f) => (f.area_change_m2.value == null ? null : Math.max(0, (f.area_change_m2.value / stepS) * 60))), 10), color: '#cf3b2a', kind: 'line' as const, prov: frames[0]?.area_change_m2.provenance },
     ];
 
   return (
