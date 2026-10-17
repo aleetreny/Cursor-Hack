@@ -1,0 +1,51 @@
+{
+ "query": "(fixture)",
+ "model": "FIXTURE",
+ "latency_ms": null,
+ "results": [
+  {
+   "clip_id": "clip_0",
+   "source_id": "drone_replay_01",
+   "start_seconds": 0,
+   "end_seconds": 12,
+   "timestamp": "2019-03-01T12:33:00.000Z",
+   "similarity": 0.34,
+   "caption": "FIXTURE TEXT. Active flames and a dense grey plume are visible in the upper-left of the frame; burned ground already covers much of the far field.",
+   "thumbnail_url": null,
+   "event_id": "evt_001"
+  },
+  {
+   "clip_id": "clip_1",
+   "source_id": "drone_replay_01",
+   "start_seconds": 120,
+   "end_seconds": 140,
+   "timestamp": "2019-03-01T12:35:00.000Z",
+   "similarity": 0.31,
+   "caption": "FIXTURE TEXT. The flame front extends laterally into a continuous line across the centre of the frame.",
+   "thumbnail_url": null,
+   "event_id": "evt_002"
+  },
+  {
+   "clip_id": "clip_2",
+   "source_id": "drone_replay_01",
+   "start_seconds": 290,
+   "end_seconds": 310,
+   "timestamp": "2019-03-01T12:37:50.000Z",
+   "similarity": 0.28,
+   "caption": "FIXTURE TEXT. Taller flames appear on the right side of the front with increased smoke output.",
+   "thumbnail_url": null,
+   "event_id": "evt_003"
+  },
+  {
+   "clip_id": "clip_3",
+   "source_id": "drone_replay_01",
+   "start_seconds": 470,
+   "end_seconds": 490,
+   "timestamp": "2019-03-01T12:40:50.000Z",
+   "similarity": 0.25,
+   "caption": "FIXTURE TEXT. Smoke partially obscures the centre of the scene; segmentation in this window should be reviewed.",
+   "thumbnail_url": null,
+   "event_id": "evt_004"
+  }
+ ]
+}

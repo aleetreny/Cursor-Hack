@@ -1,0 +1,3577 @@
+{
+ "incident_id": "pinhao-2019-03-01",
+ "start": "2019-03-01T12:33:00.000Z",
+ "end": "2019-03-01T12:48:01.500Z",
+ "frames": [
+  {
+   "timestamp": "2019-03-01T12:33:00.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 0,
+   "source_frame": 0,
+   "burned_area_m2": {
+    "value": 1011.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 147.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": null,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:33:08.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 8,
+   "source_frame": 200,
+   "burned_area_m2": {
+    "value": 1121,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 142.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 109.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:33:16.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 16,
+   "source_frame": 400,
+   "burned_area_m2": {
+    "value": 1205,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 127.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 84.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:33:24.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 24,
+   "source_frame": 600,
+   "burned_area_m2": {
+    "value": 1279.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 126.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 74.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:33:32.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 32,
+   "source_frame": 800,
+   "burned_area_m2": {
+    "value": 1348.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 121.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 68.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:33:40.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 40,
+   "source_frame": 1000,
+   "burned_area_m2": {
+    "value": 1413.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 111.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 64.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:33:48.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 48,
+   "source_frame": 1200,
+   "burned_area_m2": {
+    "value": 1474.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 114.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 61.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:33:56.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 56,
+   "source_frame": 1400,
+   "burned_area_m2": {
+    "value": 1533.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 104.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 59,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:34:04.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 64,
+   "source_frame": 1600,
+   "burned_area_m2": {
+    "value": 1590.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 105.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 56.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:34:12.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 72,
+   "source_frame": 1800,
+   "burned_area_m2": {
+    "value": 1645.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 95.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 55,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:34:20.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 80,
+   "source_frame": 2000,
+   "burned_area_m2": {
+    "value": 1698.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 96.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 53.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:34:28.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 88,
+   "source_frame": 2200,
+   "burned_area_m2": {
+    "value": 1749.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 85.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 51,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:34:36.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 96,
+   "source_frame": 2400,
+   "burned_area_m2": {
+    "value": 1798.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 88.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 48.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:34:44.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 104,
+   "source_frame": 2600,
+   "burned_area_m2": {
+    "value": 1844.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 86,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 46.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:34:52.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 112,
+   "source_frame": 2800,
+   "burned_area_m2": {
+    "value": 1888.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 90.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 43.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:35:00.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 120,
+   "source_frame": 3000,
+   "burned_area_m2": {
+    "value": 1928.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 88.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 40.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:35:08.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 128,
+   "source_frame": 3200,
+   "burned_area_m2": {
+    "value": 1966.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 88.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 37.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:35:16.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 136,
+   "source_frame": 3400,
+   "burned_area_m2": {
+    "value": 2001.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 92.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 34.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:35:24.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 144,
+   "source_frame": 3600,
+   "burned_area_m2": {
+    "value": 2032.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 92.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 31.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:35:32.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 152,
+   "source_frame": 3800,
+   "burned_area_m2": {
+    "value": 2061.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 97.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 29,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:35:40.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 160,
+   "source_frame": 4000,
+   "burned_area_m2": {
+    "value": 2088.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 96.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 26.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:35:48.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 168,
+   "source_frame": 4200,
+   "burned_area_m2": {
+    "value": 2112.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 101.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 24.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:35:56.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 176,
+   "source_frame": 4400,
+   "burned_area_m2": {
+    "value": 2135.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 99.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 22.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:36:04.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 184,
+   "source_frame": 4600,
+   "burned_area_m2": {
+    "value": 2156.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 97.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 21.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:36:12.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 192,
+   "source_frame": 4800,
+   "burned_area_m2": {
+    "value": 2176.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 95.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 20.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:36:20.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 200,
+   "source_frame": 5000,
+   "burned_area_m2": {
+    "value": 2196.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 92.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 19.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:36:28.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 208,
+   "source_frame": 5200,
+   "burned_area_m2": {
+    "value": 2215.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 90.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 19.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:36:36.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 216,
+   "source_frame": 5400,
+   "burned_area_m2": {
+    "value": 2234.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 87.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 19,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:36:44.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 224,
+   "source_frame": 5600,
+   "burned_area_m2": {
+    "value": 2253.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 81.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 19.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:36:52.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 232,
+   "source_frame": 5800,
+   "burned_area_m2": {
+    "value": 2273,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 78.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 19.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:37:00.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 240,
+   "source_frame": 6000,
+   "burned_area_m2": {
+    "value": 2292.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 73.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 19.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:37:08.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 248,
+   "source_frame": 6200,
+   "burned_area_m2": {
+    "value": 2312.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 72.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 19.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:37:16.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 256,
+   "source_frame": 6400,
+   "burned_area_m2": {
+    "value": 2332.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 68.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 20.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:37:24.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 264,
+   "source_frame": 6600,
+   "burned_area_m2": {
+    "value": 2353.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 67.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 20.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:37:32.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 272,
+   "source_frame": 6800,
+   "burned_area_m2": {
+    "value": 2374.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 63.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 20.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:37:40.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 280,
+   "source_frame": 7000,
+   "burned_area_m2": {
+    "value": 2395.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 63.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 21.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:37:48.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 288,
+   "source_frame": 7200,
+   "burned_area_m2": {
+    "value": 2416.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 58.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 21.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:37:56.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 296,
+   "source_frame": 7400,
+   "burned_area_m2": {
+    "value": 2438.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 57.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 21.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:38:04.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 304,
+   "source_frame": 7600,
+   "burned_area_m2": {
+    "value": 2459.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 56.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 21.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:38:12.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 312,
+   "source_frame": 7800,
+   "burned_area_m2": {
+    "value": 2481,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 54.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 21.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:38:20.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 320,
+   "source_frame": 8000,
+   "burned_area_m2": {
+    "value": 2502.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 52.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 21.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:38:28.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 328,
+   "source_frame": 8200,
+   "burned_area_m2": {
+    "value": 2523.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 50.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 21,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:38:36.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 336,
+   "source_frame": 8400,
+   "burned_area_m2": {
+    "value": 2543.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 49.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 20.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:38:44.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 344,
+   "source_frame": 8600,
+   "burned_area_m2": {
+    "value": 2564.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 48.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 20.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:38:52.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 352,
+   "source_frame": 8800,
+   "burned_area_m2": {
+    "value": 2584.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 51.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 20.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:39:00.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 360,
+   "source_frame": 9000,
+   "burned_area_m2": {
+    "value": 2604,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 47.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 19.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:39:08.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 368,
+   "source_frame": 9200,
+   "burned_area_m2": {
+    "value": 2623.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 53.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 19.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:39:16.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 376,
+   "source_frame": 9400,
+   "burned_area_m2": {
+    "value": 2642.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 49.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 18.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:39:24.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 384,
+   "source_frame": 9600,
+   "burned_area_m2": {
+    "value": 2660.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 55.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 18.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:39:32.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 392,
+   "source_frame": 9800,
+   "burned_area_m2": {
+    "value": 2678.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 54.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 18.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:39:40.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 400,
+   "source_frame": 10000,
+   "burned_area_m2": {
+    "value": 2696.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 57,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 17.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:39:48.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 408,
+   "source_frame": 10200,
+   "burned_area_m2": {
+    "value": 2713.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 55.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 17.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:39:56.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 416,
+   "source_frame": 10400,
+   "burned_area_m2": {
+    "value": 2730.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 57.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 16.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:40:04.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 424,
+   "source_frame": 10600,
+   "burned_area_m2": {
+    "value": 2747.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 55.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 16.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:40:12.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 432,
+   "source_frame": 10800,
+   "burned_area_m2": {
+    "value": 2763.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 57.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 16.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:40:20.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 440,
+   "source_frame": 11000,
+   "burned_area_m2": {
+    "value": 2779.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 55.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 16.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:40:28.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 448,
+   "source_frame": 11200,
+   "burned_area_m2": {
+    "value": 2795.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 52.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 16.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:40:36.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 456,
+   "source_frame": 11400,
+   "burned_area_m2": {
+    "value": 2812,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 54,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 16,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:40:44.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 464,
+   "source_frame": 11600,
+   "burned_area_m2": {
+    "value": 2828,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 50.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 16,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:40:52.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 472,
+   "source_frame": 11800,
+   "burned_area_m2": {
+    "value": 2844.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 52.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 16.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:41:00.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 480,
+   "source_frame": 12000,
+   "burned_area_m2": {
+    "value": 2860.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 46.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 16.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:41:08.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 488,
+   "source_frame": 12200,
+   "burned_area_m2": {
+    "value": 2876.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 46.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 16.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:41:16.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 496,
+   "source_frame": 12400,
+   "burned_area_m2": {
+    "value": 2892.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 42.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 16,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:41:24.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 504,
+   "source_frame": 12600,
+   "burned_area_m2": {
+    "value": 2908.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 42.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 15.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:41:32.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 512,
+   "source_frame": 12800,
+   "burned_area_m2": {
+    "value": 2923.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 38.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 15.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:41:40.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 520,
+   "source_frame": 13000,
+   "burned_area_m2": {
+    "value": 2938.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 38.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 15.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:41:48.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 528,
+   "source_frame": 13200,
+   "burned_area_m2": {
+    "value": 2953.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 34.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 14.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:41:56.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 536,
+   "source_frame": 13400,
+   "burned_area_m2": {
+    "value": 2966.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 33.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 13.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:42:04.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 544,
+   "source_frame": 13600,
+   "burned_area_m2": {
+    "value": 2979.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 30.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 13,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:42:12.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 552,
+   "source_frame": 13800,
+   "burned_area_m2": {
+    "value": 2992,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 29.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 12.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:42:20.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 560,
+   "source_frame": 14000,
+   "burned_area_m2": {
+    "value": 3003.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 28.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 11.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:42:28.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 568,
+   "source_frame": 14200,
+   "burned_area_m2": {
+    "value": 3013.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 27.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 10.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:42:36.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 576,
+   "source_frame": 14400,
+   "burned_area_m2": {
+    "value": 3023,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 27.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 9.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:42:44.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 584,
+   "source_frame": 14600,
+   "burned_area_m2": {
+    "value": 3031.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 27.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 8.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:42:52.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 592,
+   "source_frame": 14800,
+   "burned_area_m2": {
+    "value": 3039.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 27.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:43:00.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 600,
+   "source_frame": 15000,
+   "burned_area_m2": {
+    "value": 3047.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 27.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:43:08.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 608,
+   "source_frame": 15200,
+   "burned_area_m2": {
+    "value": 3054,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 27.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 6.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:43:16.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 616,
+   "source_frame": 15400,
+   "burned_area_m2": {
+    "value": 3060.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 27.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 6.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:43:24.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 624,
+   "source_frame": 15600,
+   "burned_area_m2": {
+    "value": 3067.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 30,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 6.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:43:32.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 632,
+   "source_frame": 15800,
+   "burned_area_m2": {
+    "value": 3073.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 29.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 6.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:43:40.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 640,
+   "source_frame": 16000,
+   "burned_area_m2": {
+    "value": 3079.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 31.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 6.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:43:48.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 648,
+   "source_frame": 16200,
+   "burned_area_m2": {
+    "value": 3086.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 31.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 6.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:43:56.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 656,
+   "source_frame": 16400,
+   "burned_area_m2": {
+    "value": 3093,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 34.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 6.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:44:04.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 664,
+   "source_frame": 16600,
+   "burned_area_m2": {
+    "value": 3099.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 32,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 6.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:44:12.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 672,
+   "source_frame": 16800,
+   "burned_area_m2": {
+    "value": 3107.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 35.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:44:20.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 680,
+   "source_frame": 17000,
+   "burned_area_m2": {
+    "value": 3114.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 32.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:44:28.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 688,
+   "source_frame": 17200,
+   "burned_area_m2": {
+    "value": 3122,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 36.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:44:36.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 696,
+   "source_frame": 17400,
+   "burned_area_m2": {
+    "value": 3129.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 33.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:44:44.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 704,
+   "source_frame": 17600,
+   "burned_area_m2": {
+    "value": 3137.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 35.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:44:52.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 712,
+   "source_frame": 17800,
+   "burned_area_m2": {
+    "value": 3145.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 35.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:45:00.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 720,
+   "source_frame": 18000,
+   "burned_area_m2": {
+    "value": 3153.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 34.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 8.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:45:08.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 728,
+   "source_frame": 18200,
+   "burned_area_m2": {
+    "value": 3162.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 34.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 8.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:45:16.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 736,
+   "source_frame": 18400,
+   "burned_area_m2": {
+    "value": 3170.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 32.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 8.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:45:24.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 744,
+   "source_frame": 18600,
+   "burned_area_m2": {
+    "value": 3178.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 32.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 8.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:45:32.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 752,
+   "source_frame": 18800,
+   "burned_area_m2": {
+    "value": 3186.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 28.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 8.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:45:40.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 760,
+   "source_frame": 19000,
+   "burned_area_m2": {
+    "value": 3194.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 30,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:45:48.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 768,
+   "source_frame": 19200,
+   "burned_area_m2": {
+    "value": 3202.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 26.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:45:56.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 776,
+   "source_frame": 19400,
+   "burned_area_m2": {
+    "value": 3210.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 27.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:46:04.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 784,
+   "source_frame": 19600,
+   "burned_area_m2": {
+    "value": 3218.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 23.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:46:12.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 792,
+   "source_frame": 19800,
+   "burned_area_m2": {
+    "value": 3225.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 24.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:46:20.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 800,
+   "source_frame": 20000,
+   "burned_area_m2": {
+    "value": 3233.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 21.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:46:28.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 808,
+   "source_frame": 20200,
+   "burned_area_m2": {
+    "value": 3240.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 21.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:46:36.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 816,
+   "source_frame": 20400,
+   "burned_area_m2": {
+    "value": 3248.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 20.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:46:44.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 824,
+   "source_frame": 20600,
+   "burned_area_m2": {
+    "value": 3255.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 20.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:46:52.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 832,
+   "source_frame": 20800,
+   "burned_area_m2": {
+    "value": 3263.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 20.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:47:00.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 840,
+   "source_frame": 21000,
+   "burned_area_m2": {
+    "value": 3270.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 20.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:47:08.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 848,
+   "source_frame": 21200,
+   "burned_area_m2": {
+    "value": 3277.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 20.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:47:16.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 856,
+   "source_frame": 21400,
+   "burned_area_m2": {
+    "value": 3285.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 20.3,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 3,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:47:24.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 864,
+   "source_frame": 21600,
+   "burned_area_m2": {
+    "value": 3292.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 19.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:47:32.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 872,
+   "source_frame": 21800,
+   "burned_area_m2": {
+    "value": 3300.2,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 19.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:47:40.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 880,
+   "source_frame": 22000,
+   "burned_area_m2": {
+    "value": 3307.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 20.4,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.7,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:47:48.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 888,
+   "source_frame": 22200,
+   "burned_area_m2": {
+    "value": 3315.6,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 20.1,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.8,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  },
+  {
+   "timestamp": "2019-03-01T12:47:56.000Z",
+   "source_id": "drone_replay_01",
+   "video_seconds": 896,
+   "source_frame": 22400,
+   "burned_area_m2": {
+    "value": 3323.5,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "active_fire_area_m2": {
+    "value": 20.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "area_change_m2": {
+    "value": 7.9,
+    "unit": "m2",
+    "provenance": "fixture",
+    "method": "synthetic placeholder"
+   },
+   "hotspot_count": {
+    "value": 2,
+    "unit": "count",
+    "provenance": "fixture"
+   },
+   "has_ground_truth": true
+  }
+ ],
+ "events": [
+  {
+   "event_id": "evt_001",
+   "source_id": "drone_replay_01",
+   "start_seconds": 0,
+   "end_seconds": 12,
+   "timestamp": "2019-03-01T12:33:00.000Z",
+   "event_type": "first_visible_flames",
+   "title": "Flames visible at upper-left",
+   "description": "FIXTURE TEXT. Active flames and a dense grey plume are visible in the upper-left of the frame; burned ground already covers much of the far field.",
+   "visual_evidence": [
+    "flame cluster upper-left",
+    "dense smoke column"
+   ],
+   "confidence": null,
+   "review_required": true,
+   "severity": "watch",
+   "processing_model": "FIXTURE — replace with Cosmos Reason output",
+   "location": [
+    -7.6155017,
+    41.3940747
+   ],
+   "image_region": [
+    0.05000000000000002,
+    0.20500000000000002,
+    0.35,
+    0.445
+   ],
+   "thumbnail_url": null,
+   "provenance": "fixture"
+  },
+  {
+   "event_id": "evt_002",
+   "source_id": "drone_replay_01",
+   "start_seconds": 120,
+   "end_seconds": 140,
+   "timestamp": "2019-03-01T12:35:00.000Z",
+   "event_type": "visible_fire_expansion",
+   "title": "Front widens across view",
+   "description": "FIXTURE TEXT. The flame front extends laterally into a continuous line across the centre of the frame.",
+   "visual_evidence": [
+    "continuous flame line",
+    "smoke drifting right"
+   ],
+   "confidence": null,
+   "review_required": true,
+   "severity": "watch",
+   "processing_model": "FIXTURE — replace with Cosmos Reason output",
+   "location": [
+    -7.6152499,
+    41.3941422
+   ],
+   "image_region": [
+    0.35,
+    0.33,
+    0.65,
+    0.5700000000000001
+   ],
+   "thumbnail_url": null,
+   "provenance": "fixture"
+  },
+  {
+   "event_id": "evt_003",
+   "source_id": "drone_replay_01",
+   "start_seconds": 290,
+   "end_seconds": 310,
+   "timestamp": "2019-03-01T12:37:50.000Z",
+   "event_type": "intensity_change",
+   "title": "Flare-up on right flank",
+   "description": "FIXTURE TEXT. Taller flames appear on the right side of the front with increased smoke output.",
+   "visual_evidence": [
+    "taller flame lengths",
+    "thicker smoke"
+   ],
+   "confidence": null,
+   "review_required": true,
+   "severity": "alert",
+   "processing_model": "FIXTURE — replace with Cosmos Reason output",
+   "location": [
+    -7.6151085,
+    41.3943032
+   ],
+   "image_region": [
+    0.7,
+    0.28,
+    1,
+    0.52
+   ],
+   "thumbnail_url": null,
+   "provenance": "fixture"
+  },
+  {
+   "event_id": "evt_004",
+   "source_id": "drone_replay_01",
+   "start_seconds": 470,
+   "end_seconds": 490,
+   "timestamp": "2019-03-01T12:40:50.000Z",
+   "event_type": "smoke_increase",
+   "title": "Smoke obscures centre",
+   "description": "FIXTURE TEXT. Smoke partially obscures the centre of the scene; segmentation in this window should be reviewed.",
+   "visual_evidence": [
+    "grey plume over centre"
+   ],
+   "confidence": null,
+   "review_required": true,
+   "severity": "info",
+   "processing_model": "FIXTURE — replace with Cosmos Reason output",
+   "location": [
+    -7.6151862,
+    41.3941297
+   ],
+   "image_region": [
+    0.4,
+    0.405,
+    0.7000000000000001,
+    0.645
+   ],
+   "thumbnail_url": null,
+   "provenance": "fixture"
+  },
+  {
+   "event_id": "evt_005",
+   "source_id": "drone_replay_01",
+   "start_seconds": 610,
+   "end_seconds": 625,
+   "timestamp": "2019-03-01T12:43:10.000Z",
+   "event_type": "new_fire_activity",
+   "title": "Spot ignition ahead of front",
+   "description": "FIXTURE TEXT. A separate flame appears in the lower-centre vegetation, ahead of the main front.",
+   "visual_evidence": [
+    "isolated flame near camera"
+   ],
+   "confidence": null,
+   "review_required": true,
+   "severity": "alert",
+   "processing_model": "FIXTURE — replace with Cosmos Reason output",
+   "location": [
+    -7.6151221,
+    41.3940519
+   ],
+   "image_region": [
+    0.35,
+    0.605,
+    0.65,
+    0.845
+   ],
+   "thumbnail_url": null,
+   "provenance": "fixture"
+  },
+  {
+   "event_id": "evt_006",
+   "source_id": "drone_replay_01",
+   "start_seconds": 760,
+   "end_seconds": 790,
+   "timestamp": "2019-03-01T12:45:40.000Z",
+   "event_type": "burned_ground_visible",
+   "title": "Burned ground dominates view",
+   "description": "FIXTURE TEXT. Most of the visible area is blackened; residual flames remain at the right edge.",
+   "visual_evidence": [
+    "blackened ground",
+    "residual flames right"
+   ],
+   "confidence": null,
+   "review_required": true,
+   "severity": "info",
+   "processing_model": "FIXTURE — replace with Cosmos Reason output",
+   "location": [
+    -7.6150359,
+    41.3941634
+   ],
+   "image_region": [
+    0.65,
+    0.53,
+    0.9500000000000001,
+    0.77
+   ],
+   "thumbnail_url": null,
+   "provenance": "fixture"
+  }
+ ]
+}

@@ -1,0 +1,71 @@
+[
+ {
+  "id": "drone_replay_01",
+  "label": "UAV-01",
+  "mode": "drone_replay",
+  "media_url": "/media/drone_replay_01.mp4",
+  "thumbnail_url": "/media/drone_replay_01_thumb.jpg",
+  "duration_seconds": 901.5,
+  "fps": 25,
+  "width": 1280,
+  "height": 720,
+  "recorded_start": "2019-03-01T12:33:00.000Z",
+  "pose": {
+   "position": [
+    -7.614828,
+    41.393844
+   ],
+   "altitude_agl_m": 24.9,
+   "altitude_msl_m": null,
+   "yaw_deg": -46.7,
+   "pitch_deg": -28.9,
+   "roll_deg": 0,
+   "hfov_deg": 55.3
+  },
+  "footprint": {
+   "type": "Feature",
+   "properties": {},
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -7.615898,
+       41.3940608
+      ],
+      [
+       -7.6151799,
+       41.3946324
+      ],
+      [
+       -7.6148984,
+       41.3941113
+      ],
+      [
+       -7.6151879,
+       41.3938808
+      ],
+      [
+       -7.615898,
+       41.3940608
+      ]
+     ]
+    ]
+   }
+  },
+  "georeferencing": {
+   "method": "camera_model_dem",
+   "accuracy": "approximate",
+   "rmse_m": null,
+   "crs": "EPSG:4326",
+   "notes": "Fixture: flat-ground pinhole projection from XMP pose"
+  },
+  "processing": {
+   "state": "done",
+   "progress": 1,
+   "clips_total": 75,
+   "clips_done": 75,
+   "message": "fixture"
+  }
+ }
+]

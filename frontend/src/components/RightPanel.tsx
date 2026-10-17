@@ -1,0 +1,152 @@
+import { useMemo, useState } from 'react';
+import { useStore, videoSecondsAt, type PanelTab } from '../state/store';
+import type { SceneLayers } from '../scene/FireScene';
+import { fmtArea, fmtClock, fmtDayClock, fmtNum, fmtVideo } from '../lib/format';
+import { Icon } from './Icon';
+import { AgentPanel, EvidencePanel } from './AgentPanels';
+import { DronePanel } from './DronePanel';
+import { AlertsPanel } from './AlertsPanel';
+import { USE_FIXTURES, API_BASE } from '../api/client';
+
+type LayerRow = { id: keyof SceneLayers; label: string; sw: string; kind: 'toggle' | 'opacity'; prov?: string; def?: number };
+const LAYERS: LayerRow[] = [
+  { id: 'terrain', label: 'Terrain (3D DEM)', sw: 'linear-gradient(135deg,#7d8a5c,#c8a777 60%,#e6d2ad)', kind: 'toggle', prov: 'external' },
+  { id: 'imagery', label: 'Aerial Imagery', sw: 'linear-gradient(135deg,#6f7a62,#a59c84 50%,#5b6650)', kind: 'opacity', prov: 'external', def: 0.18 },
+  { id: 'burned', label: 'Burned Area', sw: 'linear-gradient(135deg,#2a1e1c,#5a3a34 60%,#a24a35)', kind: 'opacity', prov: 'model', def: 0.95 },
+  { id: 'active', label: 'Active Fire', sw: 'radial-gradient(circle at 40% 40%,#ffe08a,#ff7a1a 45%,#c0290f)', kind: 'opacity', prov: 'model', def: 1 },
+  { id: 'change', label: 'Change Since Prev.', sw: 'linear-gradient(135deg,#f0a35a,#d9542a)', kind: 'opacity', prov: 'derived', def: 0.6 },
+  { id: 'hotspots', label: 'Flame Hotspots', sw: 'radial-gradient(circle,#ffd27a 25%,#ff7a2a 45%,#f3ece2 50%)', kind: 'toggle', prov: 'model' },
+  { id: 'smoke', label: 'Smoke', sw: 'linear-gradient(135deg,#b7b2ac,#7d7873)', kind: 'toggle' },
+  { id: 'footprint', label: 'Drone Footprint', sw: 'linear-gradient(135deg,#efeae2,#c9c1b4)', kind: 'toggle', prov: 'derived' },
+  { id: 'path', label: 'Event Track', sw: 'linear-gradient(90deg,#f2b33d 0 45%,#fff 45% 55%,#f2b33d 55%)', kind: 'toggle', prov: 'model' },
+  { id: 'perimeter', label: 'Burn Cell (KML)', sw: 'repeating-linear-gradient(90deg,#fff 0 4px,#8b8379 4px 7px)', kind: 'toggle', prov: 'external' },
+  { id: 'groundTruth', label: 'Ground Truth', sw: 'linear-gradient(135deg,#bfe6fb,#40c8ff)', kind: 'toggle', prov: 'ground_truth' },
+  { id: 'trees', label: 'Vegetation', sw: 'radial-gradient(circle,#2f4a2a 35%,#e6d8bd 40%)', kind: 'toggle', prov: 'derived' },
+  { id: 'projection', label: 'Exp. Scenario', sw: 'repeating-linear-gradient(45deg,#c7a7f7 0 3px,#f3ecfd 3px 6px)', kind: 'toggle', prov: 'demo_parameter' },
+];
+
+export function RightPanel() {
+  const { mode, panel, set } = useStore();
+  if (mode === 'drones') return <aside className="right"><DronePanel /></aside>;
+  if (mode === 'alerts') return <aside className="right"><AlertsPanel /></aside>;
+  const tab = (id: PanelTab, label: string) => <button className={panel === id ? 'on' : ''} onClick={() => set({ panel: id })}>{label}</button>;
+  return (
+    <aside className="right">
+      <div className="tabs">{tab('layers', 'Layers')}{tab('analysis', 'Analysis')}{tab('evidence', 'Evidence')}{tab('notes', 'Notes')}</div>
+      {panel === 'layers' && <div className="scroll"><LayersSection /><IncidentOverview /><ObservationCard /></div>}
+      {panel === 'analysis' && <AgentPanel />}
+      {panel === 'evidence' && <EvidencePanel />}
+      {panel === 'notes' && <div className="scroll"><NotesSection /></div>}
+    </aside>
+  );
+}
+
+function LayersSection() {
+  const { layers, setLayer, features } = useStore();
+  const hasGT = features.some((f) => f.properties.classification === 'ground_truth_burned');
+  const hasProj = features.some((f) => f.properties.classification === 'projection');
+  return (
+    <div className="section" style={{ paddingTop: 8 }}>
+      {LAYERS.map((l) => {
+        const v = layers[l.id];
+        const on = typeof v === 'boolean' ? v : (v as number) > 0.001;
+        const unavailable = (l.id === 'groundTruth' && !hasGT) || (l.id === 'projection' && !hasProj);
+        return (
+          <div key={l.id} className={'layer' + (on && !unavailable ? '' : ' off')} title={unavailable ? 'Not provided by the current data source' : undefined}>
+            <input type="checkbox" className="cb" checked={on} onChange={(e) => setLayer(l.id, (l.kind === 'opacity' ? (e.target.checked ? (l.def ?? 1) : 0) : e.target.checked) as never)} />
+            <div className="sw" style={{ background: l.sw }} />
+            <span>{l.label}</span>
+            {l.kind === 'opacity'
+              ? <input type="range" className="rng" min={0} max={1} step={0.01} value={v as number} onChange={(e) => setLayer(l.id, +e.target.value as never)} />
+              : <span />}
+            <span className="pct">{l.kind === 'opacity' ? `${Math.round((v as number) * 100)}%` : unavailable ? 'n/a' : on ? 'on' : ''}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function IncidentOverview() {
+  const { incident, sources, t0, t1, timeline, events } = useStore();
+  const last = timeline?.frames[timeline.frames.length - 1];
+  const total = fmtArea(last?.burned_area_m2.value);
+  const src = sources[0];
+  return (
+    <div className="section">
+      <div className="section-h">Incident Overview <span className="act">Edit</span></div>
+      <dl className="kv">
+        <dt>Incident</dt><dd>{incident?.name}</dd>
+        <dt>Incident ID</dt><dd className="mono" style={{ fontSize: 11.5 }}>{incident?.id}</dd>
+        <dt>Location</dt><dd>{incident?.location}</dd>
+        <dt>Type</dt><dd>{incident?.kind === 'prescribed_burn' ? 'Prescribed burn' : 'Wildfire'}</dd>
+        <dt>First obs.</dt><dd>{t0 ? fmtDayClock(t0) : '—'} UTC</dd>
+        <dt>Last obs.</dt><dd>{t1 ? fmtDayClock(t1) : '—'} UTC</dd>
+        <dt>Burned (view)</dt><dd>{total.v} {total.u}{last && <span className={'prov ' + last.burned_area_m2.provenance}>{last.burned_area_m2.provenance}</span>}</dd>
+        <dt>Events</dt><dd>{events.length} detected · {events.filter((e) => e.review_required).length} to review</dd>
+        <dt>Georeferencing</dt><dd>{src?.georeferencing.method.replace(/_/g, ' ')} · {src?.georeferencing.accuracy}</dd>
+        <dt>Analysis</dt><dd><span className={'status-dot ' + (incident?.status === 'analyzed' ? 'ok' : 'warn')} />{incident?.status === 'analyzed' ? 'Analyzed' : incident?.status === 'live' ? 'Live' : 'Processing'}</dd>
+      </dl>
+    </div>
+  );
+}
+
+function ObservationCard() {
+  const { timeline, time, sources } = useStore();
+  const frame = useMemo(() => {
+    const fr = timeline?.frames ?? [];
+    let best = fr[0];
+    for (const f of fr) if (Date.parse(f.timestamp) <= time) best = f; else break;
+    return best;
+  }, [timeline, time]);
+  const src = sources[0];
+  const b = fmtArea(frame?.burned_area_m2.value), a = fmtArea(frame?.active_fire_area_m2.value), c = fmtArea(frame?.area_change_m2.value);
+  return (
+    <div className="section">
+      <div className="section-h"><span>Fire Observation <small>(at cursor)</small></span>{frame && <span className={'prov ' + frame.burned_area_m2.provenance}>{frame.burned_area_m2.provenance}</span>}</div>
+      <div className="metrics">
+        <div className="metric"><span className="ic"><Icon name="area" /></span><span className="lab">Burned</span><span className="val">{b.v} <small>{b.u}</small></span></div>
+        <div className="metric"><span className="ic"><Icon name="flame" color="#d2402a" /></span><span className="lab">Active fire</span><span className="val hot">{a.v} <small>{a.u}</small></span></div>
+        <div className="metric"><span className="ic"><Icon name="delta" /></span><span className="lab">Δ last frame</span><span className="val">{c.v === '—' ? '—' : `+${c.v}`} <small>{c.u}</small></span></div>
+        <div className="metric"><span className="ic"><Icon name="target" /></span><span className="lab">Hotspots</span><span className="val">{fmtNum(frame?.hotspot_count.value)}</span><span className="sub">RGB flame, no temp.</span></div>
+        <div className="metric"><span className="ic"><Icon name="video" /></span><span className="lab">Video time</span><span className="val mono" style={{ fontSize: 12.5 }}>{fmtVideo(videoSecondsAt(src, time))}</span><span className="sub">frame {fmtNum(frame?.source_frame)}</span></div>
+        <div className="metric"><span className="ic"><Icon name="pin" /></span><span className="lab">Registration</span><span className="val" style={{ fontSize: 12 }}>{src?.georeferencing.accuracy ?? '—'}</span><span className="sub">{frame?.has_ground_truth ? 'GT frame' : fmtClock(time)}</span></div>
+      </div>
+    </div>
+  );
+}
+
+function NotesSection() {
+  const { health, incident } = useStore();
+  const [note, setNote] = useState(() => { try { return localStorage.getItem('fs-notes') ?? ''; } catch { return ''; } });
+  return (
+    <>
+      <div className="section">
+        <div className="section-h">Sponsor Integrations <span className={'mode-chip ' + (USE_FIXTURES ? 'fixture' : 'live')}>{USE_FIXTURES ? 'FIXTURES' : 'LIVE'}</span></div>
+        {!health && <div className="muted">Checking…</div>}
+        {health?.integrations.map((i) => (
+          <div className="integr" key={i.id}>
+            <span><span className={'status-dot ' + (i.status === 'ok' ? 'ok' : i.status === 'degraded' ? 'warn' : i.status === 'down' ? 'bad' : '')} />{i.name} <span className="muted">· {i.sponsor}</span></span>
+            <span className="muted" style={{ fontSize: 11 }}>{i.status.replace('_', ' ')}</span>
+            {(i.model || i.detail || i.latency_ms) && <span className="s">{[i.model, i.endpoint, i.latency_ms ? `${i.latency_ms} ms` : null, i.detail].filter(Boolean).join(' · ')}</span>}
+          </div>
+        ))}
+        <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>{USE_FIXTURES ? 'Set VITE_API_BASE to connect the backend.' : `Backend ${API_BASE}`}</div>
+      </div>
+      <div className="section">
+        <div className="section-h">What is real here</div>
+        <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--ink-2)' }}>
+          <p style={{ margin: '0 0 6px' }}><b>Real:</b> terrain from a DEM (AWS Terrain Tiles), aerial imagery (Esri), drone pose from the BurnedAreaUAV photo metadata, and the planned burn-cell KML.</p>
+          <p style={{ margin: '0 0 6px' }}><b>Model outputs:</b> fire polygons, events and answers come from the backend. Each value carries a provenance chip.</p>
+          <p style={{ margin: '0 0 6px' }}><b>Not measured:</b> RGB video cannot give temperature, so hotspots are visible-flame locations. Georeferencing is approximate (pinhole model + DEM).</p>
+          <p style={{ margin: 0 }}><b>Stylized:</b> trees and smoke are rendered for readability. The terrain uses {useStore.getState().exaggeration}× vertical exaggeration.</p>
+        </div>
+      </div>
+      <div className="section">
+        <div className="section-h">Analyst Notes</div>
+        <textarea value={note} onChange={(e) => { setNote(e.target.value); try { localStorage.setItem('fs-notes', e.target.value); } catch { /* ignore */ } }} placeholder="Notes stay in this browser…" style={{ width: '100%', minHeight: 90, border: '1px solid var(--line)', borderRadius: 6, padding: 8, background: '#fff', resize: 'vertical', fontSize: 12.5 }} />
+      </div>
+      <div className="section"><div className="section-h">Attribution</div>{incident?.attribution.map((a) => <div key={a} className="muted" style={{ fontSize: 11.5 }}>{a}</div>)}</div>
+    </>
+  );
+}
