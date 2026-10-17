@@ -8,6 +8,8 @@ import { SceneView, sceneRef } from './scene/SceneView';
 import { useStore } from './state/store';
 import { loadAll } from './state/load';
 
+(window as unknown as { __store: typeof useStore }).__store = useStore;
+
 export default function App() {
   const feedOpen = useStore((s) => s.feedOpen);
   const loaded = useStore((s) => s.loaded);

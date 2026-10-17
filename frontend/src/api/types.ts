@@ -116,7 +116,7 @@ export interface Georeferencing {
 }
 
 export interface ProcessingState {
-  state: 'queued' | 'processing' | 'done' | 'error';
+  state: 'idle' | 'queued' | 'processing' | 'done' | 'error';
   progress: number;                 // 0..1
   clips_total: number;
   clips_done: number;

@@ -114,7 +114,7 @@ def cosmos_describe_clip(clip_path: Path, frames: list[Path], dur: float) -> dic
     last: Exception | None = None
     for content in attempts:
         try:
-            raw = chat([{"role": "user", "content": content}], C.COSMOS_REASON_MODEL, C.COSMOS_REASON_BASE, max_tokens=1200)
+            raw = chat([{"role": "user", "content": content}], C.COSMOS_REASON_MODEL, C.COSMOS_REASON_BASE, max_tokens=2500)
             data = parse_json(raw)
             data["_input"] = "video" if content[0]["type"] == "video_url" else f"{len(frames)} frames"
             data["_raw"] = raw[-1500:]
