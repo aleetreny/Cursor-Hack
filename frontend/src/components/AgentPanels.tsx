@@ -21,6 +21,7 @@ const REGIONAL_SUGGESTIONS = [
   'How much burned, and how badly?',
   'What was the weather?',
   'How accurate is this reconstruction?',
+  'Could it have been predicted?',
 ];
 
 type Msg = { role: 'user' | 'assistant'; content: string; res?: AskResponse; error?: string };

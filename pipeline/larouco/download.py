@@ -38,6 +38,15 @@ def fetch(url: str, dest: Path, data: bytes | None = None, headers: dict | None 
                 tmp.rename(dest)
             return dest
         except Exception as e:  # noqa: BLE001 — network: retry, then fail loudly
+            if "CERTIFICATE_VERIFY_FAILED" in str(e) and data is None:
+                # some Spanish public servers send an incomplete chain that OpenSSL rejects; curl verifies the same
+                # certificate against the system trust store instead (still verified, never insecure)
+                import subprocess
+                tmp = dest.with_suffix(dest.suffix + ".part")
+                r = subprocess.run(["curl", "-sSfL", "-m", "600", "-A", UA["User-Agent"], "-o", str(tmp), url], capture_output=True, text=True)
+                if r.returncode == 0 and tmp.exists() and tmp.stat().st_size > 0:
+                    tmp.rename(dest)
+                    return dest
             if k == tries - 1:
                 raise RuntimeError(f"download failed: {url}: {e}") from e
             time.sleep(3 * (k + 1))

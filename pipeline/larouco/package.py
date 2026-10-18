@@ -103,6 +103,15 @@ def main():
     S = np.where(inside, sev[rr, cc], 0).astype("uint8")
     rgba = np.dstack([(A >> 8).astype("uint8"), (A & 255).astype("uint8"), (S * 40).astype("uint8"), np.full(A.shape, 255, "uint8")])
     Image.fromarray(rgba, "RGBA").save(OUT / "arrival.png", optimize=True)
+    # retrospective spread scenario (scenario.py), same grid and encoding
+    scen = None
+    if (CACHE / "scenario.npz").exists():
+        Ts = np.load(CACHE / "scenario.npz")["T"]
+        Sm = np.where(np.isfinite(Ts), np.clip(np.round(Ts * 60), 0, NEVER_MIN - 1), NEVER_MIN).astype("uint16")
+        Sg = np.where(inside, Sm[rr, cc], NEVER_MIN).astype("uint16")
+        Image.fromarray(np.dstack([(Sg >> 8).astype("uint8"), (Sg & 255).astype("uint8"), np.zeros(Sg.shape, "uint8"), np.full(Sg.shape, 255, "uint8")]), "RGBA").save(OUT / "scenario.png", optimize=True)
+        scen = json.loads((CACHE / "scenario.json").read_text())
+        Ts_sorted = np.sort(Ts[np.isfinite(Ts)])
     print(f"arrival.png {W}×{H}, {(OUT / 'arrival.png').stat().st_size / 1e6:.1f} MB")
 
     # ------------------------------------------------------------------ hourly series
@@ -123,6 +132,20 @@ def main():
     det_t = np.array([(utc(d["t"]) - T0).total_seconds() / 3600 for d in dets])
     det_frp = np.array([d["frp"] for d in dets])
     passes = sorted(set(np.round(det_t, 4)))
+    # Meteosat FRP-PIXEL (every 15 min), when downloaded: fire power summed over the pixels within 3 km of the scar
+    msg_slot = None
+    if (CACHE / "meteosat.json").exists():
+        from scipy import ndimage as _nd
+        mj = json.loads((CACHE / "meteosat.json").read_text())
+        near = _nd.binary_dilation(scar, iterations=100)   # 3 km
+        msg_slot = {}
+        for d in mj["pixels"]:
+            x, y = TO_UTM.transform(d["lon"], d["lat"]); r_, c_ = GRID.rc(x, y)
+            if 0 <= r_ < GRID.H and 0 <= c_ < GRID.W and near[int(r_), int(c_)]:
+                msg_slot[d["t"]] = msg_slot.get(d["t"], 0.0) + d["frp"]
+        for t_ in mj["slots"]:
+            msg_slot.setdefault(t_, 0.0)
+        msg_h = sorted(((utc(k) - T0).total_seconds() / 3600, v) for k, v in msg_slot.items())
     br_f = bearing[fin]
     frames = []
     for h in hours:
@@ -167,7 +190,9 @@ def main():
             "front_advance_m_min": {"value": None if ros is None else round(ros, 2), "unit": "m/min", "provenance": "derived", "method": "expansion rate: growth of the equivalent radius √(A/π) over the 6 h around t (lower than the head-fire speed)"},
             "front_bearing_deg": {"value": None if bear is None else round(bear), "unit": "deg", "provenance": "derived", "method": "mean direction of spread (∇ of the arrival time smoothed at 1 km) of the cells reached in the 6 h around t"},
             "frp_mw": {"value": round(frp, 1), "unit": "MW", "provenance": "external", "method": "sum of FIRMS fire radiative power, latest pass ≤ 12 h"},
+            "scenario_burned_m2": None if scen is None else {"value": round(float(np.searchsorted(Ts_sorted, h, side="right") * HA * 1e4)), "unit": "m2", "provenance": "model", "method": "retrospective scenario: fuels + terrain + ERA5 weather, no suppression"},
             "pass_time": pass_t,
+            "msg_frp_mw": None if msg_slot is None else {"value": round(float(np.mean([v for hh, v in msg_h if h - 1 < hh <= h] or [0.0])), 1), "unit": "MW", "provenance": "external", "method": "EUMETSAT LSA SAF FRP-PIXEL (Meteosat, every 15 min), fire pixels within 3 km of the scar, mean over the hour"},
             "front": front,
             "has_ground_truth": False,
         })
@@ -285,6 +310,9 @@ def main():
         "progression": {"image": "arrival.png", "bbox": [round(v, 6) for v in bbox], "width": W, "height": H, "t0": iso(T0), "unit": "min",
                         "never": NEVER_MIN, "encoding": "R*256+G = minutes after t0; B = severity class*40", "severity_classes": [{"id": k, "label": SEV_LABELS[k]} for k in range(1, 6)],
                         "method": MODEL, "resolution_m": GRID.res},
+        "scenario": None if scen is None else {"image": "scenario.png", "method": scen["method"], "calibrated_on": scen["calibrated_on"], "R0_m_h": scen["R0_m_h"],
+                                               "perimeters": scen["perimeters"], "final_iou": scen["final_iou"], "median_timing_error_h": scen["median_timing_error_h"],
+                                               "scenario_ha": scen["scenario_ha"], "real_ha": scen["real_ha"]},
         "landmarks": [],
         "attribution": [
             "Copernicus Emergency Management Service (© 2025 European Union), EMSR837",
@@ -306,6 +334,11 @@ def main():
                   "Timing between satellite passes (about six a day: VIIRS S-NPP, Terra and Aqua MODIS) is interpolated."],
     }
 
+    # packaged terrain and imagery (basemap.py), when it has been built
+    if (CACHE / "basemap.json").exists():
+        bm = json.loads((CACHE / "basemap.json").read_text())
+        incident["basemap"] = bm
+        incident["attribution"] = [a for a in incident["attribution"] if not a.startswith(("Elevation:", "Imagery:"))] + bm["credits"]
     write_json(OUT / "incident.json", incident)
     write_json(OUT / "timeline.json", {"incident_id": INCIDENT_ID, "start": start, "end": end, "frames": frames, "events": events})
     write_json(OUT / "events.json", {"source_id": "progression", "events": events})

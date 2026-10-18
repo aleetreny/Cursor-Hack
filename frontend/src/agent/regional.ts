@@ -13,7 +13,7 @@ import { compass, detectLang, norm, num, t, type Lang } from './lang';
 export const REGIONAL_MODEL = 'FireScope incident analyst (rule-based, in the browser)';
 
 interface ProgEval { mean: { iou: number; iou_firms_only: number }; perimeters: { perimeter: string; image_time: string; iou_leave_one_out: number; iou_firms_only: number; image_covers_share_of_scar: number; burned_share_of_final: number }[]; detections_in_scar: number; satellite_passes: number; severity: { classes: { id: number; label: string; ha: number; share: number }[]; mean_dnbr_in_scar: number } }
-type Intent = 'help' | 'selected' | 'where' | 'first' | 'fastest' | 'spot' | 'smoke' | 'thermal' | 'weather' | 'now' | 'spread' | 'area' | 'danger' | 'accuracy' | 'review' | 'resources' | 'drone' | 'method' | 'summary';
+type Intent = 'help' | 'selected' | 'where' | 'first' | 'fastest' | 'spot' | 'smoke' | 'thermal' | 'weather' | 'now' | 'spread' | 'area' | 'danger' | 'accuracy' | 'review' | 'resources' | 'drone' | 'method' | 'summary' | 'scenario';
 interface Ctx { c: Corpus; ev: ProgEval; lang: Lang; ms: number; selected?: AnalysisEvent; cites: Citation[] }
 
 const MON = { en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], es: ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'] };
@@ -130,6 +130,14 @@ const A: Record<Intent, (x: Ctx) => string> = {
     return t(x.lang,
       'The scar is the latest Copernicus EMS delineation. Each 30 m cell takes the time of its first NASA FIRMS detection (VIIRS 375 m, MODIS 1 km); gaps are interpolated from the nearest detected cells, and every dated EMS perimeter bounds the result (inside it, burned by the image time; outside it, after). Severity is Sentinel-2 dNBR before and after the fire. This assistant answers from those numbers with fixed rules.',
       'La cicatriz es la última delineación de Copernicus EMS. Cada celda de 30 m toma la hora de su primera detección NASA FIRMS (VIIRS 375 m, MODIS 1 km); los huecos se interpolan desde las celdas detectadas más cercanas y cada perímetro fechado de EMS acota el resultado (dentro, quemada antes de la imagen; fuera, después). La severidad es el dNBR de Sentinel-2 antes y después del incendio. Este asistente responde con esas cifras y reglas fijas.');
+  },
+  scenario(x) {
+    const { c, lang } = x, sc = c.incident.scenario;
+    if (!sc) return t(lang, 'No spread scenario is published for this incident.', 'Este incidente no tiene escenario de propagación publicado.');
+    const rows = sc.perimeters.map((r) => `${num(r.iou, lang, 2)} (${when(Date.parse(r.image_time), lang).replace(/ (at|a las) .*/, '')})`);
+    return t(lang,
+      `Could fuels, terrain and the weather alone have predicted it? Not well. A spread model with fuels from ESA WorldCover, slope from MDT25 and the hourly ERA5 wind and dryness — calibrated only on the ${when(Date.parse(sc.calibrated_on.image_time), lang).replace(/ at .*/, '')} perimeter, then run freely — matches the later perimeters with IoU ${listJoin(rows, lang)}. It spreads almost evenly in every direction (the reanalysis wind is light and variable) and misses the fast run to the north-north-east, and with no suppression it burns ${num(sc.scenario_ha, lang)} ha against the real ${num(sc.real_ha, lang)} ha. Turn it on with the Spread Scenario layer. A hindcast, not a forecast.`,
+      `¿Se podría haber predicho solo con combustibles, terreno y meteorología? No bien. Un modelo de propagación con combustibles de ESA WorldCover, pendiente del MDT25 y el viento y la sequedad horarios de ERA5 — calibrado solo con el perímetro del ${when(Date.parse(sc.calibrated_on.image_time), lang).replace(/ a las .*/, '')} y después libre — coincide con los perímetros posteriores con IoU ${listJoin(rows, lang)}. Se extiende casi igual en todas direcciones (el viento del reanálisis es flojo y variable) y no reproduce la carrera rápida hacia el norte-noreste; sin extinción quema ${num(sc.scenario_ha, lang)} ha frente a las ${num(sc.real_ha, lang)} reales. Se activa con la capa Spread Scenario. Es una retrospectiva, no un pronóstico.`);
   },
   selected(x) {
     const { lang, selected: e } = x;

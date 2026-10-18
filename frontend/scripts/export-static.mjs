@@ -15,8 +15,8 @@ const OUT = join(PUBLIC, 'incidents');
 /** Processed incidents in this repo:
  *  · drone (site scale): data/processed/<source>/ + media/<source>.mp4 + media/<source>/clip_*.jpg
  *  · regional: data/processed/<source>/, already in package form (pipeline/larouco/package.py) */
-const INCIDENTS = [{ source: 'drone_replay_01', default: true }, { source: 'larouco', regional: true }];
-const REGIONAL_FILES = ['incident.json', 'sources.json', 'timeline.json', 'events.json', 'observations.json', 'weather.json', 'clips.json', 'eval.json', 'arrival.png'];
+const INCIDENTS = [{ source: 'larouco', regional: true, default: true }, { source: 'drone_replay_01' }];
+const REGIONAL_FILES = ['incident.json', 'sources.json', 'timeline.json', 'events.json', 'observations.json', 'weather.json', 'clips.json', 'eval.json', 'arrival.png', 'scenario.png'];
 
 // Update files in place instead of wiping the folder: the repo may live in an iCloud-synced folder, where deleting and
 // recreating a directory makes iCloud keep "name 2" conflict copies.
@@ -33,7 +33,12 @@ function exportRegional(source, isDefault) {
   const incident = read('incident.json');
   const dir = join(OUT, incident.id), rel = `incidents/${incident.id}/`;
   mkdirSync(dir, { recursive: true });
-  for (const f of REGIONAL_FILES) copyIfChanged(join(SRC, f), join(dir, f));
+  for (const f of REGIONAL_FILES) if (existsSync(join(SRC, f))) copyIfChanged(join(SRC, f), join(dir, f));
+  // packaged terrain + imagery (pipeline/larouco/basemap.py)
+  if (existsSync(join(SRC, 'basemap'))) {
+    mkdirSync(join(dir, 'basemap'), { recursive: true });
+    for (const f of readdirSync(join(SRC, 'basemap'))) copyIfChanged(join(SRC, 'basemap', f), join(dir, 'basemap', f));
+  }
   const tl = read('timeline.json'), ev = read('eval.json'), obs = read('observations.json'), w = read('weather.json'), p = incident.progression;
   const iou = ev.perimeters.map((r) => `${r.image_time.slice(5, 10)} ${r.iou_leave_one_out.toFixed(2)}`).join(', ');
   const sev = ev.severity.classes.find((c) => c.id === 5);
@@ -50,6 +55,8 @@ function exportRegional(source, isDefault) {
       { id: 'severity', name: 'Burn severity', provenance: 'derived', detail: `Sentinel-2 dNBR, 1 Aug vs 5 Sep 2025, Key & Benson classes: ${Math.round(sev.share * 100)}% high severity` },
       { id: 'events', name: 'Events', provenance: 'derived', detail: `${tl.events.length} events computed from the reconstruction, the perimeters, FIRMS and ERA5; all need human review` },
       { id: 'weather', name: 'Weather', provenance: 'external', detail: `${w.source} (${w.grid}); reanalysis, not an on-site sensor` },
+      ...(incident.scenario ? [{ id: 'scenario', name: 'Spread scenario (hindcast)', provenance: 'model', detail: `Fuels (ESA WorldCover), terrain (MDT25) and the hourly ERA5 weather alone, calibrated only on the 16 Aug perimeter, then run freely: IoU ${incident.scenario.perimeters.map((r) => r.iou.toFixed(2)).join(' / ')} against the later perimeters. No suppression or spotting: it spreads too evenly and misses the run north` }] : []),
+      ...(incident.basemap ? [{ id: 'basemap', name: 'Terrain and imagery', provenance: 'external', detail: 'Packaged with the incident (no tile server): IGN/CNIG MDT25 and PNOA orthophoto (CC BY 4.0), AWS Terrain Tiles and Sentinel-2 cloudless 2016 by EOX for the horizon' }] : []),
       { id: 'video', name: 'Video', provenance: 'real', detail: 'No footage of this fire is published here: real drone or aircraft video needs the owners\' permission.' },
       { id: 'analyst', name: 'Questions & search', provenance: 'derived', detail: 'Computed in the browser from the reconstruction and the events. No language model, nothing generated.' },
     ],

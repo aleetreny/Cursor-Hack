@@ -67,6 +67,7 @@ function PhoneMenu({ close }: { close: () => void }) {
         <>
           {item('Burn severity (dNBR)', () => useStore.getState().setLayer('severity', layers.severity > 0 ? 0 : 0.85), layers.severity > 0 ? 'on' : 'off')}
           {item('Daily isochrones', () => useStore.getState().setLayer('isochrones', !layers.isochrones), layers.isochrones ? 'on' : 'off')}
+          {item('Spread scenario (hindcast)', () => useStore.getState().setLayer('projection', !layers.projection), layers.projection ? 'on' : 'off')}
         </>
       ) : (
         <>

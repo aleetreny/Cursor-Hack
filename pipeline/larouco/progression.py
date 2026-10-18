@@ -13,6 +13,8 @@ Method (documented in the incident manifest):
  4. Dated perimeters: inside an EMS perimeter (within that image's footprint and not "not analysed") a cell must have
     burned by the image time; inside the image but outside the perimeter, after it. An estimate outside its bounds moves
     to the middle of the window they leave (capped at 24 h), not to the edge.
+ 4b. When the EUMETSAT LSA SAF Meteosat FRP-PIXEL files are present (meteosat.py, every 15 min, ~3–4 km pixels), a
+    cell first seen by a polar pass moves to Meteosat's first detection over it since the previous polar pass.
  5. Smoothing at the scale of a VIIRS pixel (σ = 150 m) inside the scar, then the bounds again.
 Parameters (MODIS share, smoothing, shift) were picked among 18 combinations on the validation below, so its scores are
 slightly optimistic.
@@ -147,6 +149,44 @@ def first_detection(dets: list[Detection], scar: np.ndarray):
     return first, est
 
 
+def meteosat_first(scar: np.ndarray, radius_m=2500.0):
+    """Hours of the first EUMETSAT LSA SAF FRP-PIXEL detection (every 15 min, ~3–4 km pixels) covering each cell, or
+    None when the Meteosat data has not been downloaded (pipeline/larouco/meteosat.py)."""
+    f = CACHE / "meteosat.json"
+    if not f.exists():
+        return None
+    px = json.loads(f.read_text())["pixels"]
+    first = np.full(scar.shape, NEVER, "float32")
+    yy, xx = np.mgrid[0:GRID.H, 0:GRID.W]
+    k = int(radius_m / GRID.res) + 1
+    for d in sorted(px, key=lambda d: d["t"]):
+        x, y = GRID.xy(d["lon"], d["lat"]); r0, c0 = GRID.rc(x, y)
+        r1, r2, c1, c2 = max(0, int(r0) - k), min(GRID.H, int(r0) + k + 1), max(0, int(c0) - k), min(GRID.W, int(c0) + k + 1)
+        if r1 >= r2 or c1 >= c2:
+            continue
+        sub = (yy[r1:r2, c1:c2] + 0.5 - r0) ** 2 + (xx[r1:r2, c1:c2] + 0.5 - c0) ** 2 <= (radius_m / GRID.res) ** 2
+        win = first[r1:r2, c1:c2]
+        win[sub] = np.minimum(win[sub], hours(utc(d["t"])))
+    first[~scar] = NEVER
+    return first
+
+
+def refine_with_meteosat(est: np.ndarray, msg: np.ndarray, passes: list[datetime]):
+    """A cell first seen by a polar pass burned after the previous pass: if Meteosat saw fire over it inside that gap,
+    its arrival moves to that 15-min slot. (Meteosat pixels are coarse, so it only refines timing, never location.)"""
+    ph = np.array([hours(t) for t in passes])
+    out = est.copy()
+    det = np.isfinite(est)
+    idx = np.searchsorted(ph, est[det] - 1e-3) - 1
+    prev = np.where(idx >= 0, ph[np.clip(idx, 0, None)], -np.inf)
+    m = msg[det]
+    use = np.isfinite(m) & (m > prev) & (m < est[det])
+    vals = est[det]
+    vals[use] = m[use]
+    out[det] = vals
+    return out, int(use.sum())
+
+
 def bounds(perims: list[Perimeter], scar: np.ndarray, use: list[Perimeter]):
     lo = np.full(scar.shape, -np.inf, "float32")
     hi = np.full(scar.shape, np.inf, "float32")
@@ -238,14 +278,24 @@ def main():
     print(f"detections in the grid {len(dets)}, inside the scar {len(inside)}; passes over the region {len(passes)}")
     first, est = first_detection(inside, scar)
     print(f"cells detected at least once: {np.isfinite(first[scar]).mean() * 100:.0f}% of the scar")
+    msg = meteosat_first(scar)
+    est_polar = est
+    if msg is not None:
+        est, n_ref = refine_with_meteosat(est, msg, passes)
+        print(f"Meteosat FRP-PIXEL: {np.isfinite(msg[scar]).mean() * 100:.0f}% of the scar seen; {n_ref} cells retimed inside a gap between polar passes")
     use = [p for p in perims if p.product == "DEL" or p.product == "FEP"]
     lo, hi = bounds(perims, scar, use)
     T, conflicts = reconstruct(est, scar, lo, hi)
     print(f"bound conflicts: {conflicts} cells ({conflicts / scar.sum() * 100:.2f}%)")
     print("validation:")
     rows = evaluate(perims, scar, est, use)
+    if msg is not None:
+        print("  (without Meteosat:)")
+        rows_polar = evaluate(perims, scar, est_polar, use)
+        for r, q in zip(rows, rows_polar):
+            r["iou_leave_one_out_polar_only"] = q["iou_leave_one_out"]
     np.savez_compressed(CACHE / "arrival.npz", T=T, scar=scar, first=first, t0=iso(T0))
-    write_json(CACHE / "progression_eval.json", {"t0": iso(T0), "perimeters": rows, "conflict_cells": conflicts,
+    write_json(CACHE / "progression_eval.json", {"t0": iso(T0), "perimeters": rows, "conflict_cells": conflicts, "meteosat": msg is not None,
                "detections_in_scar": len(inside), "passes": [iso(t) for t in passes]}, indent=1)
     write_json(CACHE / "detections.json", [{"t": iso(d.t), "x": round(d.x, 1), "y": round(d.y, 1), "frp": d.frp, "sensor": d.sensor, "sat": d.sat, "r": round(d.r)} for d in inside])
     write_json(CACHE / "perimeters.json", [{"name": p.name, "product": p.product, "t": iso(p.t), "sensors": p.sensors,

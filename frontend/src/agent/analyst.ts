@@ -13,7 +13,7 @@ import { regionalAsk } from './regional';
 export const ANALYST_MODEL = 'FireScope incident analyst (rule-based, in the browser)';
 
 type Intent = 'help' | 'selected' | 'where' | 'first' | 'fastest' | 'spot' | 'smoke' | 'thermal' | 'weather' | 'now' | 'spread' | 'area'
-  | 'danger' | 'accuracy' | 'review' | 'resources' | 'drone' | 'method' | 'summary';
+  | 'danger' | 'accuracy' | 'review' | 'resources' | 'drone' | 'method' | 'summary' | 'scenario';
 
 // Patterns run over the normalised question (lower case, no accents). Weights break ties between overlapping intents.
 const INTENTS: [Intent, RegExp, number][] = [
@@ -35,6 +35,7 @@ const INTENTS: [Intent, RegExp, number][] = [
   ['resources', /\b(resources?|aircraft|planes?|tankers?|helicopters?|engines?|crews?|retardant|dozer|recursos?|aviones?|avionetas?|helicopteros?|brigad\w*|retardante|medios|cisternas?|bomberos|camion\w*)\b/, 2.5],
   ['drone', /\b(drones?|uav|camera|altitude|footage|video|dron|camara|altura|grabacion|filmacion)\b/, 1.5],
   ['method', /\b(how (do|does|did) (you|it|this)|method\w*|algorithm|segment\w*|computed|calculated|metodo|algoritmo|calcul\w*)\b|\bcomo (funciona|se calcula|lo sabes|lo calculas)\b/, 2],
+  ['scenario', /\b(scenario\w*|hindcast|predict\w*|forecast\w*|escenario\w*|predec\w*|predic\w*|pronostic\w*)\b/, 2.7],
   ['summary', /\b(change\w*|happen\w*|evolv\w*|summar\w*|overview|progress\w*|grow|grew|growth|develop\w*|cambi\w*|paso|ocurri\w*|evolu\w*|resumen|resume|crec\w*|desarroll\w*)\b/, 1],
 ];
 
@@ -257,6 +258,11 @@ const A: Record<Intent, (x: Ctx) => string> = {
     return t(lang,
       `"${e.title}" at ${clock(x, e.start_seconds)} ${atEvent(x, e)}: ${e.description} Severity ${e.severity}${e.review_required ? ', needs human review' : ''}.`,
       `«${e.title}» a las ${clock(x, e.start_seconds)} ${atEvent(x, e)}: ${e.description} Severidad ${e.severity}${e.review_required ? ', necesita revisión humana' : ''}.`);
+  },
+  scenario(x) {
+    return t(x.lang,
+      'The fire scenario layer is an illustration, not a forecast: wind- and slope-driven spread on the real terrain with uniform fuel and a constant wind, replayed as a time-lapse over the 15-minute recording. It is tagged SIM and never compared with an observation here.',
+      'La capa de escenario es una ilustración, no un pronóstico: propagación por viento y pendiente sobre el terreno real con combustible uniforme y viento constante, reproducida como time-lapse sobre los 15 minutos de grabación. Lleva la etiqueta SIM y aquí no se compara con ninguna observación.');
   },
   help(x) {
     return t(x.lang,

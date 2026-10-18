@@ -7,7 +7,12 @@ This pipeline builds the `larouco-2025-08` incident package. It reconstructs whe
 python -m pipeline.larouco.download      # ~1.5 GB into data/raw/larouco/ (gitignored, mostly EMS products); idempotent
 python -m pipeline.larouco.progression   # arrival time + validation → data/cache/larouco/
 python -m pipeline.larouco.severity      # Sentinel-2 dNBR → data/cache/larouco/
-python -m pipeline.larouco.package       # → data/processed/larouco/ (≈2 MB, committed)
+python -m pipeline.larouco.basemap       # MDT25 + PNOA + horizon → data/processed/larouco/basemap/ (≈13 MB)
+python -m pipeline.larouco.scenario      # retrospective spread scenario → data/cache/larouco/
+# optional, needs a free EUMETSAT LSA SAF account (credentials only from the environment):
+#   LSASAF_USER=… LSASAF_PASSWORD=… python -m pipeline.larouco.meteosat download
+#   python -m pipeline.larouco.meteosat process && python -m pipeline.larouco.progression
+python -m pipeline.larouco.package       # → data/processed/larouco/ (≈16 MB with the basemap, committed)
 node frontend/scripts/export-static.mjs  # → frontend/public/incidents/larouco-2025-08/
 ```
 
@@ -75,11 +80,50 @@ dNBR is computed between 1 Aug and 5 Sep 2025, with Key & Benson classes.
 - **Pre-fire scene.** 11 Aug, the last pass before the fire, has a smoke plume from other fires over the southern half, so 1 Aug is used.
 - **Result.** 69.6 % of the scar is high severity, 22.4 % moderate-high and 6.2 % moderate-low. The mean dNBR is 0.76.
 
+## Terrain and imagery (`basemap.py`)
+
+The incident ships its own map, so the 3D view needs no tile server.
+
+| Area | Terrain | Imagery |
+|---|---|---|
+| Fire area (42 × 41 km) | IGN/CNIG **MDT25**, 1281² Terrarium PNG | IGN **PNOA** orthophoto, 4096² JPEG, plus a 4096² patch over the scar (≈7 m) |
+| Outer rings (~160 km and ~600 km) | AWS Terrain Tiles | Sentinel-2 cloudless 2016 by EOX |
+
+Everything is CC BY 4.0 or open with attribution, and credited in the app. PNOA was flown before the fire; the burned ground is drawn on top from the reconstruction.
+
+## Spread scenario, a hindcast (`scenario.py`)
+
+Could fuels, terrain and weather alone have reproduced the fire? The model:
+- **Spread:** time-dependent least travel time on 90 m cells. The rate is R0 · fuel (ESA WorldCover class) · wind (ERA5 hourly speed and direction, elliptical with a backing floor) · slope (MDT25) · dryness (ERA5 VPD).
+- **Ignition:** the first 6 h of the reconstruction.
+- **Calibration:** one free parameter, R0 = 34 m/h, set so the burned area matches the first EMS perimeter (16 Aug, 5,219 ha). From there it runs freely.
+- **Not modelled:** suppression and spotting.
+
+| Perimeter | IoU | Scenario reached (recall) | Scenario that really burned (precision) | Scenario vs mapped |
+|---|---|---|---|---|
+| 20 Aug | 0.25 | 0.49 | 0.33 | 21,979 vs 14,682 ha |
+| 21 Aug | 0.24 | 0.36 | 0.43 | 25,646 vs 30,621 ha |
+| 22 Aug | 0.24 | 0.38 | 0.41 | 30,778 vs 32,769 ha |
+| 26 Aug | 0.27 | 0.61 | 0.32 | 63,094 vs 33,124 ha |
+
+The answer is no, not well:
+- **Direction.** The 25 km reanalysis wind is light and variable, so the model spreads almost evenly in every direction, too far south and west, and misses the fast run to the north-north-east.
+- **Size.** With no suppression it ends at 74,000 ha against 33,132 ha.
+- **Timing.** Where both burned, the timing differs by a median of 76 h.
+
+A variant with ERA5 gusts instead of the mean wind scored about the same. The model was fixed before scoring, so that variant is not used. In the app, this is the "Spread Scenario (hindcast)" layer and the dashed line on the Burned Area chart.
+
+## Meteosat (`meteosat.py`, optional)
+
+EUMETSAT LSA SAF FRP-PIXEL (LSA-502, CC BY 4.0) detects fire every 15 min with ~3–4 km pixels.
+- **Account.** It needs a free account. The downloader reads `LSASAF_USER` / `LSASAF_PASSWORD` from the environment and stores no credentials.
+- **Timing.** With the files present, `progression.py` moves a cell first seen by a polar pass to Meteosat's first detection over it since the previous pass, and reports the hold-out IoU with and without it.
+- **Fire power.** `package.py` adds a 15-min fire-power series.
+
 ## Limits
 
 - **Timing.** Timing between satellite passes is interpolated. There are about six passes a day: VIIRS S-NPP, Terra and Aqua MODIS. NOAA-20/21 VIIRS are not in the open country files.
 - **Ignition.** The first detection is not the ignition: satellites see a fire once it is large and hot enough.
 - **Smoke and spot fires.** Neither is measured. Smoke columns in the app are drawn where the front is and lean with the ERA5 wind.
 - **Weather.** ERA5 is a ~25 km cell, not an on-site station.
-- **Terrain and imagery.** Both are streamed at runtime (AWS Terrarium, Esri World Imagery) like the drone incident; packaging PNOA/MDT05 is in the plan.
 - **Drones and resources.** The fleet and resources around this fire are a simulated exercise (tagged SIM) that follows the reconstructed front. No video of this fire is published here.

@@ -69,6 +69,21 @@ export interface Incident {
   /** Regional incidents: when each cell burned, reconstructed from satellite detections and dated perimeters. */
   progression?: Progression | null;
   summary?: { burned_ha: number; first_detection: ISODate; growth_below_50ha_day: ISODate; high_severity_share: number } | null;
+  /** Packaged terrain (Terrarium PNG) and imagery (JPEG) on lon/lat-aligned grids, relative to the package. When present
+   *  the 3D view needs no tile server. */
+  basemap?: Basemap | null;
+  /** Regional: retrospective spread scenario (fuels + terrain + weather, no suppression) and how it scored. */
+  scenario?: { image: string; method: string; calibrated_on: { perimeter: string; image_time: ISODate; burned_ha: number }; R0_m_h: number;
+    perimeters: { perimeter: string; image_time: ISODate; iou: number; recall: number; precision: number; sim_ha: number; real_ha: number }[];
+    final_iou: number; median_timing_error_h: number | null; scenario_ha: number; real_ha: number } | null;
+}
+
+export interface Basemap {
+  inner: { bbox: [number, number, number, number]; dem: string; imagery: string };
+  patch?: { bbox: [number, number, number, number]; imagery: string } | null;
+  rings: { bbox: [number, number, number, number]; dem: string; imagery: string }[];
+  encoding: 'terrarium';
+  credits: string[];
 }
 
 /** arrival.png: RGBA on a lon/lat-aligned grid over `bbox`; R·256+G = minutes after t0 the cell burned (`never` = did
@@ -161,6 +176,10 @@ export interface TimelineFrame {
   /** Regional incidents: fire radiative power of the latest satellite pass (MW) and when that pass was. */
   frp_mw?: Metric;
   pass_time?: ISODate | null;
+  /** Regional: burned area of the retrospective scenario at this time (model, not an observation). */
+  scenario_burned_m2?: Metric | null;
+  /** Regional: Meteosat (EUMETSAT LSA SAF FRP-PIXEL) fire power, mean of the 15-min slots in the hour. */
+  msg_frp_mw?: Metric | null;
   /** where the front was: centroid and equivalent radius of the area reached in the previous 6 h */
   front?: { center: [number, number]; radius_m: number } | null;
   has_ground_truth: boolean;

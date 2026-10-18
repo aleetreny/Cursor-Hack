@@ -62,3 +62,14 @@ export function cropToBBox(m: Mosaic, bbox: [number, number, number, number], si
   c.getContext('2d')!.drawImage(m.canvas, ax, ay, bx - ax, by - ay, 0, 0, size, size);
   return c;
 }
+
+/** A packaged image covering a lon/lat box (equirectangular, north up), wrapped as a Mosaic. */
+export async function imageMosaic(url: string, bbox: [number, number, number, number]): Promise<Mosaic> {
+  const im = await loadImage(url);
+  if (!im) throw new Error('packaged map file missing: ' + url);
+  const canvas = document.createElement('canvas');
+  canvas.width = im.naturalWidth; canvas.height = im.naturalHeight;
+  canvas.getContext('2d', { willReadFrequently: true })!.drawImage(im, 0, 0);
+  const [w, s, e, n] = bbox, W = canvas.width, H = canvas.height;
+  return { canvas, z: 0, x0: 0, y0: 0, px: (lon, lat) => [((lon - w) / (e - w)) * W, ((n - lat) / (n - s)) * H] };
+}

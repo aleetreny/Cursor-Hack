@@ -39,7 +39,7 @@ export function SceneView() {
     scene.setObservations(s.features, s.hotspots);
     scene.setLayers(s.layers);
     scene.setTime(s.time);
-    scene.load(s.incident!, src).then(async () => {
+    (IS_STATIC ? incidentBase() : Promise.resolve('')).then((base) => scene.load(s.incident!, src, base)).then(async () => {
       const st = useStore.getState(), inc = st.incident!;
       if (inc.progression) {
         // the reconstructed arrival-time field lives next to the incident files
@@ -74,7 +74,7 @@ export function SceneView() {
           scene.setScenario(st.layers.projection);
           if (!st.layers.projection) useStore.getState().set({ scenario: { on: false, hours: 0, ha: 0, lapse: 1 } });
           // the scenario box is ~8 km wide: frame it when it appears, come back to the fire when it goes (the presenter sets its own shots)
-          if (!st.presenting) { if (st.layers.projection) scene.frameScenario(); else scene.flyHome(); }
+          if (!st.presenting && !scene.regional) { if (st.layers.projection) scene.frameScenario(); else scene.flyHome(); }
         }
       }
       if (st.view !== prev.view) scene.set2D(st.view === '2d');

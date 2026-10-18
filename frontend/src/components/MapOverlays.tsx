@@ -82,7 +82,12 @@ export function MapOverlays() {
         {compare.on && compare.before != null && (
           <span className="pill"><Icon name="compare" size={12} /> BEFORE {regional ? fmtWhen(compare.before) : fmtClock(compare.before)} ┆ CURRENT {regional ? fmtWhen(time) : fmtClock(time)} · Δ burned <b>{delta != null && delta >= 0 ? '+' : ''}{da.v} {da.u}</b></span>
         )}
-        {layers.projection && <span className="pill exp" title={`Illustrative wind- and slope-driven spread on the real terrain. The 15-minute timeline replays the scenario as a ×${Math.round(scenario.lapse)} time-lapse.`}>SIMULATED FIRE SCENARIO · T+{Math.floor(scenario.hours)}h{String(Math.floor((scenario.hours % 1) * 60)).padStart(2, '0')} · {Math.round(scenario.ha).toLocaleString('en-US')} ha · ×{Math.round(scenario.lapse).toLocaleString('en-US')} time-lapse · NOT A FORECAST</span>}
+        {layers.projection && regional && incident?.scenario && (
+          <span className="pill exp" title={`${incident.scenario.method}. Calibrated only on the ${incident.scenario.calibrated_on.image_time.slice(0, 10)} EMS perimeter, then run freely. IoU against the later perimeters: ${incident.scenario.perimeters.map((r) => r.iou.toFixed(2)).join(', ')}.`}>
+            SPREAD SCENARIO (HINDCAST) · IoU {incident.scenario.perimeters.find((r) => r.perimeter === 'DEL_MONIT02')?.iou.toFixed(2) ?? incident.scenario.final_iou.toFixed(2)} vs what burned · NOT WHAT HAPPENED
+          </span>
+        )}
+        {layers.projection && !regional && <span className="pill exp" title={`Illustrative wind- and slope-driven spread on the real terrain. The 15-minute timeline replays the scenario as a ×${Math.round(scenario.lapse)} time-lapse.`}>SIMULATED FIRE SCENARIO · T+{Math.floor(scenario.hours)}h{String(Math.floor((scenario.hours % 1) * 60)).padStart(2, '0')} · {Math.round(scenario.ha).toLocaleString('en-US')} ha · ×{Math.round(scenario.lapse).toLocaleString('en-US')} time-lapse · NOT A FORECAST</span>}
       </div>
 
       {hover && !useStore.getState().presenting && (

@@ -12,8 +12,8 @@ It ships two incidents (switch with the incident menu in the top bar, or `?incid
 
 | Incident | Scale | What is real |
 |---|---|---|
-| **Pinhão Cell Burn**, Portugal, 1 Mar 2019 (default) | A drone's view: 15 min, ~0.2 ha burned in view | Drone video, camera pose, segmentation evaluated against hand-drawn masks |
-| **Larouco Wildfire**, Ourense, Spain, 13–27 Aug 2025 (`?incident=larouco-2025-08`) | 33,132 ha over 14 days, 42 × 41 km of terrain | When each 30 m cell burned, reconstructed from NASA FIRMS and Copernicus EMS perimeters and validated against them; Sentinel-2 burn severity; ERA5 weather |
+| **Pinhão Cell Burn**, Portugal, 1 Mar 2019 (`?incident=pinhao-2019-03-01`) | A drone's view: 15 min, ~0.2 ha burned in view | Drone video, camera pose, segmentation evaluated against hand-drawn masks |
+| **Larouco Wildfire**, Ourense, Spain, 13–27 Aug 2025 (default) | 33,132 ha over 14 days, 42 × 41 km of terrain | When each 30 m cell burned, reconstructed from NASA FIRMS and Copernicus EMS perimeters and validated against them; Sentinel-2 burn severity; ERA5 weather |
 
 The interface recreates the "FireTrace" wildfire forensic prototype (Dilum Sanjaya / Claude, shared by Anthropic). Its layout is a full-bleed 3D terrain with a right-hand layers and incident panel, a bottom timeline with linked charts and a key-events column, Incident / Drones / Resources modes, a drone camera window, and 2D/3D map switching. Here it runs on **real data**.
 
@@ -55,6 +55,8 @@ The pipeline (`pipeline/larouco/`, see its [README](pipeline/larouco/README.md))
 | Events | 19 computed events: first detection, area milestones, the fastest 6 h runs, the most intense pass, perimeters, weather extremes | Derived, all need review |
 | Weather | ERA5 hourly via Open-Meteo | External (reanalysis) |
 | Drones, aircraft, ground units | The same exercise, re-tasked for the large fire: they follow the reconstructed front, and aircraft fly in daylight only | **Simulated**, tagged SIM |
+| Spread scenario (hindcast) | Fuels (ESA WorldCover 10 m), slope (MDT25) and the hourly ERA5 wind and dryness, calibrated only on the 16 Aug perimeter, then run freely | Model, **not what happened**: IoU 0.25 / 0.24 / 0.24 against the 20 / 21 / 22 Aug perimeters. It spreads almost evenly in every direction and misses the run north, and burns 74,000 ha with no suppression |
+| Terrain and imagery | IGN/CNIG MDT25 and PNOA orthophoto (CC BY 4.0) over the fire; AWS Terrain Tiles and Sentinel-2 cloudless 2016 (EOX) for the horizon | Packaged with the incident (~13 MB): no tile server at runtime |
 | Video | None published: real footage of this fire needs its owners' permission | — |
 
 In the app:
@@ -158,7 +160,7 @@ cd ../backend && python -m pytest -q                                            
 
 ## Publish (GitHub Pages)
 
-Every push to `main` runs [`.github/workflows/pages.yml`](.github/workflows/pages.yml): it exports the incident package, builds the dashboard with relative paths (so it works under any repository name) and deploys it to GitHub Pages. Terrain and imagery tiles stream from public tile servers in the browser.
+Every push to `main` runs [`.github/workflows/pages.yml`](.github/workflows/pages.yml): it exports the incident package, builds the dashboard with relative paths (so it works under any repository name) and deploys it to GitHub Pages. The Larouco incident ships its own terrain and imagery; the Pinhão drone incident still streams its tiles from public servers in the browser.
 
 ## Limitations (honest)
 
@@ -172,7 +174,7 @@ Every push to `main` runs [`.github/workflows/pages.yml`](.github/workflows/page
   * Timing between satellite passes (about six a day) is interpolated, and the first detection is not the ignition.
   * The scar's own EMS perimeters were used to pick the method's parameters, so the IoU is slightly optimistic.
   * Smoke and spot fires are not measured.
-  * Terrain and imagery are streamed at runtime, not packaged.
+  * The spread scenario has no suppression and no spotting, and uses one reanalysis wind for the whole box.
   * The fleet and resources around it are an exercise, not the real operation, and the app has no data on people or houses.
 
 ## History

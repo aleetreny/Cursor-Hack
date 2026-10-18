@@ -6,7 +6,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import type { AnalysisEvent, FireFeature, Hotspot, Incident, Progression, VideoSource } from '../api/types';
 import { type GeoFrame, makeFrame, toLonLat, toXZ } from './geo';
-import { ESRI_IMAGERY, TERRARIUM, cropToBBox, decodeTerrarium, loadMosaic } from './tiles';
+import { ESRI_IMAGERY, TERRARIUM, cropToBBox, decodeTerrarium, imageMosaic, loadMosaic } from './tiles';
 import { dropsUntil, firelinesUntil, frontAt, unitState, unitsFor, type SimCtx, type SimUnit } from '../sim/ops';
 
 type BBox = [number, number, number, number];
@@ -88,6 +88,7 @@ export class FireScene {
     // regional incidents: reconstructed arrival time (hours after progression.t0) and burn severity
     uArr: { value: null as THREE.Texture | null }, uSev: { value: null as THREE.Texture | null }, uArrBounds: { value: new THREE.Vector4() },
     uArrT: { value: -1 }, uArrOn: { value: 0 }, uArrBefore: { value: -1 }, uSevOp: { value: 0 }, uIsoOp: { value: 0 }, uFrontH: { value: 3 },
+    uSim: { value: null as THREE.Texture | null }, uSimOn: { value: 0 },   // retrospective scenario (same grid as uArr)
   };
 
   // dynamic content
@@ -122,6 +123,7 @@ export class FireScene {
   private rSmoke?: THREE.Points;
   private firms?: THREE.Points;
   private innerTex?: THREE.CanvasTexture;
+  private assetBase = '';
   private innerCanvas?: HTMLCanvasElement;
   private sky?: THREE.Mesh;
   private windU = { value: new THREE.Vector2(0.5, 0.2) };
@@ -278,8 +280,10 @@ export class FireScene {
 
   /* ------------------------------------------------------------ terrain */
 
-  async load(incident: Incident, source?: VideoSource) {
+  /** `assetBase`: URL prefix of the incident package, for its packaged basemap (if any). */
+  async load(incident: Incident, source?: VideoSource, assetBase = '') {
     this.incident = incident;
+    this.assetBase = assetBase;
     this.source = source;
     this.regional = incident.scale === 'regional';
     this.k = this.regional ? 240 : 1;
@@ -302,8 +306,12 @@ export class FireScene {
     this.cb.onProgress?.('Loading terrain');
     const Z = this.regional ? { dem: 11, img: 12 } : { dem: 14, img: 16 };
     const core: BBox | null = this.regional ? null : [cx - 0.0065, cy - 0.005, cx + 0.0065, cy + 0.005];   // ~1.1 × 1.1 km around the drone
+    const bm = incident.basemap, A = (f: string) => this.assetBase + f;
+    if (bm) this.innerBBox = bm.inner.bbox;
     const [innerDem, innerImg, coreImg] = await Promise.all([
-      loadMosaic(this.innerBBox, Z.dem, TERRARIUM), loadMosaic(this.innerBBox, Z.img, ESRI_IMAGERY), core ? loadMosaic(core, 17, ESRI_IMAGERY) : Promise.resolve(null),
+      bm ? imageMosaic(A(bm.inner.dem), bm.inner.bbox) : loadMosaic(this.innerBBox, Z.dem, TERRARIUM),
+      bm ? imageMosaic(A(bm.inner.imagery), bm.inner.bbox) : loadMosaic(this.innerBBox, Z.img, ESRI_IMAGERY),
+      core ? loadMosaic(core, 17, ESRI_IMAGERY) : Promise.resolve(null),
     ]);
     const dec = decodeTerrarium(innerDem);
     const sampleInner = (lon: number, lat: number) => { const [px, py] = innerDem.px(lon, lat); return dec.sample(px, py); };
@@ -364,6 +372,8 @@ export class FireScene {
   }
   /** Regional: z13 imagery (~14 m) over the scar, after everything else has loaded. */
   private async loadScarImagery() {
+    const pt = this.incident?.basemap?.patch;
+    if (pt) { const m = await imageMosaic(this.assetBase + pt.imagery, pt.bbox); if (this.frame) { this.paintPatch(m, pt.bbox, 4096); this.markActive(); } return; }
     const g = this.incident?.reference_perimeter?.geometry;
     if (!g) return;
     let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity;
@@ -388,8 +398,11 @@ export class FireScene {
     const tuck = this.regional ? [120, 600] : [30, 90];
     let finer: BBox = this.innerBBox;
     for (const [k, r] of RINGS.entries()) {
-      const bbox: BBox = [cx - r.half[0], cy - r.half[1], cx + r.half[0], cy + r.half[1]];
-      const [dem, img] = await Promise.all([loadMosaic(bbox, r.demZ, TERRARIUM), loadMosaic(bbox, r.imgZ, ESRI_IMAGERY)]);
+      const pk = this.incident?.basemap?.rings[k];
+      const bbox: BBox = pk ? pk.bbox : [cx - r.half[0], cy - r.half[1], cx + r.half[0], cy + r.half[1]];
+      const [dem, img] = await Promise.all(pk
+        ? [imageMosaic(this.assetBase + pk.dem, pk.bbox), imageMosaic(this.assetBase + pk.imagery, pk.bbox)]
+        : [loadMosaic(bbox, r.demZ, TERRARIUM), loadMosaic(bbox, r.imgZ, ESRI_IMAGERY)]);
       if (!this.frame) return;   // disposed meanwhile
       const d = decodeTerrarium(dem);
       const sample = (lon: number, lat: number) => { const [px, py] = dem.px(lon, lat); return d.sample(px, py); };
@@ -455,6 +468,7 @@ uniform sampler2D uMask; uniform sampler2D uDecal; uniform vec4 uMaskBounds; uni
 uniform float uTime, uBurnOp, uFireOp, uChangeOp, uImageryMix, uMapStyle, uStyleOn, uInner;
 uniform sampler2D uScen; uniform vec4 uScenBounds; uniform float uScenT, uScenOn;
 uniform sampler2D uArr; uniform sampler2D uSev; uniform vec4 uArrBounds; uniform float uArrT, uArrOn, uArrBefore, uSevOp, uIsoOp, uFrontH;
+uniform sampler2D uSim; uniform float uSimOn;
 ${NOISE_GLSL}
 void main() {`)
         .replace('#include <map_fragment>', /* glsl */ `
@@ -534,6 +548,14 @@ void main() {`)
       float da = a / 24.0, w = fwidth(da);
       float iso = (1.0 - smoothstep(0.0, w * 1.4, abs(fract(da + 0.5) - 0.5))) * step(w, 0.2) * burnt;
       alb = mix(alb, vec3(1.0, 0.55, 0.30), iso * uIsoOp * 0.85);
+      if (uSimOn > 0.5) {   // retrospective scenario: violet where the model has burned and the real fire had not, and its front
+        float sa = texture2D(uSim, auv).r, sb = step(sa, uArrT) * step(sa, 50000.0);
+        float hatch = step(0.5, fract((vWorld.x + vWorld.z) * 0.004));
+        alb = mix(alb, vec3(0.55, 0.38, 0.86), sb * (1.0 - burnt * uBurnOp) * (0.32 + 0.18 * hatch));
+        float sf = sb * (1.0 - smoothstep(0.0, 2.0, uArrT - sa));
+        alb = mix(alb, vec3(0.62, 0.42, 1.0), sf * 0.85);
+        fireEm += vec3(0.35, 0.18, 0.9) * sf * 0.6;
+      }
     }
   }
   vec2 duv = fsBoundsUv(vWorld.xz, uDecalBounds);
@@ -652,6 +674,7 @@ void main() {`)
     u.uChangeOp.value = this.layers.change;
     u.uStyleOn.value = this.layers.terrain ? 1 : 0;
     u.uSevOp.value = this.layers.severity;
+    u.uSimOn.value = this.regional && this.layers.projection && u.uSim.value ? 1 : 0;
     u.uIsoOp.value = this.layers.isochrones ? 1 : 0;
     if (this.rFlames) this.rFlames.visible = this.layers.active > 0.01 && !this.mode2D;
     if (this.rSmoke) this.rSmoke.visible = this.layers.smoke && this.layers.active > 0.01 && !this.mode2D;
@@ -1013,8 +1036,24 @@ varying float vA; varying float vHot;
     this.uniforms.uArrBounds.value.set(x0, z0, x1, z1);
     this.uniforms.uArrOn.value = 1;
     this.prog = { p, W, H, minutes, sev, order, sortedMin, bucket: -1 };
+    const sc = this.incident?.scenario;
+    if (sc) this.loadScenarioField(url.replace(/[^/]*$/, sc.image), W, H).catch((e) => console.warn(e));
     this.buildFirms();
     this.updateRegionalFire(true);
+    this.markActive();
+  }
+
+  /** The retrospective scenario's arrival field (same grid and encoding as arrival.png). */
+  private async loadScenarioField(url: string, W: number, H: number) {
+    const img = await new Promise<HTMLImageElement>((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('scenario field unavailable: ' + url)); im.src = url; });
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const ctx = c.getContext('2d', { willReadFrequently: true })!; ctx.drawImage(img, 0, 0);
+    const d = ctx.getImageData(0, 0, W, H).data, half = new Uint16Array(W * H), NEVER = THREE.DataUtils.toHalfFloat(60000), nv = this.prog?.p.never ?? 65535;
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const k = j * W + i, m = d[k * 4] * 256 + d[k * 4 + 1]; half[(H - 1 - j) * W + i] = m === nv ? NEVER : THREE.DataUtils.toHalfFloat(m / 60); }
+    const tex = new THREE.DataTexture(half, W, H, THREE.RedFormat, THREE.HalfFloatType);
+    tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
+    this.uniforms.uSim.value = tex;
+    this.uniforms.uSimOn.value = this.layers.projection ? 1 : 0;
     this.markActive();
   }
 

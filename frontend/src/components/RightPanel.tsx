@@ -39,6 +39,7 @@ const REGIONAL_LAYERS: LayerRow[] = [
   { id: 'perimeter', label: 'Final Burnt Area', sw: 'repeating-linear-gradient(90deg,#fff 0 4px,#8b8379 4px 7px)', kind: 'toggle', prov: 'external' },
   { id: 'isochrones', label: 'Daily Isochrones', sw: 'repeating-linear-gradient(90deg,#3a2a24 0 5px,#ff9a5a 5px 7px)', kind: 'toggle', prov: 'derived' },
   { id: 'change', label: 'Change vs Before', sw: 'linear-gradient(135deg,#f0a35a,#d9542a)', kind: 'opacity', prov: 'derived', def: 0.6 },
+  { id: 'projection', label: 'Spread Scenario (hindcast)', sw: 'repeating-linear-gradient(45deg,#a78bfa 0 3px,#f3ecfd 3px 6px)', kind: 'toggle', prov: 'model' },
   { id: 'smoke', label: 'Smoke', sw: 'linear-gradient(135deg,#b7b2ac,#7d7873)', kind: 'toggle' },
 ];
 

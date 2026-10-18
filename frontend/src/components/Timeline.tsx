@@ -171,6 +171,7 @@ export function ChartsRow() {
     return out;
   };
   const regional = useStore((st) => st.incident?.scale === 'regional');
+  const scenarioOn = useStore((st) => st.layers.projection);
   const ser = (fn: (f: (typeof frames)[number]) => number | null | undefined): Pt[] => frames.map((f) => ({ x: Date.parse(f.timestamp), y: fn(f) ?? null }));
   const stepS = frames.length > 1 ? (Date.parse(frames[1].timestamp) - Date.parse(frames[0].timestamp)) / 1000 : 4;
   const profile = useProfile();
@@ -207,9 +208,12 @@ export function ChartsRow() {
     ]
     : regional
     ? [
-      { title: 'Burned Area', unit: 'ha', pts: ser((f) => (f.burned_area_m2.value == null ? null : f.burned_area_m2.value / 1e4)), color: '#c9503a', kind: 'area' as const, prov: frames[0]?.burned_area_m2.provenance },
+      { title: 'Burned Area', unit: 'ha', pts: ser((f) => (f.burned_area_m2.value == null ? null : f.burned_area_m2.value / 1e4)), color: '#c9503a', kind: 'area' as const, prov: frames[0]?.burned_area_m2.provenance,
+        pts2: scenarioOn && frames[0]?.scenario_burned_m2 ? ser((f) => (f.scenario_burned_m2?.value == null ? null : f.scenario_burned_m2.value / 1e4)) : null },
       { title: 'Expansion Rate', unit: 'm/min', hint: 'Growth of the equivalent radius √(area/π) over 6 h: the speed of the scar as a whole, lower than the head-fire speed', pts: ser((f) => f.front_advance_m_min?.value), color: '#cf3b2a', kind: 'line' as const, prov: frames[0]?.front_advance_m_min?.provenance },
-      { title: 'Fire Power', unit: 'MW', hint: 'Fire radiative power of the latest satellite pass (≤ 12 h), sum of the FIRMS detections in the scar', pts: ser((f) => f.frp_mw?.value), color: '#b8641c', kind: 'area' as const, prov: frames[0]?.frp_mw?.provenance },
+      frames[0]?.msg_frp_mw
+        ? { title: 'Fire Power', unit: 'MW · Meteosat', hint: 'Fire radiative power seen by Meteosat every 15 min (EUMETSAT LSA SAF FRP-PIXEL), pixels within 3 km of the scar, hourly mean', pts: ser((f) => f.msg_frp_mw?.value), color: '#b8641c', kind: 'area' as const, prov: frames[0].msg_frp_mw.provenance }
+        : { title: 'Fire Power', unit: 'MW', hint: 'Fire radiative power of the latest satellite pass (≤ 12 h), sum of the FIRMS detections in the scar', pts: ser((f) => f.frp_mw?.value), color: '#b8641c', kind: 'area' as const, prov: frames[0]?.frp_mw?.provenance },
     ]
     : mode === 'drones'
     ? [
@@ -224,7 +228,7 @@ export function ChartsRow() {
         : { title: 'Area Growth', unit: 'm²/min · 40 s avg', pts: smooth(ser((f) => (f.area_change_m2.value == null ? null : Math.max(0, (f.area_change_m2.value / stepS) * 60))), 10), color: '#cf3b2a', kind: 'line' as const, prov: frames[0]?.area_change_m2.provenance },
     ],
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [mode, frames, opsSeries, droneSeries, selUnit, stepS, regional]);
+  [mode, frames, opsSeries, droneSeries, selUnit, stepS, regional, scenarioOn]);
 
   return (
         <div className="charts">
@@ -232,7 +236,7 @@ export function ChartsRow() {
             <div className="chart" key={c.title}>
               <div className="chart-h" title={'hint' in c ? (c.hint as string) : undefined}><span>{c.title} <small>({c.unit})</small>{c.prov && <span className={'prov ' + c.prov}>{c.prov === 'demo_parameter' ? 'sim' : c.prov}</span>}</span>
                 <button className="chart-dl" title="Download CSV" aria-label={`Download ${c.title} as CSV`} onClick={() => downloadCsv(`${c.title.toLowerCase().replace(/\W+/g, '-')}.csv`, ['time_utc', `${c.title} (${c.unit})`], c.pts.map((p) => [new Date(p.x).toISOString(), p.y]))}><Icon name="download" size={12} /></button></div>
-              <MiniChart pts={c.pts} cursor={time} color={c.color} kind={c.kind} xTicks={xLab()} label={`${c.title} over the recording`} />
+              <MiniChart pts={c.pts} pts2={'pts2' in c ? (c.pts2 as Pt[] | null) : null} cursor={time} color={c.color} kind={c.kind} xTicks={xLab()} label={`${c.title} over the recording`} />
             </div>
           ))}
           {mode !== 'drones' && mode !== 'resources' && profile.length > 1 && (

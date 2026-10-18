@@ -85,6 +85,7 @@ export function TopBar() {
               <>
                 <button role="menuitemcheckbox" aria-checked={layers.severity > 0} onClick={() => { useStore.getState().setLayer('severity', layers.severity > 0 ? 0 : 0.85); close(); }}>Burn severity (dNBR)<span className="muted">{layers.severity > 0 ? 'on' : 'off'}</span></button>
                 <button role="menuitemcheckbox" aria-checked={layers.isochrones} onClick={() => { useStore.getState().setLayer('isochrones', !layers.isochrones); close(); }}>Daily isochrones<span className="muted">{layers.isochrones ? 'on' : 'off'}</span></button>
+                <button role="menuitemcheckbox" aria-checked={layers.projection} onClick={() => { useStore.getState().setLayer('projection', !layers.projection); close(); }}>Spread scenario (hindcast)<span className="muted">{layers.projection ? 'on' : 'off'}</span></button>
               </>
             ) : (
               <>
