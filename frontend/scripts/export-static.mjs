@@ -77,7 +77,7 @@ for (const { source, default: isDefault } of INCIDENTS) {
       { id: 'georef', name: 'Georeferencing', provenance: 'derived', detail: `${src.georeferencing.method.replace(/_/g, ' ')} (${src.georeferencing.accuracy}): pinhole camera, rays marched onto the DEM` },
       { id: 'events', name: 'Events', provenance: 'derived', detail: `${events.events.length} events from measured changes (growth, flames outside the scar, smoke, peak flame extent); all need human review` },
       { id: 'weather', name: 'Weather', provenance: 'external', detail: `${w.source} (${w.grid}); reanalysis, not an on-site sensor` },
-      { id: 'analyst', name: 'Questions & search', provenance: 'derived', detail: 'Computed in the browser from the recorded measurements and events (English or Spanish). No language model, nothing generated.' },
+      { id: 'analyst', name: 'Questions & search', provenance: 'derived', detail: 'Computed in the browser from the recorded measurements and events. No language model, nothing generated.' },
       { id: 'sim', name: 'Drones FT-02…06, resources, large-fire scenario', provenance: 'simulated', detail: 'Deterministic exercise around the real incident, tagged SIM. Not observations, not a forecast.' },
     ],
     attribution: incident.attribution,

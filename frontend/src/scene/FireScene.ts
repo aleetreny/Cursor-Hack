@@ -196,6 +196,8 @@ export class FireScene {
     ro.observe(container);
     this.resize();
     renderer.domElement.addEventListener('pointermove', this.onPointerMove);
+    renderer.domElement.addEventListener('pointerdown', this.onPointerDown);
+    renderer.domElement.addEventListener('pointerup', this.onPointerUp);
     renderer.domElement.addEventListener('pointerleave', () => cb.onHover?.(null));
     renderer.domElement.addEventListener('click', this.onClick);
     this.loop();
@@ -217,8 +219,23 @@ export class FireScene {
     this.composer.setSize(w, h);
     this.bloom.setSize(w, h);
     this.camera.aspect = w / h;
-    this.camera.updateProjectionMatrix();
+    this.applyInset();
     this.updatePointUniforms();
+  }
+  /* A panel covering the bottom of the map (the phone sheet) lifts the picture's centre into the part that stays
+   * visible, so whatever the camera looks at is never hidden under it. Picking and labels follow, since they use
+   * the same projection. Eased in step() to move with the sheet. */
+  private insetTarget = { b: 0, l: 0 };
+  private insetCur = { b: 0, l: 0 };
+  setViewInset(bottomPx: number, leftPx = 0) {
+    this.insetTarget = { b: Math.max(0, Math.min(bottomPx, this.vh * 0.6)), l: Math.max(0, Math.min(leftPx, this.vw * 0.6)) };
+    this.markActive();
+  }
+  private applyInset() {
+    const { b, l } = this.insetCur;
+    if (b > 0.5 || l > 0.5) this.camera.setViewOffset(this.vw, this.vh, -l / 2, b / 2, this.vw, this.vh);
+    else this.camera.clearViewOffset();
+    this.camera.updateProjectionMatrix();
   }
 
   private makeSky() {
@@ -288,7 +305,7 @@ export class FireScene {
     this.redrawOverlays(true);
 
     this.setInitialCamera();
-    if (!/[?&](nointro|cam)=?/.test(location.search)) this.intro();
+    if (!/[?&](nointro|cam)=?/.test(location.search) && !this.reduceMotion) this.intro();
     this.ready = true;
     this.cb.onReady?.();
     this.ringsReady = this.loadRings(cx, cy);
@@ -1121,7 +1138,7 @@ varying float vL; varying float vSeed;
     this.reservedAt = now;
     const map = this.container.parentElement, c = this.container.getBoundingClientRect();
     if (!map) return;
-    this.reserved = [...map.querySelectorAll<HTMLElement>(':scope > .feed, :scope > .mapctl, :scope > .attribution, :scope > .compass, :scope > .banner > *')]
+    this.reserved = [...map.querySelectorAll<HTMLElement>(':scope > .feed, :scope > .mapctl, :scope > .attribution, :scope > .compass, :scope > .banner > *, :scope > .sheet, :scope > .drawer.open')]
       .map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0)
       .map((r) => [r.left - c.left - 4, r.top - c.top - 4, r.right - c.left + 4, r.bottom - c.top + 4]);
   }
@@ -1227,7 +1244,9 @@ varying float vL; varying float vSeed;
     return new THREE.Vector3(x, this.groundY(x, z), z);
   }
 
+  private reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   flyTo(target: THREE.Vector3, dist?: number, dur = 1400, dirOverride?: THREE.Vector3) {
+    if (this.reduceMotion) dur = Math.min(dur, 1);   // jump instead of flying
     const offs = dirOverride ?? this.camera.position.clone().sub(this.controls.target);
     if (dist) offs.setLength(dist);
     this.anim = { t0: performance.now(), dur, from: { p: this.camera.position.clone(), t: this.controls.target.clone() }, to: { p: target.clone().add(offs), t: target.clone() } };
@@ -1319,11 +1338,29 @@ varying float vL; varying float vSeed;
 
   private onPointerMove = (e: PointerEvent) => {
     this.markActive();
+    if (e.pointerType === 'touch') return;   // touch shows terrain info on tap instead (see onPointerUp)
     const r = this.renderer.domElement.getBoundingClientRect();
     this.pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     const now = performance.now();
     if (now - this.lastHover < 60 || !this.ready || e.buttons) return;
     this.lastHover = now;
+    this.hoverAt(e);
+  };
+  /** Touch: a quick tap (no drag) shows the terrain info at that point for a few seconds. */
+  private tapStart: { x: number; y: number; t: number } | null = null;
+  private tapTimer = 0;
+  private onPointerDown = (e: PointerEvent) => { if (e.pointerType === 'touch') this.tapStart = { x: e.clientX, y: e.clientY, t: performance.now() }; };
+  private onPointerUp = (e: PointerEvent) => {
+    const t = this.tapStart; this.tapStart = null;
+    if (e.pointerType !== 'touch' || !t || !this.ready || Math.hypot(e.clientX - t.x, e.clientY - t.y) > 10 || performance.now() - t.t > 400) return;
+    const r = this.renderer.domElement.getBoundingClientRect();
+    this.pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    this.hoverAt(e);
+    clearTimeout(this.tapTimer);
+    this.tapTimer = window.setTimeout(() => this.cb.onHover?.(null), 4500);
+  };
+  private hoverAt(e: { clientX: number; clientY: number }) {
+    const r = this.renderer.domElement.getBoundingClientRect();
     this.raycaster.setFromCamera(this.pointer, this.camera);
     const hit = this.raycaster.intersectObjects([this.innerMesh!, ...this.rings].filter(Boolean), false)[0];
     if (!hit) { this.cb.onHover?.(null); return; }
@@ -1447,6 +1484,11 @@ varying float vL; varying float vSeed;
       const k = Math.min(1, (performance.now() - this.styleAnim.t0) / 900);
       this.uniforms.uMapStyle.value = this.styleAnim.from + (this.styleAnim.to - this.styleAnim.from) * k;
       if (k >= 1) this.styleAnim = undefined;
+    }
+    if (this.insetCur.b !== this.insetTarget.b || this.insetCur.l !== this.insetTarget.l) {
+      const ease = (c: number, t: number) => (Math.abs(t - c) < 0.5 || this.reduceMotion ? t : c + (t - c) * Math.min(1, dt * 12));
+      this.insetCur = { b: ease(this.insetCur.b, this.insetTarget.b), l: ease(this.insetCur.l, this.insetTarget.l) };
+      this.applyInset(); this.markActive();
     }
     this.controls.update();
     for (const r of this.rotors) r.rotation.y += dt * 40;

@@ -146,7 +146,8 @@ Ese clúster ya no existe y aquellos resultados no se guardaron, así que **la v
 ## 11. Decisiones técnicas y trabajo futuro
 
 * **Motor 3D: nos quedamos con Three.js** en lugar de migrar a Cesium o MapLibre. Ya tiene LOD por anillos, depth logarítmico, sombras, bloom e instancing, y medimos **60 fps** reproduciendo a 1440×900. Migrar costaría el control sobre el shader del fuego pegado al terreno.
-* **Todo lo demás**, desde el incendio grande y la versión móvil hasta la búsqueda semántica en el navegador y el rendimiento, está en el [plan de mejora](PLAN_DE_MEJORA.md).
+* **Funciona en cualquier pantalla:** escritorio, tablet (panel deslizante) y móvil (hoja inferior; en horizontal, panel lateral). Carga en menos de un segundo y sigue funcionando sin conexión tras la primera visita.
+* **Lo pendiente**, desde el incendio grande hasta la búsqueda semántica en el navegador, está en el [plan de mejora](PLAN_DE_MEJORA.md).
 
 ## 12. Cómo ejecutarlo
 

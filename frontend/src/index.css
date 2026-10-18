@@ -11,7 +11,7 @@
   --line-2: #e6e0d6;
   --ink: #26231f;
   --ink-2: #4a453e;
-  --muted: #8b8379;
+  --muted: #6f675d;   /* 4.8:1 on the panels (WCAG AA for small text) */
   --muted-2: #aaa298;
   --red: #d2402a;
   --red-soft: #f4ddd6;
@@ -232,7 +232,6 @@ input[type=range].rng::-webkit-slider-thumb { appearance: none; width: 11px; hei
 .hud .roi { position: absolute; border: 1.5px solid #ffb347; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
 .hud .roi span { position: absolute; left: -1px; bottom: -17px; background: #ffb347; color: #1a1208; font-size: 9.5px; padding: 1px 5px; font-weight: 600; white-space: nowrap; }
 .hud .roi.alert { border-color: #ff5a36; } .hud .roi.alert span { background: #ff5a36; color: #fff; }
-.hud .roi.above span { bottom: auto; top: -17px; } .hud .roi.inside span { bottom: auto; top: 2px; left: 2px; }
 .feed-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #1b1a19; color: #ddd; font-size: 11.5px; white-space: nowrap; overflow: hidden; container-type: inline-size; }
 .feed-name { color: #999; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 @container (max-width: 600px) { .feed-name { display: none; } }
@@ -458,3 +457,168 @@ button.tb-incident:disabled { cursor: default; }
 .spread-card .sw-body.tall { flex-direction: column; justify-content: center; gap: 14px; }
 .spread-card .sw-body.tall .sw-text { flex: none; width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
 .spread-card .sw-body.tall .sw-verdict { grid-column: 1 / -1; }
+
+/* =====================================================================================  tablet  */
+.app.tablet .tb-meta, .app.tablet .brand-sub { display: none; }
+.app.tablet .seg .lbl, .app.tablet .tb-menu .lbl { display: none; }   /* icons only (titles/aria-labels stay) */
+.app.tablet .tb-menu { padding: 4px 7px; }
+.app.tablet .tb-drawer.on { background: var(--chip); }
+.app.tablet .main { grid-template-columns: minmax(0, 1fr); }
+.app.tablet { --events-w: clamp(170px, 22vw, 210px); }
+.map > .drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(360px, 52%); z-index: 8; display: flex; transform: translateX(100%); visibility: hidden; transition: transform .25s ease, visibility 0s .25s; box-shadow: -10px 0 30px rgba(40, 30, 20, .18); }
+.map > .drawer.open { transform: none; visibility: visible; transition: transform .25s ease; }
+.map > .drawer > .right { flex: 1; }
+.app.tablet .map > .feed:not(.full) { width: min(46%, 420px); }
+.map.drawer-open > .feed:not(.full) { right: calc(min(360px, 52%) + 10px); width: min(40%, 360px); }
+.map.drawer-open > .mapctl { right: calc(min(360px, 52%) + 12px); }
+.map.drawer-open > .mapctl .scalebar { display: none; }
+
+/* ======================================================================================  phone  */
+.app.phone { --top-h: 48px; }
+.app.phone .main { grid-template-columns: minmax(0, 1fr); }
+.app.phone .left { grid-template-rows: minmax(0, 1fr); }
+.phone-bar { padding: 0 6px 0 10px; gap: 6px; justify-content: space-between; }
+.phone-bar .brand { gap: 6px; font-size: 14px; }
+.phone-bar .seg { margin: 0; }
+.phone-bar .seg button { padding: 6px 10px; gap: 5px; min-height: 34px; }
+.phone-bar .seg button .pl { display: none; }
+@media (min-width: 520px) { .phone-bar .seg button .pl { display: inline; } }
+@media (max-width: 370px) { .phone-bar .brand .pl { display: none; } }
+.pb-menu { width: 40px; height: 36px; display: grid; place-items: center; border-radius: 8px; flex: none; }
+.pb-menu:active, .pb-menu[aria-expanded="true"] { background: var(--chip); }
+.phone-menu { position: fixed; top: 52px; right: 8px; width: min(320px, calc(100% - 16px)); max-height: calc(100% - 64px); overflow: auto; background: #fff; border-radius: 12px; box-shadow: 0 12px 40px rgba(40, 30, 20, .28); z-index: 80; padding: 6px; white-space: normal; }
+.phone-menu .pm-h { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 10px 10px 4px; }
+.phone-menu button { display: flex; justify-content: space-between; width: 100%; padding: 11px 10px; font-size: 14px; border-radius: 7px; text-align: left; }
+.phone-menu button:active { background: var(--panel-2); }
+
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 7; background: var(--panel); border-radius: 14px 14px 0 0; box-shadow: 0 -6px 24px rgba(40, 30, 20, .2); display: flex; flex-direction: column; transition: height .22s ease; padding-bottom: env(safe-area-inset-bottom); overflow: hidden; }
+.sheet.dragging { transition: none; }
+.sheet-peek { flex: none; }
+.sheet-handle { display: block; width: 100%; height: 22px; touch-action: none; cursor: grab; }
+.sheet-handle span { display: block; width: 44px; height: 5px; border-radius: 3px; background: #c4bbae; margin: 8px auto 0; }
+.sheet .tl-top.compact { padding: 22px 10px 0; }
+.sheet .tl-row { grid-template-columns: auto minmax(0, 1fr); gap: 4px; }
+.sheet .tl-ctrl { margin-top: 6px; gap: 2px; }
+.sheet .tl-ctrl button { width: 32px; height: 30px; }
+.sheet .tl-ctrl .speed { height: 30px; }
+.sheet .track { margin: 0 12px 0 14px; height: 58px; }
+.sheet .track .ticks .tick:nth-child(even) { visibility: hidden; }   /* half the minute labels on a narrow track */
+.sheet-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 2px 10px 10px; scrollbar-width: none; }
+.sheet-tabs::-webkit-scrollbar { display: none; }
+.sheet-tabs button { flex: none; padding: 7px 13px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); font-size: 12.5px; font-weight: 600; }
+.sheet-tabs button.on { background: #3d3832; color: #fff; border-color: #3d3832; }
+.sheet-body { flex: 1; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line); overflow: hidden; }
+.sheet-body > * { flex: 1; min-height: 0; }
+.sheet-body .scroll { overflow-y: auto; }
+.sheet-cards { padding: 8px 10px 14px; display: flex; flex-direction: column; gap: 8px; }
+.sheet-cards > .section { background: var(--card); border: 1px solid var(--line-2); border-radius: 8px; flex: none; }
+.sheet-body .charts { display: grid; grid-template-columns: 1fr; grid-auto-rows: 158px; overflow-y: auto; border-top: 0; }
+@media (min-width: 560px) { .sheet-body .charts { grid-template-columns: 1fr 1fr; } }
+.sheet-body .chart { border-right: 0; border-bottom: 1px solid var(--line); }
+.sheet-body .events { border-left: 0; background: transparent; }
+.sheet-body .ev { padding: 10px 12px; font-size: 13px; }
+.sheet-body .chat { display: flex; flex-direction: column; }
+.sheet-body input, .sheet-body textarea { font-size: 16px; }   /* no zoom-on-focus on iOS */
+/* landscape phones: lean peek (no tab row until opened) */
+@media (orientation: landscape) { .app.phone .sheet:not(.open) .sheet-tabs { display: none; } .app.phone .sheet .tl-top.compact { padding-top: 20px; } }
+
+/* map overlays sit above the sheet */
+.app.phone .map > .mapctl { bottom: calc(var(--sheet-h, 120px) + 10px); right: 8px; gap: 6px; }
+.app.phone .map > .mapctl .zoom, .app.phone .map > .mapctl .fs { display: none; }
+.app.phone .map > .attribution { bottom: calc(var(--sheet-h, 120px) + 3px); left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 8.5px; }
+.app.phone .compass { top: 10px; left: 10px; width: 32px; height: 32px; }
+.app.phone .map > .feed:not(.full) { width: min(54%, 300px); top: 8px; right: 8px; }
+.app.phone .map > .feed.full { left: 0; right: 0; top: 0; bottom: var(--sheet-h, 120px); border-radius: 0; }
+.app.phone .banner { top: 10px; }
+.app.phone .banner .pill { font-size: 10.5px; }
+.app.phone .hovertip { font-size: 11px; }
+/* guided tour on phones: captions dock at the bottom, no spotlight */
+.app.phone .pz-spot { display: none; }
+.app.phone .pz-caption { left: 8px !important; right: 8px; top: auto !important; bottom: 64px; width: auto !important; max-width: none !important; }
+.app.phone .pz-bar { left: 8px; right: 8px; bottom: 8px; transform: none; width: auto; }
+/* guided tour scales with the screen (tablets and phones) */
+@media (max-width: 1100px) {
+  .pz-caption { width: min(440px, 46vw); padding: 18px 20px 16px; }
+  .pz-logo { font-size: clamp(36px, 7.6vw, 92px); gap: 12px; }
+  .pz-logo svg { width: clamp(42px, 8vw, 96px); height: auto; }
+  .pz-sub { font-size: clamp(15px, 2.4vw, 27px); padding: 0 16px; }
+  .pz-h1 { font-size: clamp(24px, 4.6vw, 52px); }
+  .pz-pillars { padding: 0 18px; }
+  .pz-cards { gap: 12px; margin-top: 26px; }
+  .pz-card { padding: 18px; } .pz-card .h { font-size: clamp(19px, 2.6vw, 32px); } .pz-card .b { font-size: clamp(13px, 1.6vw, 17px); }
+  .pz-problem-in { left: 5vw; right: 5vw; max-width: none; }
+  .pz-li b { font-size: clamp(16px, 2.2vw, 23px); } .pz-li span { font-size: clamp(13px, 1.7vw, 17px); }
+  .pz-meta { min-width: 0; flex: 1; }
+}
+@media (max-width: 700px), (max-height: 560px) {
+  .pz-cards { grid-template-columns: 1fr; }
+  .pz-card .b { display: none; }
+  .pz-list { margin-top: 18px; gap: 10px; }
+  .pz-li { grid-template-columns: 32px 1fr; gap: 10px; } .pz-num { width: 30px; height: 30px; font-size: 14px !important; }
+  .pz-li span { display: none; }
+  .pz-hint, .pz-foot { display: none; }
+  .pz-head { font-size: 20px; } .pz-body { font-size: 13.5px; } .pz-kicker { font-size: 11px; }
+  .pz-tags { margin-top: 10px; }
+  .pz-bar { gap: 4px; padding: 6px; }
+  .pz-name { font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+}
+
+/* ======================================================================  accessibility  */
+:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; border-radius: 4px; }
+.track:focus-visible { outline-offset: 4px; }
+input[type=range].rng:focus-visible { outline-offset: 4px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* ===================================================================  drone feed at any size  */
+/* The HUD and the bar follow the feed's own width (picture-in-picture on a phone, a drawer-side
+   window on a tablet, full screen anywhere): secondary readouts drop out before anything collides. */
+.feed .vid { container: vid / inline-size; }
+.feed-bar { container: fbar / inline-size; }
+.feed-time { color: #999; }
+.feed-zl { color: #bbb; min-width: 30px; text-align: center; }
+@container vid (max-width: 460px) {
+  .hud { font-size: 9.5px; }
+  .hud .bc { display: none; }
+  .hud .tl, .hud .bl { left: 10px; } .hud .tr, .hud .br { right: 10px; }
+}
+@container vid (max-width: 340px) {
+  .hud { font-size: 9px; }
+  .hud .tl > div:nth-child(2), .hud .tr > div:nth-child(n+3), .hud .bl > div:nth-child(n+2), .hud .br { display: none; }
+  .hud .tl, .hud .tr { top: 7px; } .hud .bl { bottom: 7px; }
+  .hud .br-corner { display: none; }
+  .hud .cross { width: 24px; height: 24px; margin: -12px; }
+  .hud .roi span { font-size: 8.5px; padding: 0 4px; }
+}
+@container vid (max-width: 250px) {
+  .hud .tr > div:nth-child(2), .hud .bl { display: none; }
+}
+@container fbar (max-width: 460px) { .feed-time, .feed-zl, .feed-bar .sim-tag { display: none; } }
+@container fbar (max-width: 340px) { .feed-bar .feed-z, .feed-bar .feed-pal { display: none; } }
+.app.phone .feed-bar, .app.tablet .feed-bar { gap: 6px; padding: 6px 8px; }
+.app.phone .map > .attribution { cursor: pointer; z-index: 5; }
+.app.phone .map > .feed.full { z-index: 6; }
+.app.phone .map > .attribution.open { white-space: normal; max-width: calc(100% - 16px); background: rgba(30, 26, 22, .82); padding: 6px 8px; border-radius: 6px; font-size: 10px; text-shadow: none; }
+/* the credits wrap left of the map controls, wherever those sit (--ctl-reserve is measured) */
+.map > .attribution { max-width: calc(100% - var(--ctl-reserve, 460px) - 22px); }
+.app.phone .map > .attribution.open { max-width: calc(100% - 16px); }
+/* six sheet tabs fit a 360 px phone without scrolling */
+@media (max-width: 420px) { .sheet-tabs { gap: 4px; padding: 2px 8px 10px; } .sheet-tabs button { flex: 1 1 auto; padding: 7px 8px; font-size: 12px; } }
+
+/* landscape phones: the open sheet is a full-height panel on the left; map, camera and controls keep the right */
+.map { --side-w: min(50%, 440px); }
+.app.phone .sheet.side { right: auto; width: var(--side-w); border-radius: 0 14px 0 0; box-shadow: 6px 0 24px rgba(40, 30, 20, .2); }
+.app.phone .map.sheet-side > .attribution { left: calc(var(--side-w) + 8px); max-width: calc(100% - var(--side-w) - var(--ctl-reserve, 200px) - 30px); }
+.app.phone .map.sheet-side > .attribution.open { max-width: calc(100% - var(--side-w) - 16px); }
+.app.phone .map.sheet-side > .compass { left: calc(var(--side-w) + 10px); }
+.app.phone .map.sheet-side > .banner { left: calc(50% + var(--side-w) / 2); max-width: calc(100% - var(--side-w) - 24px); }
+.app.phone .map.sheet-side > .feed.full { left: var(--side-w); bottom: 0; }
+/* the camera window never grows into the map controls: its height (16:9 + bar) fits above them */
+.app.phone .map > .feed:not(.full) { width: min(54%, 300px, calc((var(--map-h, 600px) - var(--sheet-h, 120px) - 92px) * 16 / 9)); }
+.app.phone .map.sheet-side > .feed:not(.full) { width: min(calc(100% - var(--side-w) - 70px), 300px, calc((var(--map-h, 600px) - 92px) * 16 / 9)); }
+/* tablets: with the drawer open the camera window stops short of the compass */
+.app.tablet .map.drawer-open > .feed:not(.full) { width: min(calc(100% - min(360px, 52%) - 80px), 360px); }
+.app.phone .map.sheet-side > .banner.left { left: calc(var(--side-w) + 52px); transform: none; }
+.map.attr-stack > .attribution { bottom: 50px; max-width: calc(100% - var(--ctl-right, 0px) - 24px); }

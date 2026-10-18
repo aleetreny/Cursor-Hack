@@ -8,6 +8,7 @@ import { SIM_UNITS } from '../sim/ops';
 import { fmtDate } from '../lib/format';
 import { useDismiss } from '../lib/ui';
 import { Icon, Logo } from './Icon';
+import { useLayout } from '../lib/layout';
 
 const SIM_DRONES = SIM_UNITS.filter((u) => u.group === 'drones').length;
 const SIM_RESOURCES = SIM_UNITS.length - SIM_DRONES;
@@ -15,6 +16,8 @@ const SIM_RESOURCES = SIM_UNITS.length - SIM_DRONES;
 export function TopBar() {
   const { incident, incidents, mode, set, sources, t0, t1, view, compare, layers, exaggeration, notify } = useStore(useShallow((s) => ({ incident: s.incident, incidents: s.incidents, mode: s.mode, set: s.set, sources: s.sources, t0: s.t0, t1: s.t1, view: s.view, compare: s.compare, layers: s.layers, exaggeration: s.exaggeration, notify: s.notify })));
   const [menu, setMenu] = useState<string | null>(null);
+  const layout = useLayout();
+  const drawer = useStore((s) => s.drawer);
   const [at, setAt] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
   const bar = useRef<HTMLElement>(null);
   const close = () => setMenu(null);
@@ -23,7 +26,7 @@ export function TopBar() {
   const toggle = (m: string, e: { currentTarget: Element }) => { const r = e.currentTarget.getBoundingClientRect(); setAt({ left: Math.min(r.left, innerWidth - 330), top: r.bottom + 4 }); setMenu(menu === m ? null : m); };
   const tab = (id: ModeTab, label: string, icon: string, count?: number, hint?: string) => (
     <button className={mode === id ? 'on' : ''} title={hint} onClick={() => set({ mode: id, feedOpen: id === 'drones', follow: null, selectedUnitId: null })}>
-      <Icon name={icon} size={13} />{label}{count ? <span className="badge">{count}</span> : null}
+      <Icon name={icon} size={13} /><span className="lbl">{label}</span>{count ? <span className="badge">{count}</span> : null}
     </button>
   );
   const share = async () => {
@@ -64,7 +67,7 @@ export function TopBar() {
       </div>
       <div className="tb-sep" />
       <div style={{ position: 'relative', display: 'flex' }}>
-        <button className="tb-menu" onClick={(e) => toggle('view', e)} aria-haspopup="menu" aria-expanded={menu === 'view'}><Icon name="eye" size={13} />View<Icon name="chev" size={11} /></button>
+        <button className="tb-menu" onClick={(e) => toggle('view', e)} aria-haspopup="menu" aria-expanded={menu === 'view'}><Icon name="eye" size={13} /><span className="lbl">View</span><Icon name="chev" size={11} /></button>
         {menu === 'view' && (
           <div className="menu-pop fixed" role="menu" style={at}>
             <button role="menuitem" onClick={() => { set({ view: view === '3d' ? '2d' : '3d' }); close(); }}>{view === '3d' ? 'Top-down 2D map' : 'Oblique 3D view'}<span className="muted">{view === '3d' ? '2' : '3'}</span></button>
@@ -73,21 +76,22 @@ export function TopBar() {
             <button role="menuitemcheckbox" aria-checked={exaggeration !== 1} onClick={() => { set({ exaggeration: exaggeration === 1 ? 1.8 : 1 }); close(); }}>Vertical exaggeration<span className="muted">{exaggeration}×</span></button>
           </div>
         )}
-        <button className="tb-menu" onClick={(e) => toggle('an', e)} aria-haspopup="menu" aria-expanded={menu === 'an'}><Icon name="chart" size={13} />Analysis<Icon name="chev" size={11} /></button>
+        <button className="tb-menu" onClick={(e) => toggle('an', e)} aria-haspopup="menu" aria-expanded={menu === 'an'}><Icon name="chart" size={13} /><span className="lbl">Analysis</span><Icon name="chev" size={11} /></button>
         {menu === 'an' && (
           <div className="menu-pop fixed" role="menu" style={at}>
             <button role="menuitemcheckbox" aria-checked={compare.on} onClick={() => { set({ compare: compare.on ? { on: false, before: null } : { on: true, before: Math.max(t0, useStore.getState().time - 180000) } }); close(); }}>Compare before / current<span className="muted">{compare.on ? 'on' : 'off'}</span></button>
             <button role="menuitemcheckbox" aria-checked={layers.groundTruth} onClick={() => { useStore.getState().setLayer('groundTruth', !layers.groundTruth); close(); }}>Ground-truth masks<span className="muted">{layers.groundTruth ? 'on' : 'off'}</span></button>
             <button role="menuitemcheckbox" aria-checked={layers.projection} onClick={() => { useStore.getState().setLayer('projection', !layers.projection); close(); }}>Large-fire scenario (sim)<span className="muted">{layers.projection ? 'on' : 'off'}</span></button>
-            <button role="menuitem" onClick={() => { set({ panel: 'analysis', mode: 'incident' }); close(); }}>Ask the incident analyst</button>
+            <button role="menuitem" onClick={() => { set({ panel: 'analysis', mode: 'incident', drawer: true }); close(); }}>Ask the incident analyst</button>
           </div>
         )}
-        <button className="tb-menu" onClick={share} title="Copy a link to this exact view"><Icon name="share" size={13} />Share</button>
+        <button className="tb-menu" onClick={share} title="Copy a link to this exact view"><Icon name="share" size={13} /><span className="lbl">Share</span></button>
       </div>
       <div className="tb-right">
         <button className="tb-tour" onClick={() => set({ presenting: true })} title="Guided tour — → / Space next · ← back · Esc exit">Tour</button>
         {!IS_STATIC && <span className="mode-chip live" title={`Backend: ${API_BASE}`}>BACKEND</span>}
-        <button className="tb-menu" onClick={() => set({ panel: 'notes', mode: 'incident' })} title="About this demo" aria-label="About this demo"><Icon name="info" size={15} /></button>
+        <button className="tb-menu" onClick={() => set({ panel: 'notes', mode: 'incident', drawer: true })} title="About this demo" aria-label="About this demo"><Icon name="info" size={15} /></button>
+        {layout === 'tablet' && <button className={'tb-menu tb-drawer' + (drawer ? ' on' : '')} onClick={() => set({ drawer: !drawer })} aria-pressed={drawer} title={drawer ? 'Hide the side panel' : 'Show the side panel'} aria-label="Side panel"><Icon name="sidebar" size={16} /></button>}
       </div>
     </header>
   );

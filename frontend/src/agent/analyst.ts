@@ -259,7 +259,7 @@ const A: Record<Intent, (x: Ctx) => string> = {
   },
   help(x) {
     return t(x.lang,
-      'I answer from the recorded measurements of this incident, in English or Spanish: how the fire changed, where it was, when it grew fastest, flames outside the burned area, smoke, weather, the drone, accuracy, alerts to review and the simulated resources. Every answer cites the clips it used.',
+      'I answer from the recorded measurements of this incident: how the fire changed, where it was, when it grew fastest, flames outside the burned area, smoke, weather, the drone, accuracy, alerts to review and the simulated resources. Every answer cites the clips it used.',
       'Respondo con las mediciones grabadas de este incidente, en español o inglés: cómo cambió el fuego, dónde estaba, cuándo creció más rápido, llamas fuera de la zona quemada, humo, meteorología, el dron, la precisión, las alertas a revisar y los recursos simulados. Cada respuesta cita los clips que ha usado.');
   },
 };

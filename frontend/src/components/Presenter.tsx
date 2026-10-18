@@ -156,14 +156,14 @@ const STEPS: Step[] = [
   },
   {
     id: 'agent', title: 'Ask the incident', dur: 13, spot: '.right', at: 'bl',
-    kicker: 'Incident analyst', head: 'Ask in plain English or Spanish', tags: ['MEASURED'],
+    kicker: 'Incident analyst', head: 'Ask in plain English', tags: ['MEASURED'],
     body: <>Where was it, when did it grow fastest, what was the wind? Answers are computed from the recorded measurements, right in the browser, with nothing invented. Every citation jumps the video and the map.</>,
     enter: async () => { st().set({ mode: 'incident', panel: 'analysis', feedOpen: true }); await click('.suggest button', undefined, 700); await sleep(900); sc().flyFrame(260, 30, 0.55, 2200); },
   },
   {
     id: 'search', title: 'Semantic search', dur: 10, spot: '.right', at: 'bl',
     kicker: 'Search the footage', head: 'Find the moment, not the timestamp', tags: ['MEASURED'],
-    body: <>Type “dense smoke” or “llamas fuera del frente” and get the clips where it was measured, with a thumbnail and a jump to that second.</>,
+    body: <>Type “dense smoke” or “flames ahead of the front” and get the clips where it was measured, with a thumbnail and a jump to that second.</>,
     enter: async () => { st().set({ panel: 'evidence', feedOpen: false }); sc().flyFrame(300, 34, 0.3, 2400); await click('.btn-sm', 'dense smoke', 700); },
   },
   {

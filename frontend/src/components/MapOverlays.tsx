@@ -1,9 +1,11 @@
+import { useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../state/store';
 import { sceneRef } from '../scene/SceneView';
 import { aspectName, formatLat, formatLon } from '../scene/geo';
 import { fmtClock, fmtArea } from '../lib/format';
 import { Icon } from './Icon';
+import { getLayout, useLayout } from '../lib/layout';
 
 function niceScale(mpp: number) {
   const target = mpp * 90;
@@ -14,7 +16,7 @@ function niceScale(mpp: number) {
 const fmtM = (m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`);
 
 /** Full-screen the map pane (its overlays and the drone camera come along); Safari needs the webkit prefix. */
-function toggleFullscreen() {
+export function toggleFullscreen() {
   const d = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void };
   const map = document.querySelector('.map') as (HTMLElement & { webkitRequestFullscreen?: () => void }) | null;
   if (d.fullscreenElement || d.webkitFullscreenElement) { (d.exitFullscreen ?? d.webkitExitFullscreen)?.call(d); return; }
@@ -26,6 +28,26 @@ function toggleFullscreen() {
 
 export function MapOverlays() {
   const { cam, view, set, hover, loadMsg, loadError, loaded, compare, time, features, layers, incident, scenario, feedOpen } = useStore(useShallow((s) => ({ cam: s.cam, view: s.view, set: s.set, hover: s.hover, loadMsg: s.loadMsg, loadError: s.loadError, loaded: s.loaded, compare: s.compare, time: s.compare.on ? s.time : 0, features: s.features, layers: s.layers, incident: s.incident, scenario: s.scenario, feedOpen: s.feedOpen })));
+  const phone = useLayout() === 'phone';
+  const [attrOpen, setAttrOpen] = useState(false);
+  // how much of the map's bottom-right the controls take (they move with the drawer and the phone sheet)
+  const ctl = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ctl.current, map = el?.parentElement;
+    if (!el || !map) return;
+    const upd = () => {
+      const r = el.getBoundingClientRect(), m = map.getBoundingClientRect(), reserve = Math.max(0, Math.round(m.right - r.left));
+      map.style.setProperty('--ctl-reserve', `${reserve}px`);
+      map.style.setProperty('--ctl-right', `${Math.max(0, Math.round(m.right - r.right))}px`);
+      // too narrow beside the controls (tablet with the drawer open): the credits take the row above them instead
+      map.classList.toggle('attr-stack', getLayout() !== 'phone' && m.width - reserve < 260);
+    };
+    upd();
+    const ro = new ResizeObserver(upd); ro.observe(el); ro.observe(map);
+    const mo = new MutationObserver(upd); mo.observe(map, { attributes: true, attributeFilter: ['class'] });
+    el.addEventListener('transitionend', upd); map.addEventListener('transitionend', upd);
+    return () => { ro.disconnect(); mo.disconnect(); el.removeEventListener('transitionend', upd); map.removeEventListener('transitionend', upd); };
+  }, []);
   const sc = niceScale(cam.metersPerPx || 1);
   const burnedAt = (t: number) => {
     let best: number | null = null, bt = -Infinity;
@@ -66,7 +88,7 @@ export function MapOverlays() {
         </div>
       )}
 
-      <div className="mapctl">
+      <div className="mapctl" ref={ctl}>
         <div className="scalebar">
           <div className="nums"><span>0</span><span>{fmtM(sc.m / 2)}</span><span>{fmtM(sc.m)}</span></div>
           <div className="bar" style={{ width: sc.px }} />
@@ -75,16 +97,18 @@ export function MapOverlays() {
           <button className={view === '2d' ? 'on' : ''} onClick={() => set({ view: '2d' })}>2D</button>
           <button className={view === '3d' ? 'on' : ''} onClick={() => set({ view: '3d' })}>3D</button>
         </div>
-        <div className="ctlgrp">
+        <div className="ctlgrp zoom">
           <button onClick={() => sceneRef.current?.zoomBy(1.4)} title="Zoom out" aria-label="Zoom out">−</button>
           <button style={{ minWidth: 44, justifyContent: 'center' }} onClick={() => sceneRef.current?.flyHome()} title="Reset view (H)">{cam.zoom >= 1 ? cam.zoom.toFixed(1) : cam.zoom.toFixed(2)}×</button>
           <button onClick={() => sceneRef.current?.zoomBy(1 / 1.4)} title="Zoom in" aria-label="Zoom in">+</button>
         </div>
-        <div className="ctlgrp">
+        <div className="ctlgrp fs">
           <button onClick={toggleFullscreen} title="Full-screen map (Esc to leave)" aria-label="Full-screen map"><Icon name="full" size={13} /></button>
         </div>
       </div>
-      <div className="attribution">{incident?.attribution.join(' · ')} · DEM ×{useStore.getState().exaggeration} vertical</div>
+      {/* on a phone the credits fit one line; a tap shows them in full */}
+      <div className={'attribution' + (attrOpen ? ' open' : '')} {...(phone ? { role: 'button', tabIndex: 0, 'aria-expanded': attrOpen, title: 'Show all credits', onClick: () => setAttrOpen(!attrOpen), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setAttrOpen(!attrOpen); } } } : {})}>
+        {incident?.attribution.join(' · ')} · DEM ×{useStore.getState().exaggeration} vertical</div>
     </>
   );
 }

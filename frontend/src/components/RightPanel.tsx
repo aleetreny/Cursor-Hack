@@ -69,7 +69,7 @@ function LayersTab() {
   return <div className="scroll fit" ref={col}><LayersSection /><IncidentOverview /><WeatherCard />{free >= 56 && <SpreadWindCard height={free} />}</div>;
 }
 
-function LayersSection() {
+export function LayersSection() {
   const { layers, setLayer, features } = useStore(useShallow((s) => ({ layers: s.layers, setLayer: s.setLayer, features: s.features })));
   const hasGT = features.some((f) => f.properties.classification === 'ground_truth_burned');
   return (
@@ -80,11 +80,11 @@ function LayersSection() {
         const unavailable = l.id === 'groundTruth' && !hasGT;
         return (
           <div key={l.id} className={'layer' + (l.kind === 'toggle' ? ' toggle' : '') + (on && !unavailable ? '' : ' off')} title={unavailable ? 'Not provided by the current data source' : undefined}>
-            <input type="checkbox" className="cb" checked={on} onChange={(e) => setLayer(l.id, (l.kind === 'opacity' ? (e.target.checked ? (l.def ?? 1) : 0) : e.target.checked) as never)} />
+            <input type="checkbox" className="cb" aria-label={`Show ${l.label}`} checked={on} onChange={(e) => setLayer(l.id, (l.kind === 'opacity' ? (e.target.checked ? (l.def ?? 1) : 0) : e.target.checked) as never)} />
             <div className="sw" style={{ background: l.sw }} />
             <span>{l.label}</span>
             {l.kind === 'opacity'
-              ? <input type="range" className="rng" min={0} max={1} step={0.01} value={v as number} onChange={(e) => setLayer(l.id, +e.target.value as never)} />
+              ? <input type="range" className="rng" aria-label={`${l.label} opacity`} aria-valuetext={`${Math.round((v as number) * 100)}%`} min={0} max={1} step={0.01} value={v as number} onChange={(e) => setLayer(l.id, +e.target.value as never)} />
               : null}
             <span className="pct">{l.kind === 'opacity' ? `${Math.round((v as number) * 100)}%` : unavailable ? 'n/a' : ''}</span>
           </div>
@@ -94,7 +94,7 @@ function LayersSection() {
   );
 }
 
-function IncidentOverview() {
+export function IncidentOverview() {
   const { incident, t0, t1, timeline, events } = useStore(useShallow((s) => ({ incident: s.incident, t0: s.t0, t1: s.t1, timeline: s.timeline, events: s.events })));
   const last = timeline?.frames[timeline.frames.length - 1];
   const total = fmtArea(last?.burned_area_m2.value);
@@ -116,7 +116,7 @@ function IncidentOverview() {
 }
 
 const PROV_LABEL: Record<string, string> = { real: 'real', model: 'model', derived: 'derived', external: 'external', simulated: 'sim' };
-function NotesSection() {
+export function NotesSection() {
   const { manifest, incident } = useStore(useShallow((s) => ({ manifest: s.manifest, incident: s.incident })));
   const [note, setNote] = useState(() => { try { return localStorage.getItem('fs-notes') ?? ''; } catch { return ''; } });
   return (
@@ -156,7 +156,7 @@ function NotesSection() {
 }
 
 const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-function WeatherCard() {
+export function WeatherCard() {
   const { weather, time } = useStore(useShallow((s) => ({ weather: s.weather, time: qt(s.time, 10000) })));
   const at = useMemo(() => {
     const h = weather?.hourly ?? [];

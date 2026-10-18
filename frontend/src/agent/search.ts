@@ -7,7 +7,7 @@ import { norm } from './lang';
  * measurement summary of every 12 s clip (burned-area growth, visible flames, hotspots). It searches what was measured,
  * not the pixels — there is no image embedding in this build — and the response says so.
  */
-export const SEARCH_MODEL = 'keyword search over recorded events and per-clip measurements (EN/ES)';
+export const SEARCH_MODEL = 'keyword search over recorded events and per-clip measurements';
 
 // Spanish → English vocabulary, plus English synonyms, both on normalised (accent-free) words
 const ES: Record<string, string> = {

@@ -89,9 +89,9 @@ function SimFeed({ id }: { id: string }) {
         {sensor === 'IR' && <button className="feed-pal" onClick={() => setPalette(palette === 'ironbow' ? 'whitehot' : 'ironbow')}>{palette === 'ironbow' ? 'Ironbow' : 'White-hot'}</button>}
         <span className="sim-tag">SIM</span>
         <span className="sp" />
-        <button onClick={() => setZoom(Math.max(1, +(zoom - 0.5).toFixed(1)))} title="Zoom out" aria-label="Zoom out">−</button>
-        <span style={{ color: '#bbb', minWidth: 30, textAlign: 'center' }}>{zoom.toFixed(1)}×</span>
-        <button onClick={() => setZoom(Math.min(4, +(zoom + 0.5).toFixed(1)))} title="Zoom in" aria-label="Zoom in">+</button>
+        <button className="feed-z" onClick={() => setZoom(Math.max(1, +(zoom - 0.5).toFixed(1)))} title="Zoom out" aria-label="Zoom out">−</button>
+        <span className="feed-z feed-zl">{zoom.toFixed(1)}×</span>
+        <button className="feed-z" onClick={() => setZoom(Math.min(4, +(zoom + 0.5).toFixed(1)))} title="Zoom in" aria-label="Zoom in">+</button>
         <button onClick={() => setFull(!full)} title={full ? 'Exit full view (Esc)' : 'Full camera view'} aria-label="Full camera view"><Icon name="full" size={13} /></button>
         <button onClick={() => set({ feedOpen: false })} title="Close" aria-label="Close camera view"><Icon name="x" size={13} /></button>
       </div>
@@ -125,6 +125,24 @@ function RealFeed() {
     }
   }, [vs, playing, speed, src]);
 
+  // the HUD's top and bottom rows (whatever is shown at this width): detection labels are placed clear of them
+  const vid = useRef<HTMLDivElement>(null);
+  const [bands, setBands] = useState({ H: 270, top: 52, bottom: 48 });
+  useEffect(() => {
+    const el = vid.current;
+    if (!el) return;
+    const upd = () => {
+      const r = el.getBoundingClientRect();
+      if (!r.height) return;
+      const rects = (sel: string) => [...el.querySelectorAll<HTMLElement>(sel)].filter((x) => x.offsetParent).map((x) => x.getBoundingClientRect());
+      const next = { H: r.height, top: Math.max(0, ...rects('.hud > .tl, .hud > .tr').map((b) => b.bottom - r.top)), bottom: Math.max(0, ...rects('.hud > .bl, .hud > .br, .hud > .bc').map((b) => r.bottom - b.top)) };
+      setBands((o) => (Math.abs(o.H - next.H) + Math.abs(o.top - next.top) + Math.abs(o.bottom - next.bottom) > 1 ? next : o));
+    };
+    upd();
+    const ro = new ResizeObserver(upd); ro.observe(el);
+    return () => ro.disconnect();
+  }, [sensor, full, src]);
+
   if (!src) return null;
   const p = src.pose;
   const heading = p?.yaw_deg != null ? ((p.yaw_deg % 360) + 360) % 360 : 0;
@@ -137,7 +155,7 @@ function RealFeed() {
           <feFuncR type="table" tableValues="0.02 0.25 0.62 0.88 0.98 1" /><feFuncG type="table" tableValues="0 0.01 0.06 0.34 0.72 0.98" /><feFuncB type="table" tableValues="0.08 0.42 0.55 0.22 0.08 0.75" /></feComponentTransfer></filter>
         <filter id="lut-whitehot"><feColorMatrix type="saturate" values="0" /><feComponentTransfer><feFuncR type="gamma" exponent="1.3" /><feFuncG type="gamma" exponent="1.3" /><feFuncB type="gamma" exponent="1.3" /></feComponentTransfer></filter>
       </svg>
-      <div className="vid">
+      <div className="vid" ref={vid}>
         <video ref={v} src={mediaUrl(src.media_url)} muted playsInline preload="auto" onError={() => setErr('Video unavailable: ' + src.media_url)}
           style={{ transform: `scale(${zoom})`, filter: sensor === 'IR' ? `url(#lut-${palette})` : undefined }} />
         {err && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#bbb', fontSize: 12 }}>{err}</div>}
@@ -148,9 +166,15 @@ function RealFeed() {
           <div className="cross" />
           {activeEvents.map((e) => {
             const [x0, y0, x1, y1] = e.image_region!;
-            // label below the box, or above / inside it when the box reaches the HUD rows at the bottom
-            const where = y1 < 0.78 ? '' : y0 > 0.18 ? ' above' : ' inside';
-            return <div key={e.event_id} className={'roi ' + (e.severity === 'alert' ? 'alert' : '') + where} style={{ left: `${x0 * 100}%`, top: `${y0 * 100}%`, width: `${(x1 - x0) * 100}%`, height: `${(y1 - y0) * 100}%` }}><span>{e.title}</span></div>;
+            // label below the box, else above it, else inside (bottom, then top) — the first spot clear of the HUD rows
+            const { H, top, bottom } = bands, LH = H < 200 ? 14 : 17, yT = y0 * H, yB = y1 * H;
+            const fits = (y: number) => y >= top + 1 && y + LH <= H - bottom - 1;
+            const ly = [yB + 1, yT - LH - 1, yB - LH - 2, yT + 2].find(fits);
+            return (
+              <div key={e.event_id} className={'roi ' + (e.severity === 'alert' ? 'alert' : '')} style={{ left: `${x0 * 100}%`, top: `${y0 * 100}%`, width: `${(x1 - x0) * 100}%`, height: `${(y1 - y0) * 100}%` }}>
+                {ly != null && <span style={{ top: ly - yT, bottom: 'auto' }}>{e.title}</span>}
+              </div>
+            );
           })}
           <div className="bl"><div>ALT {p?.altitude_agl_m?.toFixed(1) ?? '—'} M AGL</div><div>HDG {heading.toFixed(0).padStart(3, '0')}°</div><div>GMB {p?.pitch_deg?.toFixed(1) ?? '—'}°</div></div>
           <div className="bc">{p ? `${formatLat(p.position[1])}  ${formatLon(p.position[0])}` : ''}<br />{src.georeferencing.method.replace(/_/g, ' ').toUpperCase()} · {src.georeferencing.accuracy.toUpperCase()}</div>
@@ -163,10 +187,10 @@ function RealFeed() {
         {sensor === 'IR' && <button className="feed-pal" onClick={() => setPalette(palette === 'ironbow' ? 'whitehot' : 'ironbow')}>{palette === 'ironbow' ? 'Ironbow' : 'White-hot'}</button>}
         <span className="replay">RECORDED</span>
         <span className="sp" />
-        <span style={{ color: '#999' }}>{fmtVideo(vs)} / {fmtVideo(src.duration_seconds)}</span>
-        <button onClick={() => setZoom(Math.max(1, +(zoom - 0.5).toFixed(1)))} title="Zoom out" aria-label="Zoom out">−</button>
-        <span style={{ color: '#bbb', minWidth: 30, textAlign: 'center' }}>{zoom.toFixed(1)}×</span>
-        <button onClick={() => setZoom(Math.min(4, +(zoom + 0.5).toFixed(1)))} title="Zoom in" aria-label="Zoom in">+</button>
+        <span className="feed-time">{fmtVideo(vs)} / {fmtVideo(src.duration_seconds)}</span>
+        <button className="feed-z" onClick={() => setZoom(Math.max(1, +(zoom - 0.5).toFixed(1)))} title="Zoom out" aria-label="Zoom out">−</button>
+        <span className="feed-z feed-zl">{zoom.toFixed(1)}×</span>
+        <button className="feed-z" onClick={() => setZoom(Math.min(4, +(zoom + 0.5).toFixed(1)))} title="Zoom in" aria-label="Zoom in">+</button>
         <button onClick={() => setFull(!full)} title={full ? 'Exit full view (Esc)' : 'Full camera view'} aria-label="Full camera view"><Icon name="full" size={13} /></button>
         <button onClick={() => set({ feedOpen: false })} title="Close" aria-label="Close camera view"><Icon name="x" size={13} /></button>
       </div>

@@ -36,6 +36,8 @@ interface State {
   hover: HoverInfo | null;
   scenario: { on: boolean; hours: number; ha: number; lapse: number };
   presenting: boolean;
+  /** tablet layout: side panel shown as a drawer over the map */
+  drawer: boolean;
   cam: CameraInfo;
   set: (p: Partial<State>) => void;
   setTime: (t: number) => void;
@@ -56,6 +58,7 @@ export const useStore = create<State>((set, get) => ({
   hover: null,
   scenario: { on: false, hours: 0, ha: 0, lapse: 1 },
   presenting: false,
+  drawer: false,
   cam: { azimuth: 0, zoom: 1, metersPerPx: 1, polar: 50 },
   set: (p) => set(p),
   setTime: (t) => { const { t0, t1 } = get(); set({ time: Math.min(t1, Math.max(t0, t)) }); },

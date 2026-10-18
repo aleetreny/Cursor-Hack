@@ -34,6 +34,26 @@ The interface recreates the "FireTrace" wildfire forensic prototype (Dilum Sanja
 
 Every metric in the UI carries a provenance chip (`model`, `derived`, `ground_truth`, `external`, `sim`), and the **About** tab lists how each part was produced.
 
+## Any device
+
+The interface is in English. The analyst still replies in Spanish when asked in Spanish. The layout adapts to the screen (`frontend/src/lib/layout.ts`):
+
+| Screen | Layout |
+|---|---|
+| Desktop (≥ 1100 px) | Map, right panel and the timeline with charts, side by side |
+| Tablet (700–1100 px) | Same layout. The right panel becomes a drawer over the map, and the top bar shows icons only |
+| Phone, portrait | Full-screen map. A bottom sheet keeps the playback bar always visible. Drag or tap it for Events, Charts, Layers, Ask, Search and About; the tabs change with the mode. The 3D view re-centres above the sheet |
+| Phone, landscape | The open sheet becomes a full-height panel on the left half, leaving the map, the camera and its controls on the right |
+
+On every screen:
+- **Drone camera:** the HUD and its bar drop secondary readouts as the window narrows. Detection labels are placed clear of the HUD rows.
+- **Charts:** time labels thin out when a chart is narrow.
+- **Map credits:** they wrap beside the map controls, which are measured rather than assumed. On a phone they fit one line, and a tap shows them in full.
+- **Touch:** tap the terrain for the same details you get by hovering on a desktop.
+- **Accessibility:** visible keyboard focus, and the timeline is a slider (arrow keys, Shift for 60 s, `[` `]` Home End). Respects `prefers-reduced-motion`, and a text summary of the incident is available to screen readers.
+
+`node frontend/scripts/audit/devices.mjs <url> <out>` checks 8 phones and tablets with touch emulation (16 phone states, 6 tablet states).
+
 ## Evaluation (reproducible)
 
 `python -m firescope.pipeline` → `data/processed/drone_replay_01/eval.json`

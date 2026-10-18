@@ -46,7 +46,21 @@ function useProfile() {
 }
 
 export function Timeline() {
-  const { t0, t1, time, playing, speed, set, setTime, events, timeline, selectedEventId, mode, compare } = useStore(useShallow((s) => ({ t0: s.t0, t1: s.t1, time: s.time, playing: s.playing, speed: s.speed, set: s.set, setTime: s.setTime, events: s.events, timeline: s.timeline, selectedEventId: s.selectedEventId, mode: s.mode, compare: s.compare })));
+  const mode = useStore((s) => s.mode);
+  return (
+    <div className="bottom">
+      <div className="tl">
+        <TimelineBar />
+        <ChartsRow />
+      </div>
+      {mode === 'resources' ? <AirOpsLog /> : <KeyEvents />}
+    </div>
+  );
+}
+
+/** Playback controls + scrub track (the master clock). `compact` drops the header line (phones). */
+export function TimelineBar({ compact = false }: { compact?: boolean }) {
+  const { t0, t1, time, playing, speed, set, setTime, events, selectedEventId, compare } = useStore(useShallow((s) => ({ t0: s.t0, t1: s.t1, time: s.time, playing: s.playing, speed: s.speed, set: s.set, setTime: s.setTime, events: s.events, selectedEventId: s.selectedEventId, compare: s.compare })));
   const track = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<'time' | 'before' | null>(null);
   const [speedOpen, setSpeedOpen] = useState(false);
@@ -96,6 +110,56 @@ export function Timeline() {
   for (let t = Math.ceil(t0 / stepMs) * stepMs; t <= t1; t += stepMs) ticks.push({ t, label: fmtClock(t, false) });
   if (ticks.length) ticks[0].day = fmtDay(t0);
 
+  return (
+        <div className={'tl-top' + (compact ? ' compact' : '')}>
+          {!compact && <div className="tl-head"><span>Timeline <span className="muted" style={{ fontWeight: 400, fontSize: 11.5, marginLeft: 6, transition: 'opacity .25s', opacity: hideSub ? 0 : 1 }}>UTC · drone replay</span></span><span className="range" style={{ transition: 'opacity .25s', opacity: hideRange ? 0 : 1 }}>{t0 ? `${fmtDayClock(t0)} – ${fmtClock(t1)}` : ''}</span></div>}
+          <div className="tl-row">
+            <div className="tl-ctrl">
+              <button onClick={() => { if (time >= t1 - 500) setTime(t0); set({ playing: true }); }} className={playing ? 'on' : ''} title="Play (Space)" aria-label="Play"><Icon name="play" size={12} /></button>
+              <button onClick={() => set({ playing: false })} className={!playing ? 'on' : ''} title="Pause (Space)" aria-label="Pause"><Icon name="pause" size={12} /></button>
+              <button onClick={() => stepEvent(-1)} title="Previous event ([)" aria-label="Previous event" disabled={!events.some((e) => Date.parse(e.timestamp) < time - 1000)}><Icon name="prev" size={12} /></button>
+              <button onClick={() => stepEvent(1)} title="Next event (])" aria-label="Next event" disabled={!events.some((e) => Date.parse(e.timestamp) > time + 1000)}><Icon name="step" size={12} /></button>
+              <div style={{ position: 'relative' }} ref={speedRef}>
+                <button className="speed" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setSpeedAt({ left: r.left, bottom: innerHeight - r.top + 4 }); setSpeedOpen(!speedOpen); }} aria-haspopup="menu" aria-expanded={speedOpen} title="Playback speed">{speed}× <Icon name="chev" size={10} /></button>
+                {speedOpen && <div className="menu-pop fixed" role="menu" style={{ ...speedAt, top: 'auto', minWidth: 70 }}>{SPEEDS.map((s) => <button key={s} role="menuitemradio" aria-checked={s === speed} onClick={() => { set({ speed: s }); setSpeedOpen(false); }}>{s}×</button>)}</div>}
+              </div>
+            </div>
+            <div className="track" ref={track} role="slider" tabIndex={0} aria-label="Timeline position" aria-valuemin={0} aria-valuemax={Math.round(span / 1000)} aria-valuenow={Math.round((time - t0) / 1000)} aria-valuetext={`${fmtDayClock(time)} UTC`}
+              onKeyDown={(e) => { const step = e.shiftKey ? 60000 : 8000; if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); setTime(time + step); } if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); setTime(time - step); } }}
+              onPointerDown={(e) => { const r = track.current!.getBoundingClientRect(); setTime(t0 + ((e.clientX - r.left) / r.width) * span); set({ playing: false }); setDrag('time'); }}>
+              <div className="rail"><div className="fill" style={{ width: `${pct(time)}%` }} /></div>
+              {clusters.map((c) => {
+                const lead = c.items.find((e) => e.event_id === selectedEventId) ?? c.items[0];
+                const sel = c.items.some((e) => e.event_id === selectedEventId);
+                return (
+                  <div key={lead.event_id} className={'mk' + (sel ? ' sel' : '')} style={{ left: c.x }}
+                    title={c.items.map((e) => `${fmtClock(Date.parse(e.timestamp), false)}  ${e.title}`).join('\n')}
+                    onPointerDown={(ev) => { ev.stopPropagation(); selectEvent(lead.event_id); }}>
+                    {eventIcon(lead.event_type, lead.severity, 11)}
+                  </div>
+                );
+              })}
+              {compare.on && compare.before != null && (
+                <>
+                  {!mergeBubbles && <div className="bubble before" style={{ left: bubbleX(compare.before) }}>Before {fmtClock(compare.before)}</div>}
+                  <div className="handle before" style={{ left: `${pct(compare.before)}%` }} onPointerDown={(e) => { e.stopPropagation(); setDrag('before'); }} title="Drag to change the 'before' time" />
+                </>
+              )}
+              <div className={'bubble' + (mergeBubbles ? ' wide' : '')} style={{ left: mergeBubbles ? Math.min(trackW - 95, Math.max(95, (bubbleX(time) + bubbleX(compare.before!)) / 2)) : bubbleX(time) }}>{mergeBubbles ? `${fmtClock(compare.before!)} → ${fmtClock(time)}` : fmtDayClock(time)}</div>
+              <div className="handle" style={{ left: `${pct(time)}%` }} />
+              <div className="ticks">
+                {ticks.map((k) => <div key={k.t} className="tick" style={{ left: `${pct(k.t)}%` }}>{k.label}</div>)}
+              </div>
+            </div>
+          </div>
+        </div>
+  );
+}
+
+/** The linked charts for the current mode (series rebuilt only when the data or the mode change). */
+export function ChartsRow() {
+  const { t0, t1, time, mode, timeline } = useStore(useShallow((s) => ({ t0: s.t0, t1: s.t1, time: s.time, mode: s.mode, timeline: s.timeline })));
+  const span = t1 - t0 || 1;
   const frames = useMemo(() => timeline?.frames ?? [], [timeline]);
   const xLab = (n = 4) => Array.from({ length: n + 1 }, (_, i) => { const t = t0 + (span * i) / n; return { x: t, label: fmtClock(t, false) }; });
   const ser = (fn: (f: (typeof frames)[number]) => number | null | undefined): Pt[] => frames.map((f) => ({ x: Date.parse(f.timestamp), y: fn(f) ?? null }));
@@ -146,48 +210,6 @@ export function Timeline() {
   [mode, frames, opsSeries, droneSeries, selUnit, stepS]);
 
   return (
-    <div className="bottom">
-      <div className="tl">
-        <div className="tl-top">
-          <div className="tl-head"><span>Timeline <span className="muted" style={{ fontWeight: 400, fontSize: 11.5, marginLeft: 6, transition: 'opacity .25s', opacity: hideSub ? 0 : 1 }}>UTC · drone replay</span></span><span className="range" style={{ transition: 'opacity .25s', opacity: hideRange ? 0 : 1 }}>{t0 ? `${fmtDayClock(t0)} – ${fmtClock(t1)}` : ''}</span></div>
-          <div className="tl-row">
-            <div className="tl-ctrl">
-              <button onClick={() => { if (time >= t1 - 500) setTime(t0); set({ playing: true }); }} className={playing ? 'on' : ''} title="Play (Space)" aria-label="Play"><Icon name="play" size={12} /></button>
-              <button onClick={() => set({ playing: false })} className={!playing ? 'on' : ''} title="Pause (Space)" aria-label="Pause"><Icon name="pause" size={12} /></button>
-              <button onClick={() => stepEvent(-1)} title="Previous event ([)" aria-label="Previous event" disabled={!events.some((e) => Date.parse(e.timestamp) < time - 1000)}><Icon name="prev" size={12} /></button>
-              <button onClick={() => stepEvent(1)} title="Next event (])" aria-label="Next event" disabled={!events.some((e) => Date.parse(e.timestamp) > time + 1000)}><Icon name="step" size={12} /></button>
-              <div style={{ position: 'relative' }} ref={speedRef}>
-                <button className="speed" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setSpeedAt({ left: r.left, bottom: innerHeight - r.top + 4 }); setSpeedOpen(!speedOpen); }} aria-haspopup="menu" aria-expanded={speedOpen} title="Playback speed">{speed}× <Icon name="chev" size={10} /></button>
-                {speedOpen && <div className="menu-pop fixed" role="menu" style={{ ...speedAt, top: 'auto', minWidth: 70 }}>{SPEEDS.map((s) => <button key={s} role="menuitemradio" aria-checked={s === speed} onClick={() => { set({ speed: s }); setSpeedOpen(false); }}>{s}×</button>)}</div>}
-              </div>
-            </div>
-            <div className="track" ref={track} onPointerDown={(e) => { const r = track.current!.getBoundingClientRect(); setTime(t0 + ((e.clientX - r.left) / r.width) * span); set({ playing: false }); setDrag('time'); }}>
-              <div className="rail"><div className="fill" style={{ width: `${pct(time)}%` }} /></div>
-              {clusters.map((c) => {
-                const lead = c.items.find((e) => e.event_id === selectedEventId) ?? c.items[0];
-                const sel = c.items.some((e) => e.event_id === selectedEventId);
-                return (
-                  <div key={lead.event_id} className={'mk' + (sel ? ' sel' : '')} style={{ left: c.x }}
-                    title={c.items.map((e) => `${fmtClock(Date.parse(e.timestamp), false)}  ${e.title}`).join('\n')}
-                    onPointerDown={(ev) => { ev.stopPropagation(); selectEvent(lead.event_id); }}>
-                    {eventIcon(lead.event_type, lead.severity, 11)}
-                  </div>
-                );
-              })}
-              {compare.on && compare.before != null && (
-                <>
-                  {!mergeBubbles && <div className="bubble before" style={{ left: bubbleX(compare.before) }}>Before {fmtClock(compare.before)}</div>}
-                  <div className="handle before" style={{ left: `${pct(compare.before)}%` }} onPointerDown={(e) => { e.stopPropagation(); setDrag('before'); }} title="Drag to change the 'before' time" />
-                </>
-              )}
-              <div className={'bubble' + (mergeBubbles ? ' wide' : '')} style={{ left: mergeBubbles ? Math.min(trackW - 95, Math.max(95, (bubbleX(time) + bubbleX(compare.before!)) / 2)) : bubbleX(time) }}>{mergeBubbles ? `${fmtClock(compare.before!)} → ${fmtClock(time)}` : fmtDayClock(time)}</div>
-              <div className="handle" style={{ left: `${pct(time)}%` }} />
-              <div className="ticks">
-                {ticks.map((k) => <div key={k.t} className="tick" style={{ left: `${pct(k.t)}%` }}>{k.label}</div>)}
-              </div>
-            </div>
-          </div>
-        </div>
         <div className="charts">
           {charts.map((c) => (
             <div className="chart" key={c.title}>
@@ -208,13 +230,10 @@ export function Timeline() {
             </div>
           )}
         </div>
-      </div>
-      {mode === 'resources' ? <AirOpsLog /> : <KeyEvents />}
-    </div>
   );
 }
 
-function AirOpsLog() {
+export function AirOpsLog() {
   const { time, set, setTime } = useStore(useShallow((s) => ({ time: qt(s.time, 1000), set: s.set, setTime: s.setTime })));
   const ctx = useSimCtx();
   if (!ctx) return null;
@@ -236,7 +255,7 @@ function AirOpsLog() {
   );
 }
 
-function KeyEvents() {
+export function KeyEvents() {
   const { events, time, selectedEventId, mode, set } = useStore(useShallow((s) => ({ events: s.events, time: qt(s.time, 1000), selectedEventId: s.selectedEventId, mode: s.mode, set: s.set })));
   const list = mode === 'drones' ? events.filter((e) => e.severity !== 'info') : events;
   return (

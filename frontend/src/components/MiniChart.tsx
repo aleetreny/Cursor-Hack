@@ -36,14 +36,16 @@ export function MiniChart({ pts, cursor, color, kind = 'area', xTicks, yTicks, c
     const area = valid.length > 1 ? `${line}L${X(valid[valid.length - 1].x).toFixed(1)},${Y(base).toFixed(1)}L${X(valid[0].x).toFixed(1)},${Y(base).toFixed(1)}Z` : '';
     return { valid, x0, x1, yt, X, Y, line, area };
   }, [pts, w, h, zero, keyY]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const xStep = Math.max(1, Math.ceil((xTicks.length - 1) / Math.max(1, Math.floor(w / 46))));
   const statics = useMemo(() => g && (
     <>
       {g.yt.map((v, i) => <g key={i}><line x1={L} x2={L + w} y1={g.Y(v)} y2={g.Y(v)} stroke="#e2dbd0" strokeWidth={1} /><text x={L - 5} y={g.Y(v) + 3} textAnchor="end">{fmtTick(v)}</text></g>)}
       {bands.map((b, i) => <rect key={'b' + i} x={g.X(Math.max(g.x0, b.x0))} y={T} width={Math.max(0, g.X(Math.min(g.x1, b.x1)) - g.X(Math.max(g.x0, b.x0)))} height={h} fill={b.color} />)}
       {/* first/last tick labels hug the plot edges so they never run into the y-axis labels */}
-      {xTicks.map((t, i) => <text key={i} x={g.X(t.x)} y={T + h + 12} textAnchor={i === 0 && g.X(t.x) - L < 16 ? 'start' : i === xTicks.length - 1 && L + w - g.X(t.x) < 16 ? 'end' : 'middle'}>{t.label}</text>)}
+      {/* a narrow chart keeps every other label (or fewer) so the times never run into each other */}
+      {xTicks.map((t, i) => (i % xStep ? null : <text key={i} x={g.X(t.x)} y={T + h + 12} textAnchor={i === 0 && g.X(t.x) - L < 16 ? 'start' : i === xTicks.length - 1 && L + w - g.X(t.x) < 16 ? 'end' : 'middle'}>{t.label}</text>))}
     </>
-  ), [g, keyB, keyX]);   // eslint-disable-line react-hooks/exhaustive-deps
+  ), [g, keyB, keyX, xStep]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (!g) return <div className="cbody"><svg ref={ref} /></div>;
   const cx = cursor != null ? Math.min(L + w, Math.max(L, g.X(cursor))) : null;
   const cy = cursorY ?? (cursor != null ? interp(g.valid, cursor) : null);

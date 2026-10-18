@@ -12,7 +12,7 @@ const SUGGESTIONS = [
   'How did the fire change during the recording?',
   'When did it grow fastest?',
   'Where did flames appear outside the burned area?',
-  '¿Qué tiempo hacía?',
+  'What was the weather?',
   'How accurate is the burned-area estimate?',
 ];
 
@@ -54,7 +54,7 @@ export function AgentPanel() {
     <div className="chat" style={{ minHeight: 0, flex: 1 }}>
       <div className="chat-log" ref={log}>
         <div className="msg bot">
-          <b>Incident analyst</b>: ask about this incident in English or Spanish. Answers are computed from the recorded measurements and events, with clickable evidence that moves the video and the map to that moment.
+          <b>Incident analyst</b>: ask about this incident in plain English. Answers are computed from the recorded measurements and events, with clickable evidence that moves the video and the map to that moment.
           <div className="meta"><span className="tag">{IS_STATIC ? 'Rule-based · in your browser · no language model' : 'Backend agent'}</span></div>
         </div>
         {!msgs.length && <div className="suggest">{SUGGESTIONS.map((s) => <button key={s} onClick={() => ask(s)}>{s}</button>)}</div>}
@@ -69,7 +69,7 @@ export function AgentPanel() {
         {busy && <div className="msg bot muted">Working it out…</div>}
       </div>
       <form className="chat-in" onSubmit={(e) => { e.preventDefault(); ask(q); }}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask about the incident… / Pregunta…" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask about the incident…" />
         <button type="submit" disabled={busy || !q.trim()} aria-label="Ask" title="Ask"><Icon name="send" size={13} /></button>
       </form>
     </div>
@@ -92,11 +92,11 @@ export function EvidencePanel() {
     <div className="scroll">
       <div className="section">
         <form className="chat-in" style={{ padding: 0, border: 0 }} onSubmit={(e) => { e.preventDefault(); run(q); }}>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder='Search footage, e.g. "flames ahead" or "humo"' />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder='Search footage, e.g. "flames ahead of the front"' />
           <button type="submit" aria-label="Search" title="Search"><Icon name="search" size={13} /></button>
         </form>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
-          {['first appearance of flames', 'fire expanding', 'dense smoke', 'llamas fuera del frente'].map((s) => <button key={s} className="btn-sm" onClick={() => { setQ(s); run(s); }}>{s}</button>)}
+          {['first appearance of flames', 'fire expanding', 'dense smoke', 'flames ahead of the front'].map((s) => <button key={s} className="btn-sm" onClick={() => { setQ(s); run(s); }}>{s}</button>)}
         </div>
         {busy && <div className="muted" style={{ marginTop: 8 }}>Searching…</div>}
         {err && <div className="err">Search failed: {err}</div>}
