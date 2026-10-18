@@ -89,8 +89,11 @@ const A: Record<Intent, (x: Ctx) => string> = {
   },
   thermal(x) {
     const { c, lang } = x, e = byTitle(c, /^Most intense pass/)[0];
-    return t(lang, `Satellites measure fire radiative power (MW), not the temperature of the flames. ${e ? `The most intense pass: ${e.description} ${atEvent(x, e)}` : ''} ${num(x.ev.detections_in_scar, lang)} FIRMS detections fall inside the scar.`,
-      `Los satélites miden potencia radiativa del fuego (MW), no la temperatura de las llamas. ${e ? `La pasada más intensa: ${num(+(e.title.match(/[\d,]+/)?.[0].replace(/,/g, '') ?? 0), lang)} MW ${atEvent(x, e)}.` : ''} ${num(x.ev.detections_in_scar, lang)} detecciones FIRMS caen dentro de la cicatriz.`);
+    const msg = c.frames.filter((f) => f.msg_frp_mw?.value != null);
+    const pk = msg.length ? msg.reduce((a, f) => ((f.msg_frp_mw!.value ?? 0) > (a.msg_frp_mw!.value ?? 0) ? f : a)) : null;
+    const meteo = pk ? t(lang, ` Meteosat, every 15 min, saw its strongest hour on ${when(Date.parse(pk.timestamp), lang)} UTC: ${num(pk.msg_frp_mw!.value, lang)} MW ${atTime(x, Date.parse(pk.timestamp))}.`, ` Meteosat, cada 15 min, vio su hora más intensa el ${when(Date.parse(pk.timestamp), lang)} UTC: ${num(pk.msg_frp_mw!.value, lang)} MW ${atTime(x, Date.parse(pk.timestamp))}.`) : '';
+    return t(lang, `Satellites measure fire radiative power (MW), not the temperature of the flames. ${e ? `The most intense pass: ${e.description} ${atEvent(x, e)}` : ''} ${num(x.ev.detections_in_scar, lang)} FIRMS detections fall inside the scar.${meteo}`,
+      `Los satélites miden potencia radiativa del fuego (MW), no la temperatura de las llamas. ${e ? `La pasada más intensa: ${num(+(e.title.match(/[\d,]+/)?.[0].replace(/,/g, '') ?? 0), lang)} MW ${atEvent(x, e)}.` : ''} ${num(x.ev.detections_in_scar, lang)} detecciones FIRMS caen dentro de la cicatriz.${meteo}`);
   },
   spot(x) {
     return t(x.lang, 'Spot fires cannot be told apart at this resolution: a VIIRS pixel is 375 m and a MODIS pixel 1 km. Detections outside the burned area at a given time are visible in the Satellite Detections layer, for 12 h after each pass.',

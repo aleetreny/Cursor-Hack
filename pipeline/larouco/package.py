@@ -319,6 +319,7 @@ def main():
             "NASA FIRMS (VIIRS S-NPP 375 m, MODIS) — LANCE/FIRMS",
             "Contains modified Copernicus Sentinel data (2025)",
             "ERA5 (Copernicus Climate Change Service) via Open-Meteo",
+            *(["EUMETSAT LSA SAF [FRP-PIXEL, LSA-502] (CC BY 4.0)"] if msg_slot is not None else []),
             "Elevation: AWS Terrain Tiles (Terrarium)", "Imagery: Esri World Imagery",
         ],
     }
@@ -329,6 +330,8 @@ def main():
         "mean": {"iou": round(float(np.mean([r["iou_leave_one_out"] for r in rows])), 4), "iou_firms_only": round(float(np.mean([r["iou_firms_only"] for r in rows])), 4)},
         "perimeters": rows, "detections_in_scar": ev_prog["detections_in_scar"], "satellite_passes": len(ev_prog["passes"]),
         "severity": sev_stats,
+        "meteosat": None if msg_slot is None else {"pixels_near_scar": int(sum(1 for v in msg_slot.values() if v > 0)), "mean_iou_without": round(float(np.mean([r.get("iou_leave_one_out_polar_only", r["iou_leave_one_out"]) for r in rows])), 4),
+                                                    "note": "Meteosat retimes cells inside the gaps between polar passes; the daily perimeters (about 11:00 UTC) cannot score the hour, so the IoU barely changes"},
         "notes": ["Each intermediate EMS perimeter is held out in turn and compared with the reconstruction built from the others (IoU inside that image's footprint).",
                   "Method parameters were chosen among 18 combinations on these same scores: they are slightly optimistic.",
                   "Timing between satellite passes (about six a day: VIIRS S-NPP, Terra and Aqua MODIS) is interpolated."],

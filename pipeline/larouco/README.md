@@ -120,6 +120,12 @@ EUMETSAT LSA SAF FRP-PIXEL (LSA-502, CC BY 4.0) detects fire every 15 min with ~
 - **Timing.** With the files present, `progression.py` moves a cell first seen by a polar pass to Meteosat's first detection over it since the previous pass, and reports the hold-out IoU with and without it.
 - **Fire power.** `package.py` adds a 15-min fire-power series.
 
+Results for Larouco:
+- **Detections.** 1,536 files (every 15 min, 12–27 Aug), with 5,459 fire pixels in the box. Meteosat saw 92 % of the scar.
+- **Timing.** 9,572 cells were retimed inside gaps between polar passes.
+- **Hold-out IoU.** 0.78 / 0.85 / 0.94 with Meteosat, against 0.78 / 0.85 / 0.94 without. The perimeters are daily images taken around 11:00 UTC, so they cannot score the hour, which is what Meteosat refines.
+- **Fire power.** It peaked at 14 GW on 16 Aug at 19:00 UTC, the evening before the fastest night-time run.
+
 ## Limits
 
 - **Timing.** Timing between satellite passes is interpolated. There are about six passes a day: VIIRS S-NPP, Terra and Aqua MODIS. NOAA-20/21 VIIRS are not in the open country files.

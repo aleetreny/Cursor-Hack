@@ -50,7 +50,7 @@ The pipeline (`pipeline/larouco/`, see its [README](pipeline/larouco/README.md))
 | Burnt area | Copernicus EMS EMSR837: 12 dated delineations, 13–30 Aug 2025 (Sentinel-2, SPOT 6/7, WorldView-2, Legion) | External: **33,132 ha** |
 | When each place burned | First NASA FIRMS detection of each 30 m cell (VIIRS 375 m, MODIS 1 km); gaps interpolated; bounded by every dated EMS perimeter | Derived. Each perimeter held out in turn: **IoU 0.78 / 0.85 / 0.94** on 16 / 20 / 21 Aug |
 | Expansion rate | Growth of the equivalent radius √(area/π) over 6 h, peaking at 4 m/min | Derived: the speed of the scar as a whole, lower than the head-fire speed. No front line is drawn, because passes are hours apart |
-| Fire power | FIRMS fire radiative power per pass, up to 33 GW on 17 Aug | External |
+| Fire power | EUMETSAT LSA SAF FRP-PIXEL from Meteosat every 15 min (peak 14 GW on 16 Aug, 19:00 UTC), and FIRMS per pass (up to 33 GW on 17 Aug) | External. Meteosat also retimes each cell between polar passes |
 | Burn severity | Sentinel-2 dNBR, 1 Aug vs 5 Sep 2025 | Derived: 70 % high severity |
 | Events | 19 computed events: first detection, area milestones, the fastest 6 h runs, the most intense pass, perimeters, weather extremes | Derived, all need review |
 | Weather | ERA5 hourly via Open-Meteo | External (reanalysis) |
@@ -183,4 +183,4 @@ FireScope 3D was built in a day at the **VAST Builders Challenge (17 Oct 2026)**
 
 ## Credits
 
-BurnedAreaUAV, Ribeiro et al. 2023 (CC-BY-4.0) · Copernicus Emergency Management Service (© 2025 European Union), EMSR837 · NASA FIRMS (LANCE) · contains modified Copernicus Sentinel data (2025) · ERA5 (Copernicus C3S) via Open-Meteo · AWS Terrain Tiles · Esri World Imagery · UI inspired by FireTrace (Dilum Sanjaya). The FireScope implementation is independent.
+BurnedAreaUAV, Ribeiro et al. 2023 (CC-BY-4.0) · Copernicus Emergency Management Service (© 2025 European Union), EMSR837 · NASA FIRMS (LANCE) · contains modified Copernicus Sentinel data (2025) · ERA5 (Copernicus C3S) via Open-Meteo · EUMETSAT LSA SAF [FRP-PIXEL, LSA-502] · IGN/CNIG MDT25 and PNOA (CC BY 4.0) · Sentinel-2 cloudless 2016 by EOX · ESA WorldCover · AWS Terrain Tiles · Esri World Imagery · UI inspired by FireTrace (Dilum Sanjaya). The FireScope implementation is independent.

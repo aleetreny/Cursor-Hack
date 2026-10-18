@@ -2,8 +2,8 @@
  "model": "firescope-progression v1 (FIRMS VIIRS/MODIS first detection + Copernicus EMS perimeters, IDW, σ 150 m)",
  "kind": "progression",
  "mean": {
-  "iou": 0.8567,
-  "iou_firms_only": 0.8477
+  "iou": 0.8557,
+  "iou_firms_only": 0.8453
  },
  "perimeters": [
   {
@@ -14,8 +14,9 @@
    ],
    "burned_share_of_final": 0.158,
    "image_covers_share_of_scar": 0.888,
-   "iou_leave_one_out": 0.781,
-   "iou_firms_only": 0.761
+   "iou_leave_one_out": 0.778,
+   "iou_firms_only": 0.754,
+   "iou_leave_one_out_polar_only": 0.781
   },
   {
    "perimeter": "DEL_MONIT01",
@@ -26,7 +27,8 @@
    "burned_share_of_final": 0.443,
    "image_covers_share_of_scar": 0.529,
    "iou_leave_one_out": 0.847,
-   "iou_firms_only": 0.838
+   "iou_firms_only": 0.838,
+   "iou_leave_one_out_polar_only": 0.847
   },
   {
    "perimeter": "DEL_MONIT02",
@@ -37,7 +39,8 @@
    "burned_share_of_final": 0.924,
    "image_covers_share_of_scar": 0.979,
    "iou_leave_one_out": 0.942,
-   "iou_firms_only": 0.944
+   "iou_firms_only": 0.944,
+   "iou_leave_one_out_polar_only": 0.942
   }
  ],
  "detections_in_scar": 1914,
@@ -85,6 +88,11 @@
     "share": 0.696
    }
   ]
+ },
+ "meteosat": {
+  "pixels_near_scar": 475,
+  "mean_iou_without": 0.8567,
+  "note": "Meteosat retimes cells inside the gaps between polar passes; the daily perimeters (about 11:00 UTC) cannot score the hour, so the IoU barely changes"
  },
  "notes": [
   "Each intermediate EMS perimeter is held out in turn and compared with the reconstruction built from the others (IoU inside that image's footprint).",
