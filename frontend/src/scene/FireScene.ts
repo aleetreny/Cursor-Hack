@@ -28,6 +28,8 @@ export interface SceneLayers {
   severity: number; isochrones: boolean; ems: boolean;
   /** light from the real sun at the timeline time (night included); off = the fixed afternoon sun */
   realSun: boolean;
+  /** regional incidents: the latest Sentinel-2 pass at the timeline time, draped instead of the basemap imagery */
+  satellite: boolean;
 }
 export interface SceneCallbacks {
   onHover?: (h: HoverInfo | null) => void;
@@ -39,9 +41,11 @@ export interface SceneCallbacks {
   onScenario?: (s: { on: boolean; hours: number; ha: number; lapse: number }) => void;
   onReady?: () => void;
   onProgress?: (msg: string) => void;
+  /** regional: the Sentinel-2 pass now draped (index into incident.satellite.passes) */
+  onSatellite?: (k: number) => void;
 }
 
-const DEFAULT_LAYERS: SceneLayers = { terrain: true, imagery: 0.18, burned: 0.95, active: 1, change: 0.6, hotspots: true, groundTruth: false, perimeter: true, footprint: true, path: true, projection: false, trees: true, smoke: true, severity: 0, isochrones: false, ems: true, realSun: true };
+const DEFAULT_LAYERS: SceneLayers = { terrain: true, imagery: 0.18, burned: 0.95, active: 1, change: 0.6, hotspots: true, groundTruth: false, perimeter: true, footprint: true, path: true, projection: false, trees: true, smoke: true, severity: 0, isochrones: false, ems: true, realSun: true, satellite: false };
 
 const NOISE_GLSL = /* glsl */ `
 float fsHash(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p+45.32); return fract(p.x*p.y); }
@@ -94,7 +98,9 @@ export class FireScene {
     uArr: { value: null as THREE.Texture | null }, uSev: { value: null as THREE.Texture | null }, uArrBounds: { value: new THREE.Vector4() },
     uArrT: { value: -1 }, uArrOn: { value: 0 }, uArrBefore: { value: -1 }, uSevOp: { value: 0 }, uIsoOp: { value: 0 }, uFrontH: { value: 3 },
     uSim: { value: null as THREE.Texture | null }, uSimOn: { value: 0 },
-    uNight: { value: 0 },   // 0 day … 1 night (fire reads stronger in the dark)   // retrospective scenario (same grid as uArr)
+    uNight: { value: 0 },
+    // regional: a Sentinel-2 pass over the inner terrain, and a highlighted box (visual search result), both in map uv
+    uSat: { value: null as THREE.Texture | null }, uSatOn: { value: 0 }, uHi: { value: new THREE.Vector4() }, uHiOn: { value: 0 },   // 0 day … 1 night (fire reads stronger in the dark)   // retrospective scenario (same grid as uArr)
   };
 
   // dynamic content
@@ -511,6 +517,7 @@ uniform float uTime, uBurnOp, uFireOp, uChangeOp, uImageryMix, uMapStyle, uStyle
 uniform sampler2D uScen; uniform vec4 uScenBounds; uniform float uScenT, uScenOn;
 uniform sampler2D uArr; uniform sampler2D uSev; uniform vec4 uArrBounds; uniform float uArrT, uArrOn, uArrBefore, uSevOp, uIsoOp, uFrontH;
 uniform sampler2D uSim; uniform float uSimOn; uniform float uNight;
+uniform sampler2D uSat; uniform float uSatOn; uniform vec4 uHi; uniform float uHiOn;
 ${NOISE_GLSL}
 void main() {`)
         .replace('#include <map_fragment>', /* glsl */ `
@@ -530,7 +537,16 @@ void main() {`)
   alb = mix(img, alb, uStyleOn);
   vec3 mapC = mix(vec3(0.86,0.83,0.75), vec3(0.55,0.70,0.45), vm*0.85);
   alb = mix(alb, mapC, uMapStyle);
+  if (uInner > 0.5 && uSatOn > 0.0) alb = mix(alb, texture2D(uSat, vMapUv).rgb * 1.06, uSatOn);
   vec3 fireEm = vec3(0.);
+  if (uInner > 0.5 && uHiOn > 0.0) {   // visual-search result: a pulsing yellow frame (EMS perimeters are cyan)
+    vec2 q = vMapUv; vec2 w = fwidth(q) * 2.5;
+    float o = step(uHi.x - w.x, q.x) * step(q.x, uHi.z + w.x) * step(uHi.y - w.y, q.y) * step(q.y, uHi.w + w.y);
+    float i = step(uHi.x + w.x, q.x) * step(q.x, uHi.z - w.x) * step(uHi.y + w.y, q.y) * step(q.y, uHi.w - w.y);
+    float edge = o * (1.0 - i) * uHiOn;
+    alb = mix(alb, vec3(1.0, 0.86, 0.2), edge);
+    fireEm += vec3(1.0, 0.82, 0.15) * edge * (0.9 + 0.5 * sin(uTime * 3.0));
+  }
   vec2 muv = fsBoundsUv(vWorld.xz, uMaskBounds);
   float mi = fsInside(muv);
   if (mi > 0.) {
@@ -708,8 +724,56 @@ void main() {`)
     if (ms !== this.time) { this.markActive(); this.shadowDirty = 2; }
     this.time = ms;
     if (this.progT0) this.uniforms.uArrT.value = (ms - this.progT0) / 3.6e6;
-    this.redrawOverlays(); this.updateScenario(); this.updateRegionalFire(); this.updateSun();
+    this.redrawOverlays(); this.updateScenario(); this.updateRegionalFire(); this.updateSun(); this.updateSatellite();
   }
+  /** Regional: the Sentinel-2 pass shown at the current time (the latest one taken before it), loaded on demand. */
+  private satTex = new Map<number, THREE.Texture>();
+  private satLoading = new Set<number>();
+  satIndex = -1;
+  private satPassAt(t: number) {
+    const ps = this.incident?.satellite?.passes;
+    if (!ps?.length) return -1;
+    let k = 0;
+    for (let i = 0; i < ps.length; i++) if (Date.parse(ps[i].time) <= t) k = i;
+    return k;
+  }
+  private updateSatellite() {
+    const ps = this.incident?.satellite?.passes;
+    if (!this.regional || !ps?.length || !this.layers.satellite) { if (this.uniforms.uSatOn.value) { this.uniforms.uSatOn.value = 0; this.markActive(); } return; }
+    const k = this.satPassAt(this.time);
+    const tex = this.satTex.get(k);
+    if (tex) {
+      if (this.satIndex !== k || !this.uniforms.uSatOn.value) { this.uniforms.uSat.value = tex; this.satIndex = k; this.uniforms.uSatOn.value = 1; this.markActive(); this.cb.onSatellite?.(k); }
+      return;
+    }
+    if (this.satLoading.has(k)) return;
+    this.satLoading.add(k);
+    new THREE.TextureLoader().loadAsync(this.assetBase + ps[k].image).then((t) => {
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+      this.satTex.set(k, t);
+      // keep at most three passes on the GPU (2048² each)
+      for (const [j, old] of this.satTex) if (this.satTex.size > 3 && j !== k && j !== this.satIndex) { old.dispose(); this.satTex.delete(j); }
+    }).catch(() => { /* missing image: keep the basemap */ }).finally(() => { this.satLoading.delete(k); if (this.frame) this.updateSatellite(); });
+  }
+  private hiTimer = 0;
+  /** Outline a box of the inner map (fractions of the satellite image, y down), e.g. a visual-search result. */
+  highlightBox(box: [number, number, number, number] | null, ms = 14000) {
+    clearTimeout(this.hiTimer);
+    if (!box) { this.uniforms.uHiOn.value = 0; this.markActive(); return; }
+    const [x0, y0, x1, y1] = box;
+    this.uniforms.uHi.value.set(x0, 1 - y1, x1, 1 - y0);
+    this.uniforms.uHiOn.value = 1; this.markActive();
+    this.hiTimer = window.setTimeout(() => { this.uniforms.uHiOn.value = 0; this.markActive(); }, ms);
+  }
+  /** Fly to a box of the inner map (same fractions), framed with some margin. */
+  flyToBox(box: [number, number, number, number]) {
+    const [w, s, e, n] = this.innerBBox, [x0, y0, x1, y1] = box;
+    const lon = w + ((x0 + x1) / 2) * (e - w), lat = n - ((y0 + y1) / 2) * (n - s);
+    const km = (x1 - x0) * (e - w) * 111.32 * Math.cos((lat * Math.PI) / 180);
+    this.flyToLonLat(lon, lat, km * 40);
+  }
+
   setSelectedEvent(id: string | null) { this.selectedEvent = id; this.drawnKey = ''; this.redrawOverlays(); }
   setCompare(ms: number | null) { this.compareTime = ms; this.uniforms.uArrBefore.value = ms != null && this.progT0 ? (ms - this.progT0) / 3.6e6 : -1; this.drawnKey = ''; this.redrawOverlays(); }
 
@@ -725,6 +789,7 @@ void main() {`)
     u.uStyleOn.value = this.layers.terrain ? 1 : 0;
     u.uSevOp.value = this.layers.severity;
     if (prev.realSun !== this.layers.realSun) this.updateSun(true);
+    if (prev.satellite !== this.layers.satellite) this.updateSatellite();
     u.uSimOn.value = this.regional && this.layers.projection && u.uSim.value ? 1 : 0;
     u.uIsoOp.value = this.layers.isochrones ? 1 : 0;
     if (this.rFlames) this.rFlames.visible = this.layers.active > 0.01 && !this.mode2D;

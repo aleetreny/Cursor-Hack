@@ -18,13 +18,14 @@
 | 5 · El incendio grande (Larouco) | ✅ 18 oct 2026, con lo que queda en la lista de abajo. **Larouco (Ourense, 13–27 ago 2025): 33.132 ha.** Pipeline abierto y reproducible en `pipeline/larouco/`, sin cuentas ni claves: NASA FIRMS VIIRS/MODIS, Copernicus EMS EMSR837 (12 delineaciones fechadas), Sentinel-2 y ERA5. Hora de llegada de cada celda de 30 m, validada apartando cada perímetro EMS (IoU 0,78 / 0,85 / 0,94). Severidad dNBR (70 % alta). Velocidad de expansión, potencia radiativa y 19 eventos calculados. La app es multi-incidente: escala regional en el motor 3D (frente, brasas, humo con viento ERA5, detecciones FIRMS, perímetros fechados, isocronas, severidad), timeline de 14 días, analista y búsqueda propios, y ejercicio SIM que sigue el frente (aviones solo de día). 0 solapes en 8 móviles y tablets y en escritorio |
 | 5 · cierre | ✅ 18 oct 2026. **Terreno e imagen empaquetados** (MDT25 y PNOA del IGN/CNIG, horizonte con AWS Terrarium y Sentinel-2 cloudless): Larouco ya no pide nada a servidores de teselas. **Escenario retrospectivo** con combustibles (ESA WorldCover), pendiente (MDT25) y viento y sequedad horarios (ERA5), calibrado solo con el perímetro del 16 ago: IoU 0,25 / 0,24 / 0,24 frente a los perímetros posteriores. Se extiende casi igual en todas direcciones y no reproduce la carrera al norte, y se muestra como tal. **Larouco es el incidente por defecto.** **Meteosat (LSA SAF FRP-PIXEL)** integrado: 1.536 ficheros cada 15 min, potencia del fuego cada 15 min (pico de 14 GW el 16 ago a las 19:00 UTC) y horas de llegada reajustadas entre pasadas polares. El IoU no cambia, porque los perímetros diarios no miden la hora. GOFER se sustituyó por la validación con los perímetros EMS. Zoom temporal y día/noche pasan a la fase 6 |
 | 6 · Motor 3D | ✅ 18 oct 2026, con lo hecho y con una decisión. **Hecho:**<br>· **Luz:** sol real por lugar y hora (y por tanto noche, crepúsculo y luna). De noche el borde del fuego brilla y el humo se ilumina desde abajo.<br>· **Tiempo:** zoom temporal en timeline y gráficas, con las noches sombreadas.<br>· **Terreno:** el horizonte se iguala en color con el PNOA y no se ven costuras; la niebla se aclara con la altura.<br>· **Vegetación:** WorldCover instanciada; se carboniza cuando llega el fuego.<br>· **Frente:** bordes orgánicos en lugar de celdas; las brasas son ahora sutiles.<br>· **Aeronaves:** modelos low-poly decentes.<br>· **Calidad:** adaptativa hasta 0,6× de resolución y sin bloom.<br>· **Rendimiento:** de 230 a 496 fps sin límite a 1080p en un M-series. Una integrada típica, 6–8× más lenta, quedaría en unos 30 fps, con la calidad adaptativa como red.<br>**Decisión:** no migramos a WebGPURenderer/TSL. Todo el motor son shaders GLSL inyectados (`onBeforeCompile`); reescribirlo sería mucho riesgo sin ganancia visible, porque ya va a 60 fps con margen. Queda como opción cuando WebGPU sea universal. Tampoco usamos glTF: no hay modelos con licencia, así que las aeronaves son procedurales |
-| 7 – 8 | Pendientes |
+| 7 · IA en el navegador | ✅ 18 oct 2026. Todo opcional y en el dispositivo; nada se sube.<br>· **Segmentación de Pinhão:** red LR-ASPP MobileNetV3 afinada con las máscaras del dataset (en vez de SegFormer o SAM 2.1, por ser 3,2 M parámetros y correr en tiempo real en el navegador). **IoU 0,94** en el *test split* que nunca vio; el pipeline grabado da **0,92 en imagen y 0,90 sobre el terreno** en fotogramas apartados (antes 0,68 / 0,71).<br>· **Búsqueda visual** con MobileCLIP-S0 (transformers.js), ES/EN: fotogramas del dron cada 2 s y, en Larouco, **las 6 pasadas de Sentinel-2 durante el incendio**, que además son una capa nueva del mapa («Sentinel-2 on the Day»). 52 MB servidos desde la propia web. «humo denso» → coincidencia clara; «helicóptero» → **«no clear match»**, porque no hay ninguno en el vídeo (el criterio original pedía clips para «helicóptero»: no se fuerza).<br>· **Análisis en directo** sobre el vídeo y sobre un vídeo local: 44 fps con WebGPU; **IoU 0,98 frente al pipeline grabado** (criterio ≥ 0,9).<br>· **LLM local: descartado** a petición tuya. El analista sigue siendo por reglas, sin modelo de lenguaje.<br>· **Georreferenciación:** el RMSE **no se pudo medir** (sin puntos de control; la ortofoto DGT 2018 no casa con la vista oblicua y con humo). Se documenta en lugar de inventar una cifra |
+| 8 | Pendiente |
 
 ## 0. Resumen ejecutivo
 
 **Lo que ya funciona bien (hay que conservarlo):**
 - El timeline es el único reloj. Mapa, vídeo, gráficas y paneles se mueven juntos y la sincronización del vídeo es exacta.
-- Cada dato lleva su chip de procedencia. La segmentación está evaluada contra máscaras manuales (IoU 0,68 en imagen y 0,71 sobre el terreno).
+- Cada dato lleva su chip de procedencia. La segmentación está evaluada contra máscaras manuales (IoU 0,68 en imagen y 0,71 sobre el terreno en la auditoría; 0,92 y 0,90 tras la fase 7).
 - El motor 3D propio: terreno por anillos de detalle, sombreador de máscaras, llamas con bloom, gestión de colisiones de etiquetas y cámaras simuladas de dron que renderizan el gemelo 3D.
 - El modo presentación, con 18 capítulos que solo avanzan a mano.
 - 0 excepciones de JavaScript en 362 clics y 25 estados distintos, y 60 fps en un M5 Pro incluso con un lienzo de 4384×2256.
@@ -384,7 +385,7 @@ Tamaños: S (≤ 1 día), M (2–4 días), L (1–2 semanas).
 ### Fase 7 · IA en el navegador — M
 - Búsqueda semántica con SigLIP 2 o MobileCLIP (transformers.js) en español e inglés.
 - Análisis en directo del vídeo con sombreador. «Abrir un vídeo local» y analizarlo (sin subirlo).
-- WebLLM opcional.
+- ~~WebLLM opcional~~ (descartado).
 - Pinhão: re-segmentación con SAM 2.1 o SegFormer (IoU > 0,80) y georreferenciación con RMSE medido.
 - **Criterio de aceptación:** «humo denso» y «helicóptero» devuelven clips relevantes. El análisis en directo coincide con el grabado (IoU ≥ 0,9 entre ambos).
 
@@ -399,9 +400,9 @@ Tamaños: S (≤ 1 día), M (2–4 días), L (1–2 semanas).
 ## 8. Decisiones que necesito de ti
 
 1. ~~**Nombre del repo / URL**~~ — resuelto: el repo es `FireScope-3D` → https://aleetreny.github.io/FireScope-3D/ (la web usa rutas relativas, así que un cambio de nombre ya no la rompe).
-2. **Incendio grande:** ¿Larouco (recomendado), Tres Cantos (Madrid), Jarilla, un incendio de GOFER en California, o Larouco más uno de GOFER como validación?
-3. **IA en el navegador:** ¿aceptamos una descarga opcional de unos 50–100 MB para la búsqueda semántica? ¿Y un LLM local opcional de 1–2 GB?
-4. **Idioma por defecto:** ¿español con selector a inglés?
+2. ~~**Incendio grande**~~ — resuelto: Larouco (fase 5).
+3. ~~**IA en el navegador**~~ — resuelto (fase 7, decidido por mí a petición tuya): búsqueda visual de 52 MB opcional, que se activa a mano y se recuerda en el dispositivo. Sin LLM local (descartado).
+4. ~~**Idioma por defecto**~~ — resuelto: interfaz solo en inglés; el analista entiende y responde en español (fase 3).
 5. **Backend FastAPI:** ¿lo mantenemos como herramienta local o lo eliminamos y dejamos solo `pipeline/`?
 6. **Recursos simulados en Pinhão:** ¿los quitamos de ese caso y los dejamos solo en el incendio grande?
 7. **Ramas:** tras pasar a `main`, ¿borramos `firescope-claude` y `frontend`? (`shift-file` es de otro proyecto: no la toco.)

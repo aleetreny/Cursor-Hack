@@ -17,6 +17,8 @@ const OUT = join(PUBLIC, 'incidents');
  *  · regional: data/processed/<source>/, already in package form (pipeline/larouco/package.py) */
 const INCIDENTS = [{ source: 'larouco', regional: true, default: true }, { source: 'drone_replay_01' }];
 const REGIONAL_FILES = ['incident.json', 'sources.json', 'timeline.json', 'events.json', 'observations.json', 'weather.json', 'clips.json', 'eval.json', 'arrival.png', 'scenario.png', 'landcover.png'];
+// visual search index (scripts/ai/embed.mjs) and, for drone footage, its thumbnail sprite
+const VISUAL_FILES = ['visual_index.json', 'visual_index.bin', 'visual_sprite.jpg'];
 
 // Update files in place instead of wiping the folder: the repo may live in an iCloud-synced folder, where deleting and
 // recreating a directory makes iCloud keep "name 2" conflict copies.
@@ -33,11 +35,12 @@ function exportRegional(source, isDefault) {
   const incident = read('incident.json');
   const dir = join(OUT, incident.id), rel = `incidents/${incident.id}/`;
   mkdirSync(dir, { recursive: true });
-  for (const f of REGIONAL_FILES) if (existsSync(join(SRC, f))) copyIfChanged(join(SRC, f), join(dir, f));
-  // packaged terrain + imagery (pipeline/larouco/basemap.py)
-  if (existsSync(join(SRC, 'basemap'))) {
-    mkdirSync(join(dir, 'basemap'), { recursive: true });
-    for (const f of readdirSync(join(SRC, 'basemap'))) copyIfChanged(join(SRC, 'basemap', f), join(dir, 'basemap', f));
+  for (const f of [...REGIONAL_FILES, ...VISUAL_FILES]) if (existsSync(join(SRC, f))) copyIfChanged(join(SRC, f), join(dir, f));
+  // packaged terrain + imagery (pipeline/larouco/basemap.py) and the dated Sentinel-2 passes (s2series.py)
+  for (const sub of ['basemap', 's2']) {
+    if (!existsSync(join(SRC, sub))) continue;
+    mkdirSync(join(dir, sub), { recursive: true });
+    for (const f of readdirSync(join(SRC, sub))) copyIfChanged(join(SRC, sub, f), join(dir, sub, f));
   }
   const tl = read('timeline.json'), ev = read('eval.json'), obs = read('observations.json'), w = read('weather.json'), p = incident.progression;
   const iou = ev.perimeters.map((r) => `${r.image_time.slice(5, 10)} ${r.iou_leave_one_out.toFixed(2)}`).join(', ');
@@ -58,8 +61,9 @@ function exportRegional(source, isDefault) {
       { id: 'weather', name: 'Weather', provenance: 'external', detail: `${w.source} (${w.grid}); reanalysis, not an on-site sensor` },
       ...(incident.scenario ? [{ id: 'scenario', name: 'Spread scenario (hindcast)', provenance: 'model', detail: `Fuels (ESA WorldCover), terrain (MDT25) and the hourly ERA5 weather alone, calibrated only on the 16 Aug perimeter, then run freely: IoU ${incident.scenario.perimeters.map((r) => r.iou.toFixed(2)).join(' / ')} against the later perimeters. No suppression or spotting: it spreads too evenly and misses the run north` }] : []),
       ...(incident.basemap ? [{ id: 'basemap', name: 'Terrain and imagery', provenance: 'external', detail: 'Packaged with the incident (no tile server): IGN/CNIG MDT25 and PNOA orthophoto (CC BY 4.0), AWS Terrain Tiles and Sentinel-2 cloudless 2016 by EOX for the horizon' }] : []),
-      { id: 'video', name: 'Video', provenance: 'real', detail: 'No footage of this fire is published here: real drone or aircraft video needs the owners\' permission.' },
-      { id: 'analyst', name: 'Questions & search', provenance: 'derived', detail: 'Computed in the browser from the reconstruction and the events. No language model, nothing generated.' },
+      ...(incident.satellite ? [{ id: 'satellite', name: 'Sentinel-2 on the day', provenance: 'real', detail: `What the satellite saw on ${incident.satellite.passes.length} passes (${incident.satellite.passes.map((p) => p.date.slice(6) + '/' + p.date.slice(4, 6)).join(', ')}): Copernicus Sentinel-2 L2A true colour, 20 m, draped by date` }] : []),
+      { id: 'video', name: 'Video', provenance: 'real', detail: 'No footage of this fire is published here: real drone or aircraft video needs the owners\' permission. You can analyse a video file of your own in the camera window (it is not uploaded).' },
+      { id: 'analyst', name: 'Questions & search', provenance: 'derived', detail: 'Rule-based in the browser, from the reconstruction and the events. Optional, on this device: visual search over the Sentinel-2 passes (MobileCLIP-S0). No language model, nothing generated.' },
     ],
     attribution: incident.attribution,
     progression: { image: p.image, width: p.width, height: p.height },
@@ -99,8 +103,9 @@ for (const { source, default: isDefault, regional } of INCIDENTS) {
   write('observations.json', JSON.parse(JSON.stringify(observations, (k, v) => (typeof v === 'number' && !Number.isInteger(v) && (k === '' || /^\d+$/.test(k)) ? Math.round(v * 1e6) / 1e6 : v))));
   write('weather.json', read('weather.json'));
   write('clips.json', read('clips.json').map((c) => ({ ...c, thumbnail_url: media(c.thumbnail_url) })));
-  write('eval.json', { model: ev.model, frames_evaluated: ev.frames_evaluated, mean: ev.mean, notes: ev.notes });
+  write('eval.json', { model: ev.model, frames_evaluated: ev.frames_evaluated, mean: ev.mean, by_split: ev.by_split, baseline_hsv: ev.baseline_hsv, notes: ev.notes });
 
+  for (const f of VISUAL_FILES) if (existsSync(join(SRC, f))) copyIfChanged(join(SRC, f), join(dir, f));
   const video = join(ROOT, 'media', `${source}.mp4`);
   if (existsSync(video)) copyIfChanged(video, join(dir, 'media', `${source}.mp4`));
   else console.warn(`export-static: media/${source}.mp4 missing — the drone feed will show "Video unavailable"`);
@@ -120,12 +125,13 @@ for (const { source, default: isDefault, regional } of INCIDENTS) {
     methods: [
       { id: 'footage', name: 'Drone footage', provenance: 'real', detail: `${src.label}, ${Math.round(src.duration_seconds / 60)} min RGB replay (${src.width}×${src.height} source), shown as DRONE REPLAY` },
       { id: 'pose', name: 'Camera pose', provenance: 'real', detail: `DJI XMP metadata of the dataset photos: ${src.pose.altitude_agl_m} m AGL, gimbal ${src.pose.pitch_deg}°, HFOV ${src.pose.hfov_deg}°` },
-      { id: 'segmentation', name: 'Burned area, flames, smoke', provenance: 'model', detail: `${ev.model} on one frame every 4 s; mean IoU ${ev.mean.iou.toFixed(2)} (image) / ${ev.mean.ground_iou.toFixed(2)} (ground) vs ${ev.frames_evaluated} hand-drawn masks` },
+      { id: 'segmentation', name: 'Burned area, flames, smoke', provenance: 'model', detail: `${ev.model} on one frame every 4 s; mean IoU ${ev.mean.iou.toFixed(2)} (image) / ${ev.mean.ground_iou.toFixed(2)} (ground) vs ${ev.frames_evaluated} hand-drawn masks it never trained on${ev.baseline_hsv ? ` (colour rules alone: ${ev.baseline_hsv.iou.toFixed(2)} / ${ev.baseline_hsv.ground_iou.toFixed(2)})` : ''}` },
+      { id: 'live', name: 'Live analysis', provenance: 'model', detail: 'The same segmenter runs in the browser on the playing video (WebGPU, or WebAssembly), or on a video file of your own (never uploaded). Its burned mask agrees with the recorded pipeline at IoU 0.98' },
       { id: 'ros', name: 'Rate of spread', provenance: 'derived', detail: 'Leading edge of the burned outline vs one minute earlier (90th percentile of the displacement, m/min). Only the visible front.' },
       { id: 'georef', name: 'Georeferencing', provenance: 'derived', detail: `${src.georeferencing.method.replace(/_/g, ' ')} (${src.georeferencing.accuracy}): pinhole camera, rays marched onto the DEM` },
       { id: 'events', name: 'Events', provenance: 'derived', detail: `${events.events.length} events from measured changes (growth, flames outside the scar, smoke, peak flame extent); all need human review` },
       { id: 'weather', name: 'Weather', provenance: 'external', detail: `${w.source} (${w.grid}); reanalysis, not an on-site sensor` },
-      { id: 'analyst', name: 'Questions & search', provenance: 'derived', detail: 'Computed in the browser from the recorded measurements and events. No language model, nothing generated.' },
+      { id: 'analyst', name: 'Questions & search', provenance: 'derived', detail: 'Rule-based in the browser, from the recorded measurements and events. Optional, on this device: visual search over the footage (MobileCLIP-S0, one frame every 2 s). No language model, nothing generated.' },
       { id: 'sim', name: 'Drones FT-02…06, resources, large-fire scenario', provenance: 'simulated', detail: 'Deterministic exercise around the real incident, tagged SIM. Not observations, not a forecast.' },
     ],
     attribution: incident.attribution,
@@ -136,5 +142,47 @@ for (const { source, default: isDefault, regional } of INCIDENTS) {
   console.log(`export-static: ${incident.id} — ${events.events.length} events, ${timeline.frames.length} frames → public/${rel}`);
 }
 writeIfChanged(join(OUT, 'index.json'), JSON.stringify(index));
+// in-browser models, served from the site itself (same origin, no model hub at run time):
+//  · trained for this project (pipeline/pinhao/segmenter.py), from data/processed/models/
+//  · MobileCLIP-S0's text encoder for visual search: downloaded once at build time at a pinned revision, checked
+//    against the hashes the Hugging Face Hub publishes for it, cached in data/cache/models/ (not committed: Apple licence)
+const MODELS = join(ROOT, 'data', 'processed', 'models');
+if (existsSync(MODELS)) {
+  mkdirSync(join(PUBLIC, 'models'), { recursive: true });
+  for (const f of readdirSync(MODELS)) copyIfChanged(join(MODELS, f), join(PUBLIC, 'models', f));
+}
+const CLIP = {
+  repo: 'Xenova/mobileclip_s0', rev: '757d59c9c6870a76a4b0306f05f5061bca15c39f', dir: 'mobileclip_s0',
+  // [path, 'git' (blob SHA-1) | 'sha256' (LFS), hash]
+  files: [
+    ['config.json', 'git', '26a79793f4d5441683bfb30479bd54c6118c034a'],
+    ['tokenizer.json', 'git', 'f9d4455c06f24d31797f7cd3e480a83d7a84cb97'],
+    ['tokenizer_config.json', 'git', '408328b7dd4bcb43edb9cd70b2200178c320572b'],
+    ['LICENSE', 'git', '725efae3774114e62e600a29fd2e2bc63b3deedf'],
+    ['onnx/text_model_quantized.onnx', 'sha256', 'b8557b10e5c23a0126c6d2e6eba48d240484979007917d128953b31618a04211'],
+  ],
+};
+const { createHash } = await import('node:crypto');
+const hashOf = (buf, kind) => (kind === 'git' ? createHash('sha1').update(`blob ${buf.length}\0`).update(buf).digest('hex') : createHash('sha256').update(buf).digest('hex'));
+let clipOk = true;
+for (const [f, kind, want] of CLIP.files) {
+  const cached = join(ROOT, 'data', 'cache', 'models', CLIP.dir, f), dest = join(PUBLIC, 'models', CLIP.dir, f);
+  try {
+    if (!existsSync(cached) || hashOf(readFileSync(cached), kind) !== want) {
+      const r = await fetch(`https://huggingface.co/${CLIP.repo}/resolve/${CLIP.rev}/${f}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (hashOf(buf, kind) !== want) throw new Error('hash mismatch');
+      mkdirSync(dirname(cached), { recursive: true });
+      writeFileSync(cached, buf);
+    }
+    mkdirSync(dirname(dest), { recursive: true });
+    copyIfChanged(cached, dest);
+  } catch (e) {
+    clipOk = false;
+    console.warn(`export-static: could not fetch ${CLIP.repo}/${f} (${e.message}) — visual search will be unavailable in this build`);
+  }
+}
+if (clipOk) console.log(`export-static: ${CLIP.repo}@${CLIP.rev.slice(0, 7)} → public/models/${CLIP.dir}/ (verified)`);
 // drop packages of incidents that are no longer exported
 for (const d of readdirSync(OUT)) if (d !== 'index.json' && !index.incidents.some((i) => i.id === d)) rmSync(join(OUT, d), { recursive: true, force: true });

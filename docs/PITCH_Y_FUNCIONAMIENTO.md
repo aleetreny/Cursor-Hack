@@ -31,10 +31,11 @@ FireScope 3D procesa el vídeo y lo convierte en **tres cosas útiles a la vez**
 | Posición y orientación de la cámara | Metadatos XMP de las fotos del dataset: GPS, 24,9 m de altura, guiñada −46,7°, cabeceo −28,9° y focal calibrada | **Real** |
 | Terreno 3D | DEM de AWS Terrain Tiles con 3 anillos de nivel de detalle, hasta unos 70 km | **Real** (exageración vertical de 1,8×, indicada en pantalla) |
 | Ortofoto | Esri World Imagery; colorea el terreno y coloca la vegetación | **Real** (estilo artístico encima) |
-| Zona quemada y llamas | Segmentación de cada fotograma + proyección al terreno | **Medido**: **IoU 0,68** frente a las máscaras manuales del dataset (226 fotogramas), **0,71** proyectado al suelo |
+| Zona quemada y llamas | Segmentación de cada fotograma (zona quemada: red neuronal pequeña afinada con las máscaras del dataset; llamas y humo: reglas de color) + proyección al terreno | **Medido**: **IoU 0,92** frente a las máscaras manuales en fotogramas con los que no se entrenó, **0,90** proyectado al suelo (antes, con reglas de color: 0,68 / 0,71) |
 | Hotspots | Centros de las manchas de llama visibles | **Medido**; **sin temperatura** (RGB no mide calor) |
 | Eventos | Cambios medidos: crecimiento, llamas fuera de la zona quemada, humo, máxima extensión de llama | **Derivado**, siempre *review required* |
-| Preguntas y búsqueda | Analista y búsqueda que se ejecutan en el navegador sobre las mediciones y los eventos grabados | **Derivado**. Reglas fijas, **sin modelo de lenguaje y sin inventar nada** |
+| Preguntas y búsqueda | Analista y búsqueda que se ejecutan en el navegador sobre las mediciones y los eventos grabados | **Derivado**. Reglas fijas por defecto |
+| IA opcional en el navegador | Búsqueda visual (MobileCLIP-S0) sobre los fotogramas del dron y las pasadas de Sentinel-2; análisis en vivo del vídeo o de un vídeo propio | **Modelo**, todo en el dispositivo del visitante y nada se sube |
 | Meteorología | Reanálisis **ERA5** (Open-Meteo) para ese día, hora y lugar | **Real**, pero de reanálisis, no un sensor in situ |
 | Vista IR | LUT de falso color sobre el RGB | **Simulada**, rotulada en pantalla ("not thermal") |
 | Drones FT-02…FT-06 | Trayectorias deterministas alrededor del incidente; su cámara es una **segunda cámara que renderiza el gemelo 3D** desde la pose del dron | **Simulado** (etiqueta SIM / "SIMULATED VIEW") |
@@ -69,7 +70,7 @@ Navegador                    ─── React + Three.js: terreno 3D, máscaras s
 **Detalles clave para preguntas técnicas:**
 
 * **¿Por qué no reconstruir el terreno con el vídeo?** Un vídeo monocular no da geometría fiable. Usamos un DEM real y solo proyectamos encima lo observado. Es más honesto y más preciso.
-* **¿Cómo sabéis que la proyección es correcta?** Usamos la pose real del dron y la focal calibrada. Además, la máscara manual del dataset, proyectada con el mismo método, coincide con la nuestra en un 71 % (IoU). La precisión absoluta es *aproximada* y así lo indicamos.
+* **¿Cómo sabéis que la proyección es correcta?** Usamos la pose real del dron y la focal calibrada. Además, la máscara manual del dataset, proyectada con el mismo método, coincide con la nuestra en un 90 % (IoU). La precisión absoluta en metros es *aproximada*: intentamos medirla contra la ortofoto de 2018 y no hay puntos nítidos en ambas, así que no damos una cifra.
 * **¿Por qué el timeline es el "reloj maestro"?** Todo (mapa, gráficas, vídeo, eventos y paneles) lee el mismo instante, así que nunca hay datos desincronizados.
 * **¿Cómo responde el analista sin un LLM?** Detecta la intención de la pregunta (dónde, cuándo, cuánto, crecimiento, focos, humo, viento, dron, precisión, riesgo, recursos) y calcula la respuesta con los datos: por ejemplo, el minuto de mayor crecimiento sale de la serie de área quemada. Si no reconoce la pregunta, lo dice y da el resumen.
 
@@ -94,7 +95,8 @@ Navegador                    ─── React + Three.js: terreno 3D, máscaras s
 * **Drones:** flota de 6. **UAV-01 es el real** (vídeo grabado). FT-02…FT-06 son simulados, con telemetría (altitud, velocidad, rumbo, batería, enlace) y una cámara que renderiza el gemelo 3D desde su posición, en EO o IR* (Ironbow / White-hot). Seleccionar un dron abre su cámara; Follow lo persigue. La ventana de cámara del dron real va al segundo con el timeline: HUD, caja de la región que piden revisar las mediciones, EO/IR* (simulado), zoom, arrastrar y pantalla de mapa completa.
 * **Resources (simulado):** KPIs (aeronaves operativas, galones descargados, cadenas de línea, personal), lista por grupos como en FireTrace y ficha de la unidad seleccionada. **Chase** sigue al avión en vuelo, **Ride along** acompaña a vehículos y cuadrillas, y **Overview** da el plano general. Las descargas y la línea de fuego aparecen sobre el terreno según el timeline. El Air Ops Log permite saltar a cada descarga, y las gráficas muestran retardante, línea construida y personal.
 * **Analysis (analista):** preguntas en español o inglés; las citas ▶ saltan al vídeo y al mapa.
-* **Evidence:** búsqueda en el vídeo (por palabras, en español o inglés, sobre eventos y mediciones de cada clip) + cola de revisión de eventos.
+* **Evidence:** búsqueda por palabras (eventos y mediciones de cada clip) y, si la activas, **búsqueda visual** en los píxeles (52 MB una vez): «humo denso» en el vídeo, «columna de humo» o «embalse» en las pasadas de Sentinel-2 de Larouco. Un clic salta a ese segundo de vídeo, o pone esa pasada sobre el terreno y recuadra el lugar. Debajo, la cola de revisión de eventos.
+* **Live AI (ventana de cámara):** dibuja sobre el vídeo la zona quemada, las llamas y el humo mientras se reproduce (44 fps con WebGPU). Con el icono de cámara, o en Analysis → *Analyse a video file…*, analiza un vídeo tuyo sin subirlo.
 * **About:** cómo se ha obtenido cada parte (real, modelo, derivado, externo, simulado), límites, historia del proyecto, notas del analista y atribuciones.
 
 ## 7. Historia: el hackathon
@@ -126,7 +128,7 @@ Ese clúster ya no existe y aquellos resultados no se guardaron, así que **la v
 
 **0:15 — Solution (15 s).** Pulsa **Tour** (o hazlo a mano). *"FireScope 3D turns drone footage into a time-aware 3D map. This is real terrain, the real drone position, and real footage from a prescribed burn in Portugal."*
 
-**0:30 — Progression (20 s).** Se reproduce el timeline. *"Every 4 seconds we segment the burned ground and the flames, then cast each pixel onto the elevation model, so you see the burn scar grow on the actual ground. Our segmentation scores an IoU of 0.71 against the dataset's manual annotations."*
+**0:30 — Progression (20 s).** Se reproduce el timeline. *"Every 4 seconds we segment the burned ground and the flames, then cast each pixel onto the elevation model, so you see the burn scar grow on the actual ground. Our segmentation, a small network fine-tuned on the dataset, scores an IoU of 0.90 on the ground against manual annotations it never saw."*
 
 **0:50 — Evidence (25 s).** Clic en una alerta → Drones. *"Every change is measured and logged. Here: flames ahead of the burned front. One click takes you to the exact second of footage, with the region to review boxed, and a human confirms it."*
 
@@ -148,7 +150,8 @@ Ese clúster ya no existe y aquellos resultados no se guardaron, así que **la v
 * **Motor 3D: nos quedamos con Three.js** en lugar de migrar a Cesium o MapLibre. Ya tiene LOD por anillos, depth logarítmico, sombras, bloom e instancing, y medimos **60 fps** reproduciendo a 1440×900. Migrar costaría el control sobre el shader del fuego pegado al terreno.
 * **Funciona en cualquier pantalla:** escritorio, tablet (panel deslizante) y móvil (hoja inferior; en horizontal, panel lateral). Carga en menos de un segundo y sigue funcionando sin conexión tras la primera visita.
 * **El incendio grande ya está:** Larouco (Ourense, agosto de 2025, 33.132 ha), reconstruido hora a hora con datos abiertos de satélite (NASA FIRMS, Copernicus EMS y Sentinel-2) y validado contra los perímetros de EMS. Se abre con el menú de incidentes o con `?incident=larouco-2025-08`.
-* **Lo pendiente**, desde el motor 3D de nueva generación hasta la búsqueda semántica en el navegador, está en el [plan de mejora](PLAN_DE_MEJORA.md).
+* **IA en el navegador, sin servidor:** la segmentación aprendida (IoU 0,92) y la búsqueda visual corren en el dispositivo del visitante, con los pesos servidos desde la propia web.
+* **Lo pendiente** (presentación nueva, vídeo y página de métodos) está en el [plan de mejora](PLAN_DE_MEJORA.md).
 
 ## 12. Cómo ejecutarlo
 

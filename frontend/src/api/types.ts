@@ -74,6 +74,8 @@ export interface Incident {
   /** Packaged terrain (Terrarium PNG) and imagery (JPEG) on lon/lat-aligned grids, relative to the package. When present
    *  the 3D view needs no tile server. */
   basemap?: Basemap | null;
+  /** Regional: Sentinel-2 true colour on each pass during the fire, warped to basemap.inner.bbox (a dated imagery layer). */
+  satellite?: { bbox: [number, number, number, number]; source: string; passes: { date: string; time: ISODate; image: string; cloud_cover_pct: number; products: string[] }[] } | null;
   /** Regional: retrospective spread scenario (fuels + terrain + weather, no suppression) and how it scored. */
   scenario?: { image: string; method: string; calibrated_on: { perimeter: string; image_time: ISODate; burned_ha: number }; R0_m_h: number;
     perimeters: { perimeter: string; image_time: ISODate; iou: number; recall: number; precision: number; sim_ha: number; real_ha: number }[];

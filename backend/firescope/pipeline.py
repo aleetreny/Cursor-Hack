@@ -20,12 +20,14 @@ from shapely.ops import unary_union
 
 from .config import CLIP_SECONDS, DATASET, KML, POSE, PROCESSED, RECORDED_START, SAMPLE_EVERY_FRAMES, SOURCE_ID, VIDEO
 from .geo import DEM, Camera, M_LAT, M_LON, enu_to_lonlat
-from .segment import TemporalBurn, iou_prf, raw_masks
+from .segment import LearnedBurned, TemporalBurn, VoteBurn, iou_prf, raw_masks
 
 from .common import OUT, iso, to_lonlat_geom  # noqa: E402
 
 MEDIA = PROCESSED / "media"
-CV_MODEL = "firescope-cv v0.1 (HSV + morphology + temporal accumulation)"
+CV_MODEL = "firescope-cv v0.2 (burned: LR-ASPP MobileNetV3 fine-tuned on BurnedAreaUAV; flames/smoke: HSV rules)"
+# frames 0–17 900 trained the segmenter; the dataset's test split (20 250–22 450) was never seen (pipeline/pinhao/segmenter.py)
+TRAIN_UNTIL = 17900
 
 
 def read_kml_ring() -> list[list[float]]:
@@ -102,7 +104,8 @@ def run(limit_seconds: float | None = None) -> dict:
     if limit_seconds:
         nframes = min(nframes, int(limit_seconds * fps))
 
-    tb = TemporalBurn()
+    learned = LearnedBurned() if LearnedBurned.PATH.exists() else None
+    tb = VoteBurn() if learned is not None else TemporalBurn()
     proj = None
     features, hotspots, frames, evals, samples = [], [], [], [], []
     prev_burn = None
@@ -123,6 +126,8 @@ def run(limit_seconds: float | None = None) -> dict:
             if fi % SAMPLE_EVERY_FRAMES == 0:
                 m = raw_masks(frame)
                 shp = tuple(m["shape"])
+                if learned is not None:
+                    m["burned"] = learned.mask(frame, shp)
                 if proj is None:
                     proj = Projector(cam, shp)
                 cum = tb.update(m["burned"])
@@ -168,7 +173,8 @@ def run(limit_seconds: float | None = None) -> dict:
                         if burn is not None:
                             inter = burn.intersection(gpoly).area
                             ev["ground_iou"] = inter / (burn.union(gpoly).area + 1e-9)
-                    evals.append({"frame": fi, "video_seconds": round(sec, 2), **{k: round(v, 4) for k, v in ev.items()}})
+                    split = "test" if fi > 20200 and fi % 100 == 50 else "train" if fi <= TRAIN_UNTIL else "val"
+                    evals.append({"frame": fi, "video_seconds": round(sec, 2), "split": split, **{k: round(v, 4) for k, v in ev.items()}})
                 valid_px = float(cum.shape[0] * cum.shape[1])
                 samples.append({"sec": sec, "frame": fi, "burn_px": float(cum.sum()) / valid_px, "flame_px": int(m["flame"].sum()), "smoke": float(m["smoke"].sum()) / valid_px,
                                 "flame_mask": m["flame"], "cum": cum, "burn_a": burn_a, "fire_a": fire_a, "hs": blobs})
@@ -188,11 +194,19 @@ def run(limit_seconds: float | None = None) -> dict:
     fp_ll = [list(map(lambda v: round(v, 7), enu_to_lonlat(*p))) for p in footprint if p is not None]
     end_sec = samples[-1]["sec"]
 
-    eval_summary = {k: round(float(np.mean([e[k] for e in evals])), 4) for k in ("iou", "precision", "recall")} if evals else {}
-    if evals and "ground_iou" in evals[0]:
-        eval_summary["ground_iou"] = round(float(np.mean([e.get("ground_iou", 0) for e in evals])), 4)
-    eval_out = {"model": CV_MODEL, "frames_evaluated": len(evals), "mean": eval_summary, "per_frame": evals,
-                "notes": "Image-space IoU of the cumulative burned mask vs BurnedAreaUAV manual masks (train+test, every 100 frames). ground_iou = IoU after georeferencing both onto the DEM."}
+    def summary(rows):
+        out = {k: round(float(np.mean([e[k] for e in rows])), 4) for k in ("iou", "precision", "recall")} if rows else {}
+        if rows and "ground_iou" in rows[0]:
+            out["ground_iou"] = round(float(np.mean([e.get("ground_iou", 0) for e in rows])), 4)
+        return out
+    held_out = [e for e in evals if e["split"] != "train"] if learned is not None else evals
+    eval_summary = summary(held_out)
+    eval_out = {"model": CV_MODEL, "frames_evaluated": len(held_out), "mean": eval_summary, "by_split": {sp: {**summary([e for e in evals if e["split"] == sp]), "frames": sum(e["split"] == sp for e in evals)} for sp in ("train", "val", "test")},
+                "baseline_hsv": {"model": "firescope-cv v0.1 (HSV + morphology + temporal accumulation)", "iou": 0.6807, "ground_iou": 0.7132, "frames": 226},
+                "per_frame": evals,
+                "notes": ("Image-space IoU of the cumulative burned mask vs the BurnedAreaUAV manual masks, on frames the segmenter never trained on "
+                          "(validation 18 000–22 500 and the dataset's test split). ground_iou = IoU after georeferencing both onto the DEM.") if learned is not None else
+                         "Image-space IoU of the cumulative burned mask vs BurnedAreaUAV manual masks (train+test, every 100 frames). ground_iou = IoU after georeferencing both onto the DEM."}
     clips = [{"clip_id": f"clip_{i:04d}", "source_id": SOURCE_ID, "start_seconds": round(i * CLIP_SECONDS, 2), "end_seconds": round(min(duration, (i + 1) * CLIP_SECONDS), 2), "timestamp": iso(i * CLIP_SECONDS), "thumbnail_url": f"/media/{SOURCE_ID}/clip_{i:04d}.jpg"} for i in range(int(math.ceil(min(duration, nframes / fps) / CLIP_SECONDS)))]
 
     incident = {"id": "pinhao-2019-03-01", "name": "Pinhão Cell Burn", "kind": "prescribed_burn", "location": "Torre do Pinhão, Vila Real, PT",

@@ -31,6 +31,7 @@ const LAYERS: LayerRow[] = [
 const REGIONAL_LAYERS: LayerRow[] = [
   { id: 'terrain', label: 'Terrain (3D DEM)', sw: 'linear-gradient(135deg,#7d8a5c,#c8a777 60%,#e6d2ad)', kind: 'toggle', prov: 'external' },
   { id: 'imagery', label: 'Aerial Imagery', sw: 'linear-gradient(135deg,#6f7a62,#a59c84 50%,#5b6650)', kind: 'opacity', prov: 'external', def: 0.6 },
+  { id: 'satellite', label: 'Sentinel-2 on the Day', sw: 'linear-gradient(135deg,#d9dde2,#8a8f7a 45%,#3b2f2a)', kind: 'toggle', prov: 'external' },
   { id: 'burned', label: 'Burned Area', sw: 'linear-gradient(135deg,#2a1e1c,#5a3a34 60%,#a24a35)', kind: 'opacity', prov: 'derived', def: 0.95 },
   { id: 'active', label: 'Active Front (3 h)', sw: 'radial-gradient(circle at 40% 40%,#ffe08a,#ff7a1a 45%,#c0290f)', kind: 'opacity', prov: 'derived', def: 1 },
   { id: 'severity', label: 'Burn Severity', sw: 'linear-gradient(90deg,#f5db6b,#f39a38 35%,#d13d1f 65%,#6b0d1f)', kind: 'opacity', prov: 'derived', def: 0.85 },
@@ -89,9 +90,10 @@ function LayersTab() {
 export function LayersSection() {
   const { layers, setLayer, features, regional } = useStore(useShallow((s) => ({ layers: s.layers, setLayer: s.setLayer, features: s.features, regional: s.incident?.scale === 'regional' })));
   const hasGT = features.some((f) => f.properties.classification === 'ground_truth_burned');
+  const hasSat = useStore((st) => !!st.incident?.satellite?.passes.length);
   return (
     <div className="section" style={{ paddingTop: 8 }}>
-      {(regional ? REGIONAL_LAYERS : LAYERS).map((l) => {
+      {(regional ? REGIONAL_LAYERS.filter((l) => l.id !== 'satellite' || hasSat) : LAYERS).map((l) => {
         const v = layers[l.id];
         const on = typeof v === 'boolean' ? v : (v as number) > 0.001;
         const unavailable = l.id === 'groundTruth' && !hasGT;

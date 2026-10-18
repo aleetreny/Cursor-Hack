@@ -174,7 +174,8 @@ for (const [w, h] of [[1874, 1080], [1920, 1080], [1600, 900], [1440, 900], [136
   }
   ok('analyst: 4 questions → 4 distinct answers', new Set(answers).size === 4, answers.map((a) => a.slice(0, 32)).join(' | '));
   ok('analyst answers in Spanish when asked in Spanish', /estacionario|sobre el suelo/.test(answers[1]));
-  ok('analyst cites the fastest growth at 05:44', /05:44/.test(answers[0]) && /632/.test(answers[0]));
+  // the fastest minute of growth in the recorded data (learned segmenter, phase 7): +317 m² around 05:52
+  ok('analyst cites the fastest growth at 05:52', /05:52/.test(answers[0]) && /317/.test(answers[0]));
 
   // phase 2: menus dismiss, share encodes the view, deep links, restart at the end, real rate of spread
   await page.locator('.tb-menu', { hasText: 'View' }).click(); await page.keyboard.press('Escape');

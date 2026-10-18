@@ -4,10 +4,13 @@ burned_area   : dark, low-saturation ground (char/ash) that is connected to the 
 active_fire   : saturated orange/yellow, very bright pixels (visible flames — NOT temperature)
 smoke         : bright, low-saturation, low-texture haze
 
-Classical colour/morphology rules — chosen because they are transparent, need no GPU and can be evaluated
-against the dataset's manual masks (see evaluate()). A learned model can replace `raw_masks` later.
+Classical colour/morphology rules — transparent, no GPU, evaluated against the dataset's manual masks. Since phase 7
+the burned area comes from a learned model instead (LearnedBurned: LR-ASPP MobileNetV3 fine-tuned on the manual masks,
+pipeline/pinhao/segmenter.py), the same ONNX file the browser runs live. Flames and smoke stay on the colour rules.
 """
 from __future__ import annotations
+
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -94,3 +97,43 @@ def iou_prf(pred: np.ndarray, gt: np.ndarray) -> dict[str, float]:
     p, g = pred > 0, gt > 0
     tp = float(np.sum(p & g)); fp = float(np.sum(p & ~g)); fn = float(np.sum(~p & g))
     return {"iou": tp / (tp + fp + fn + 1e-9), "precision": tp / (tp + fp + 1e-9), "recall": tp / (tp + fn + 1e-9)}
+
+
+class LearnedBurned:
+    """Burned-ground mask from the fine-tuned segmenter (data/processed/models/burned-lraspp-mnv3.onnx), at the
+    analysis resolution of raw_masks, with the same far-field rows excluded."""
+
+    PATH = Path(__file__).resolve().parents[2] / "data" / "processed" / "models" / "burned-lraspp-mnv3.onnx"
+    MEAN = np.array([0.485, 0.456, 0.406], "float32")
+    STD = np.array([0.229, 0.224, 0.225], "float32")
+
+    def __init__(self):
+        import onnxruntime as ort
+        self.sess = ort.InferenceSession(str(self.PATH), providers=["CPUExecutionProvider"])
+        _, _, self.h, self.w = self.sess.get_inputs()[0].shape
+
+    def prob(self, frame_bgr: np.ndarray) -> np.ndarray:
+        rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+        x = cv2.resize(rgb, (self.w, self.h), interpolation=cv2.INTER_AREA).astype("float32") / 255.0
+        x = ((x - self.MEAN) / self.STD).transpose(2, 0, 1)[None]
+        return self.sess.run(None, {"image": x})[0][0, 0]
+
+    def mask(self, frame_bgr: np.ndarray, shape) -> np.ndarray:
+        p = cv2.resize(self.prob(frame_bgr), (int(shape[1]), int(shape[0])), interpolation=cv2.INTER_LINEAR)
+        m = (p > 0.5).astype(np.uint8)
+        m[: int(shape[0] * HORIZON_FRAC), :] = 0
+        return m
+
+
+class VoteBurn:
+    """For the learned mask, which already is the whole burned area in each frame: majority of the last 3 samples
+    (4 s apart) to remove flicker, the largest regions, holes filled. No accumulation — the camera drifts during the
+    flight, so OR-ing image-space masks over minutes (TemporalBurn) smears them (IoU 0.87 instead of 0.92)."""
+
+    def __init__(self):
+        self.hist: list[np.ndarray] = []
+
+    def update(self, raw: np.ndarray) -> np.ndarray:
+        self.hist = (self.hist + [raw])[-3:]
+        vote = (np.sum(self.hist, axis=0) >= (2 if len(self.hist) >= 2 else 1)).astype(np.uint8)
+        return fill_holes(largest_components(vote))

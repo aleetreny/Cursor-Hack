@@ -5,6 +5,7 @@ import { buildUrl } from '../state/url';
 import { sceneRef } from '../scene/SceneView';
 import { SIM_UNITS } from '../sim/ops';
 import { useDismiss } from '../lib/ui';
+import { pickVideoFile } from '../ai/localVideo';
 import { Icon, Logo } from './Icon';
 import { TimelineBar, ChartsRow, KeyEvents, AirOpsLog } from './Timeline';
 import { IncidentOverview, LayersSection, NotesSection, WeatherCard } from './RightPanel';
@@ -76,6 +77,7 @@ function PhoneMenu({ close }: { close: () => void }) {
           {item('Large-fire scenario (sim)', () => useStore.getState().setLayer('projection', !layers.projection), layers.projection ? 'on' : 'off')}
         </>
       )}
+      {item('Analyse a video file…', pickVideoFile)}
       <div className="pm-h">FireScope</div>
       {!regional && item('Guided tour', () => set({ presenting: true }))}
       {item('Share this view', share)}

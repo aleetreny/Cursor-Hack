@@ -3,6 +3,7 @@
 //  · terrain + imagery tiles                cache first, kept across versions
 //  · page, config, incident data            network first, cache as fallback
 //  · video (range requests)                 always network — never cached
+//  · in-browser models and WebAssembly      left to the page (transformers.js keeps its own cache: no second copy)
 const VERSION = new URL(self.location.href).searchParams.get('v') || 'dev';
 const APP = `firescope-app-${VERSION}`, TILES = 'firescope-tiles-v1';
 const TILE_HOSTS = ['s3.amazonaws.com', 'server.arcgisonline.com'];
@@ -42,6 +43,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (TILE_HOSTS.includes(url.hostname)) { e.respondWith(cacheFirst(req, TILES)); return; }
   if (url.origin !== self.location.origin) return;
+  if (url.pathname.includes('/models/') || url.pathname.endsWith('.wasm')) return;
   if (url.pathname.includes('/assets/')) { e.respondWith(cacheFirst(req, APP)); return; }
   e.respondWith(networkFirst(req, APP));
 });
@@ -52,7 +54,7 @@ self.addEventListener('message', (e) => {
   e.waitUntil(Promise.all((e.data.urls || []).map(async (u) => {
     try {
       const url = new URL(u);
-      if (/\.mp4($|\?)/.test(url.pathname)) return;
+      if (/\.(mp4|wasm|onnx)($|\?)/.test(url.pathname) || url.pathname.includes('/models/')) return;
       const tile = TILE_HOSTS.includes(url.hostname);
       if (!tile && url.origin !== self.location.origin) return;
       const cache = await caches.open(tile || url.pathname.includes('/assets/') ? (tile ? TILES : APP) : APP);

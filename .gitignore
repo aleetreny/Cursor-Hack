@@ -15,3 +15,4 @@ backend/.venv/
 __pycache__/
 demo/*.mp4
 frontend/public/incidents/
+frontend/public/models/

@@ -349,6 +349,11 @@ def main():
         bm = json.loads((CACHE / "basemap.json").read_text())
         incident["basemap"] = bm
         incident["attribution"] = [a for a in incident["attribution"] if not a.startswith(("Elevation:", "Imagery:"))] + bm["credits"]
+    # what Sentinel-2 saw on each pass during the fire (s2series.py): a dated imagery layer and the visual search index
+    if (CACHE / "s2series.json").exists():
+        s2 = json.loads((CACHE / "s2series.json").read_text())
+        incident["satellite"] = {"bbox": s2["bbox"], "passes": s2["passes"], "source": "Sentinel-2 L2A true colour (TCI), 20 m overview"}
+        incident["attribution"].append(s2["credit"])
     write_json(OUT / "incident.json", incident)
     write_json(OUT / "timeline.json", {"incident_id": INCIDENT_ID, "start": start, "end": end, "frames": frames, "events": events})
     write_json(OUT / "events.json", {"source_id": "progression", "events": events})

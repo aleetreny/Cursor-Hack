@@ -7,6 +7,7 @@ import { sceneRef } from '../scene/SceneView';
 import { SIM_UNITS } from '../sim/ops';
 import { fmtDate, fmtSpan } from '../lib/format';
 import { useDismiss } from '../lib/ui';
+import { pickVideoFile } from '../ai/localVideo';
 import { Icon, Logo } from './Icon';
 import { useLayout } from '../lib/layout';
 
@@ -95,6 +96,7 @@ export function TopBar() {
               </>
             )}
             <button role="menuitem" onClick={() => { set({ panel: 'analysis', mode: 'incident', drawer: true }); close(); }}>Ask the incident analyst</button>
+            <button role="menuitem" onClick={() => { pickVideoFile(); close(); }} title="Play a video file from this device with live analysis. It is not uploaded">Analyse a video file…</button>
           </div>
         )}
         <button className="tb-menu" onClick={share} title="Copy a link to this exact view"><Icon name="share" size={13} /><span className="lbl">Share</span></button>

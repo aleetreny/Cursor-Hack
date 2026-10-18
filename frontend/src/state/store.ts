@@ -34,6 +34,8 @@ interface State {
   selectedUnitId: string | null;
   follow: { id: string; mode: 'chase' | 'overview' | 'ride' } | null;
   feedOpen: boolean;
+  /** a video file from this device, played in the camera window and analysed live (object URL, never uploaded) */
+  localVideo: { url: string; name: string } | null;
   compare: { on: boolean; before: number | null };
   hover: HoverInfo | null;
   scenario: { on: boolean; hours: number; ha: number; lapse: number };
@@ -53,9 +55,9 @@ export const useStore = create<State>((set, get) => ({
   incident: null, sources: [], timeline: null, features: [], hotspots: [], events: [], manifest: null, incidents: [], toast: null, weather: null,
   t0: 0, t1: 1, time: 0, playing: false, speed: 8, win: null,
   mode: 'incident', panel: 'layers', view: '3d',
-  layers: { terrain: true, imagery: 0.18, burned: 0.95, active: 1, change: 0.6, hotspots: true, groundTruth: false, perimeter: true, footprint: true, path: true, projection: false, trees: true, smoke: true, severity: 0, isochrones: false, ems: true, realSun: true },
+  layers: { terrain: true, imagery: 0.18, burned: 0.95, active: 1, change: 0.6, hotspots: true, groundTruth: false, perimeter: true, footprint: true, path: true, projection: false, trees: true, smoke: true, severity: 0, isochrones: false, ems: true, realSun: true, satellite: false },
   exaggeration: 1.8,
-  selectedEventId: null, selectedSourceId: null, selectedUnitId: null, follow: null, feedOpen: false,
+  selectedEventId: null, selectedSourceId: null, selectedUnitId: null, follow: null, feedOpen: false, localVideo: null,
   compare: { on: false, before: null },
   hover: null,
   scenario: { on: false, hours: 0, ha: 0, lapse: 1 },

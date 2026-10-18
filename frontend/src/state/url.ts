@@ -10,7 +10,7 @@ const MODES: ModeTab[] = ['incident', 'drones', 'resources'];
 const PANEL_IN: Record<string, PanelTab> = { layers: 'layers', analysis: 'analysis', evidence: 'evidence', about: 'notes' };
 const PANEL_OUT: Record<PanelTab, string> = { layers: 'layers', analysis: 'analysis', evidence: 'evidence', notes: 'about' };
 
-interface UrlView { t?: number; mode?: ModeTab; panel?: PanelTab; view?: '2d' | '3d'; ev?: string; unit?: string; scn?: boolean; gt?: boolean; cam?: number[] }
+interface UrlView { t?: number; mode?: ModeTab; panel?: PanelTab; view?: '2d' | '3d'; ev?: string; unit?: string; scn?: boolean; gt?: boolean; sat?: boolean; cam?: number[] }
 
 export function readUrl(search = location.search): UrlView {
   const q = new URLSearchParams(search), out: UrlView = {};
@@ -22,6 +22,7 @@ export function readUrl(search = location.search): UrlView {
   if (q.get('unit')) out.unit = q.get('unit')!;
   if (q.get('scn') === '1') out.scn = true;
   if (q.get('gt') === '1') out.gt = true;
+  if (q.get('sat') === '1') out.sat = true;
   const cam = (q.get('cam') ?? '').split(',').map(Number); if (cam.length === 6 && cam.every(isFinite)) out.cam = cam;
   return out;
 }
@@ -37,6 +38,7 @@ function apply(v: UrlView, animate = false) {
   if (v.t != null) s.setTime(s.t0 + v.t * 1000);
   if (!!v.scn !== s.layers.projection) s.setLayer('projection', !!v.scn);
   if (!!v.gt !== s.layers.groundTruth) s.setLayer('groundTruth', !!v.gt);
+  if (!!v.sat !== s.layers.satellite) s.setLayer('satellite', !!v.sat);
   if (v.cam) { if (sceneRef.current && !s.loadMsg) sceneRef.current.setCameraState(v.cam, animate ? 900 : 0); else pendingCam = v.cam; }
 }
 
@@ -51,6 +53,7 @@ export function buildUrl(): string {
   if (s.selectedUnitId) q.set('unit', s.selectedUnitId);
   if (s.layers.projection) q.set('scn', '1');
   if (s.layers.groundTruth) q.set('gt', '1');
+  if (s.layers.satellite) q.set('sat', '1');
   const cam = sceneRef.current && !s.loadMsg ? sceneRef.current.cameraState() : null;
   if (cam) q.set('cam', cam.map((v) => Math.round(v)).join(','));
   return `${location.pathname}?${q.toString().replace(/%2C/g, ',').replace(/(^|&)nointro=(?=&|$)/, '$1nointro')}`;

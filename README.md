@@ -4,7 +4,7 @@
 >
 > 📘 Pitch y explicación completa (ES): [docs/PITCH_Y_FUNCIONAMIENTO.md](docs/PITCH_Y_FUNCIONAMIENTO.md) · 🗺️ Plan de mejora: [docs/PLAN_DE_MEJORA.md](docs/PLAN_DE_MEJORA.md)
 
-**We turn wildfire drone footage into a time-aware 3D operational picture.**
+**We turn wildfire drone and satellite imagery into a time-aware 3D operational picture.**
 
 FireScope 3D takes drone video of a fire, measures what the camera sees (burned ground, flames, smoke), projects it onto real terrain, and lets you scrub through time, click an event to see the exact video evidence, search the footage and ask questions about the incident in English or Spanish.
 
@@ -28,12 +28,14 @@ The interface recreates the "FireTrace" wildfire forensic prototype (Dilum Sanja
 | Drone footage | **BurnedAreaUAV v1.1** (Zenodo 7944963, CC-BY-4.0): 15 min of RGB video of a prescribed burn at Torre do Pinhão, Portugal, from a hovering DJI Phantom 4 Pro | Real, replayed as **DRONE REPLAY**, never labelled live |
 | Camera pose | DJI XMP metadata of the dataset's photos (GPS, 24.9 m AGL, gimbal yaw −46.7°, pitch −28.9°, calibrated focal length) | Real |
 | Terrain | AWS Terrain Tiles (Terrarium) DEM in three rings of detail out to ~70 km; Esri World Imagery drives the stylized ground and vegetation | Real elevation, stylized rendering, **1.8× vertical exaggeration (labelled)** |
-| Burned area / flames | `backend/firescope/segment.py`: RGB segmentation with temporal accumulation | Model output, **evaluated against the manual masks** (below) |
-| Georeferencing | Pinhole camera, rays marched onto the DEM (`geo.py`) | **Approximate** (`camera_model_dem`) |
+| Burned area | A small neural network (LR-ASPP MobileNetV3, 3.2 M parameters) fine-tuned on the dataset's own hand-drawn masks (`pipeline/pinhao/segmenter.py`), majority of 3 frames | Model output, **IoU 0.92 on frames it never trained on** (below) |
+| Flames, smoke | Colour rules (`backend/firescope/segment.py`) | Model output (RGB look, not temperature) |
+| Georeferencing | Pinhole camera, rays marched onto the DEM (`geo.py`) | **Approximate** (`camera_model_dem`); error in metres not measurable with this data (see Limitations) |
 | Events | Measured changes: area growth, flames outside the scar, smoke surges, peak flame extent | Derived, `confidence: null`, `review_required: true` |
 | Rate of spread | Leading edge of the burned outline vs one minute earlier (90th percentile of the displacement, `frontend/scripts/lib/front-advance.mjs`): mean 2.8 m/min, peak 10.4 m/min | Derived, visible front only |
-| Ask | Incident analyst in the browser (`frontend/src/agent/analyst.ts`): detects the intent of the question (where, when, how much, fastest growth, spot fires, smoke, weather, drone, accuracy, risk, resources…), answers from the recorded data in English or Spanish, and cites the clips it used | Derived. Rule-based, **no language model, nothing generated** |
-| Search | Keyword search (EN/ES) over the recorded events and per-clip measurements (`frontend/src/agent/search.ts`) | Derived. Searches what was measured, not the pixels |
+| Ask | Incident analyst in the browser (`frontend/src/agent/analyst.ts`): detects the intent of the question (where, when, how much, fastest growth, spot fires, smoke, weather, drone, accuracy, risk, resources…), answers from the recorded data in English or Spanish, and cites the clips it used. No language model | Derived. Rule-based, nothing generated |
+| Search | Keyword search (EN/ES) over the recorded events and per-clip measurements, plus optional visual search over the pixels (below) | Derived / model |
+| Live analysis | The same segmenter running on the playing video in your browser, or on a video file of your own | Model, never uploaded |
 | Hotspots | Visible-flame blob centroids. **RGB cannot measure temperature**, so `temperature_c` is always `null` | Model |
 | Weather card | ERA5 reanalysis via Open-Meteo for the site and hour | External (reanalysis, not on-site) |
 | Drones FT-02…FT-06, Resources (13 units), drops, fire lines, large-fire scenario | Deterministic exercise around the real incident; sim drone cameras render the 3D twin | **Simulated**, tagged SIM in the UI, never a forecast |
@@ -57,7 +59,8 @@ The pipeline (`pipeline/larouco/`, see its [README](pipeline/larouco/README.md))
 | Drones, aircraft, ground units | The same exercise, re-tasked for the large fire: they follow the reconstructed front, and aircraft fly in daylight only | **Simulated**, tagged SIM |
 | Spread scenario (hindcast) | Fuels (ESA WorldCover 10 m), slope (MDT25) and the hourly ERA5 wind and dryness, calibrated only on the 16 Aug perimeter, then run freely | Model, **not what happened**: IoU 0.25 / 0.24 / 0.24 against the 20 / 21 / 22 Aug perimeters. It spreads almost evenly in every direction and misses the run north, and burns 74,000 ha with no suppression |
 | Terrain and imagery | IGN/CNIG MDT25 and PNOA orthophoto (CC BY 4.0) over the fire; AWS Terrain Tiles and Sentinel-2 cloudless 2016 (EOX) for the horizon | Packaged with the incident (~13 MB): no tile server at runtime |
-| Video | None published: real footage of this fire needs its owners' permission | — |
+| What the satellite saw | Sentinel-2 L2A true colour on the 6 passes from 11 to 26 Aug (20 m), draped on the terrain by date (Layers → Sentinel-2 on the Day) | Real (Copernicus Sentinel data 2025) |
+| Video | None published: real footage of this fire needs its owners' permission. You can analyse a video file of your own | — |
 
 In the app:
 - **Fire on the terrain.** The reconstructed fire grows hour by hour over 42 × 41 km. A glowing front marks the last 3 h and embers the last half day, and fresh char turns to ash.
@@ -90,14 +93,29 @@ On every screen:
 
 `python -m firescope.pipeline` → `data/processed/drone_replay_01/eval.json`
 
-| Metric (226 annotated frames, every 100th frame) | Value |
-|---|---|
-| Mean IoU, cumulative burned mask vs manual mask (image space) | **0.68** |
-| Precision / recall | 0.76 / 0.85 |
-| Mean IoU after projecting both onto the DEM (ground space) | **0.71** |
-| Pipeline runtime, full 15 min video on an M5 Pro CPU | ~12 s |
+The burned-area segmenter is trained on the annotated frames 0–17,900 and scored on frames it never saw (`python -m pipeline.pinhao.segmenter train`):
+
+| Metric | Colour rules (before) | Learned segmenter |
+|---|---|---|
+| IoU vs manual masks, image space, held-out frames 18,000–22,500 (46) | 0.68 (all 226, no split needed) | **0.92** |
+| Precision / recall | 0.76 / 0.85 | 0.96 / 0.95 |
+| IoU after projecting both onto the DEM (ground space) | 0.71 | **0.90** |
+| Raw per-frame IoU on the dataset's own test split (23 frames, 20,250–22,450) | — | 0.94 |
+| Model in the browser vs the recorded pipeline, same frames (`scripts/audit/live.mjs`) | — | **0.98** |
+| Pipeline runtime, full 15 min video on an M5 Pro CPU | ~12 s | ~14 s |
 
 The ground-truth masks can be toggled on the map (Layers → Ground Truth), shown in blue against the model's scar.
+
+## AI in the browser (optional, nothing uploaded)
+
+Everything runs on the visitor's device. Each part is off until turned on, says what it downloads, and is remembered on that device afterwards.
+
+| Tool | What it does | Model and cost | Checked |
+|---|---|---|---|
+| **Visual search** (Search tab) | Finds what the cameras saw, in English or Spanish: “dense smoke”, “llamas altas” in the drone footage; “smoke plume”, “burn scar”, “embalse” on the Sentinel-2 passes of Larouco. A click jumps to that second of video, or drapes that pass and outlines the place on the 3D map | MobileCLIP-S0 (Apple). Image vectors computed offline (`scripts/ai/embed.mjs`), the text half in the browser: 52 MB once, served from this site; ~0.1 s per query | `scripts/audit/ai.mjs`: 14 queries, the expected strength each. “Helicopter”/“helicóptero” and “a person” report **no clear match** instead of the nearest images |
+| **Live AI** (camera window) | Burned ground, flames and smoke drawn over the playing video; or over a video file of your own (camera icon, or Analysis menu) | The segmenter above, 13 MB, WebGPU or WebAssembly: 44 fps on an M5 Pro | `scripts/audit/live.mjs`: IoU 0.98 vs the recorded pipeline on 22 frames |
+
+How visual search decides whether something is there: CLIP scores are relative, and a fire scene pulls every fire-related word up. So the match strength also asks whether, in its best image, the query beats the ordinary contents of that kind of scene (flames, smoke, grass… / forest, clouds, farmland…). On Sentinel-2, people, vehicles and aircraft are flagged as too small to see from orbit.
 
 ## Architecture
 
@@ -157,6 +175,18 @@ cd backend && uv venv && uv pip install -r requirements.txt
 .venv/bin/uvicorn firescope.app:app --port 8000   # optional: the same UI against the API → VITE_API_BASE=http://localhost:8000 npm run dev
 ```
 
+The in-browser AI (phase 7), from the repository root with the pipeline's Python environment (`pipeline/requirements.txt`):
+
+```bash
+python -m pipeline.pinhao.segmenter train      # fine-tune + evaluate the burned-area segmenter → data/processed/models/ (~7 min on a laptop GPU)
+python -m firescope.pipeline                   # (in backend/) the recorded masks, now with the learned segmenter
+python -m pipeline.pinhao.frames               # one frame every 2 s + thumbnail sprite, for visual search
+python -m pipeline.larouco.s2series            # the Sentinel-2 passes during the fire (no account needed)
+python -m pipeline.larouco.package             # re-package Larouco with them
+python -m pipeline.pinhao.live_ref             # reference masks for scripts/audit/live.mjs
+cd frontend && node scripts/ai/embed.mjs       # MobileCLIP image vectors for both incidents
+```
+
 The browser video is a 960×540 H.264 copy at `media/drone_replay_01.mp4` (two-pass ~520 kb/s so it fits GitHub's 100 MB file limit):
 `ffmpeg -i <original> -an -vf "scale=960:540:flags=lanczos,hqdn3d=1.5:1.5:4:4" -c:v libx264 -preset slow -b:v 520k -maxrate 900k -bufsize 1800k -g 100 -pass 1|2 -movflags +faststart media/drone_replay_01.mp4`
 
@@ -167,6 +197,8 @@ cd frontend
 node scripts/e2e.mjs 'http://localhost:4173/<base>/?nointro'                 # 76 checks: layout at 6 viewports + functional walk + FPS
 URL='http://localhost:4173/<base>/?nointro' node scripts/present-test.mjs out   # presentation mode, all 18 chapters
 node scripts/audit/states.mjs '<url>' out                                       # overlap / clipping sweep (see scripts/audit/README.md)
+node scripts/audit/ai.mjs  http://localhost:4173/                               # visual search on both incidents
+node scripts/audit/live.mjs http://localhost:4173/                              # live analysis vs the recorded pipeline
 cd ../backend && python -m pytest -q                                            # pipeline + API tests
 ```
 
@@ -177,10 +209,12 @@ Every push to `main` runs [`.github/workflows/pages.yml`](.github/workflows/page
 ## Limitations (honest)
 
 * RGB only: no temperatures. Smoke can hide or mimic burned ground; the 3-frame vote and monotonic accumulation reduce but don't remove this.
-* Georeferencing assumes the video pose equals the photo pose (same hover) and a flat-ish DEM near the drone. It is approximate, with an unknown RMSE. The far field (above 21% of the frame) is excluded.
+* Georeferencing assumes the video pose equals the photo pose (same hover) and a flat-ish DEM near the drone. It is approximate. Its error in metres could not be measured: matching the frames against the DGT 2018 orthophoto (automatically, and by hand) found nothing sharp in both — an oblique 25 m view, smoke, a year of change. Bearings to the far track agree within ~2°, but the camera model puts the far field at about half its distance, so the pitch or height of the photo pose likely differs in the video. The far field (above 21% of the frame) is excluded.
+* The learned segmenter was trained on this one flight; on other footage (your own files in Live AI) treat it as a rough guide.
+* Visual search ranks images by similarity; it can miss small things and is not a detector.
 * Only the drone's field of view (~100 m) is observed. The planned burn-cell outline comes from the KML and is not an observation.
 * The video's wall-clock start (12:33:00Z) is an assumption anchored to the photo metadata.
-* The analyst and search work on the recorded measurements and events only; they cannot answer about things that were not measured.
+* The analyst and the search work on the recorded measurements, events and images only; they cannot answer about things that were not measured.
 * The large-fire scenario, fleet and resources are an illustrative simulation.
 * **Larouco:**
   * Timing between satellite passes (about six a day) is interpolated, and the first detection is not the ignition.
@@ -195,4 +229,4 @@ FireScope 3D was built in a day at the **VAST Builders Challenge (17 Oct 2026)**
 
 ## Credits
 
-BurnedAreaUAV, Ribeiro et al. 2023 (CC-BY-4.0) · Copernicus Emergency Management Service (© 2025 European Union), EMSR837 · NASA FIRMS (LANCE) · contains modified Copernicus Sentinel data (2025) · ERA5 (Copernicus C3S) via Open-Meteo · EUMETSAT LSA SAF [FRP-PIXEL, LSA-502] · IGN/CNIG MDT25 and PNOA (CC BY 4.0) · Sentinel-2 cloudless 2016 by EOX · ESA WorldCover · AWS Terrain Tiles · Esri World Imagery · UI inspired by FireTrace (Dilum Sanjaya). The FireScope implementation is independent.
+BurnedAreaUAV, Ribeiro et al. 2023 (CC-BY-4.0) · Copernicus Emergency Management Service (© 2025 European Union), EMSR837 · NASA FIRMS (LANCE) · contains modified Copernicus Sentinel data (2025) · ERA5 (Copernicus C3S) via Open-Meteo · EUMETSAT LSA SAF [FRP-PIXEL, LSA-502] · IGN/CNIG MDT25 and PNOA (CC BY 4.0) · Sentinel-2 cloudless 2016 by EOX · ESA WorldCover · AWS Terrain Tiles · Esri World Imagery · MobileCLIP (Apple) via transformers.js · ONNX Runtime Web · LR-ASPP MobileNetV3 (torchvision) · UI inspired by FireTrace (Dilum Sanjaya). The FireScope implementation is independent.

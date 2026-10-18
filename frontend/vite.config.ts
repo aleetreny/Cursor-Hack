@@ -11,7 +11,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // keep every JS file well under the 1 MiB ConfigMap limit
-        manualChunks: (id) => (id.includes('node_modules/three') ? 'three' : id.includes('node_modules') ? 'vendor' : undefined),
+        // the in-browser AI libraries stay in their own chunks, fetched only when a visitor turns them on
+        manualChunks: (id) => (id.includes('node_modules/three') ? 'three'
+          : /node_modules\/(@huggingface|onnxruntime)/.test(id) ? undefined
+          : id.includes('node_modules') ? 'vendor' : undefined),
       },
     },
   },

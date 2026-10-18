@@ -11,5 +11,7 @@ Scripts usados para la auditoría de `docs/PLAN_DE_MEJORA.md`. Requieren la app 
 | `views.mjs <out> [base] [--uncapped]` | Vistas «de catálogo» de los dos incidentes (día, noche, crepúsculo, horizonte, árboles de cerca, 2D, vista general) y fps reproduciendo; con `--uncapped`, sin vsync, para medir el margen |
 | `clicks.mjs <url> <out>` | Pulsa cada control en 8 estados y registra qué cambia |
 | `targeted.mjs <url> <out>` | Menús, Esc, compartir, enlaces profundos, teclado, agente, búsqueda, final de reproducción |
+| `ai.mjs [base] [out]` | Búsqueda visual en los dos incidentes: 14 consultas (ES/EN) con la fuerza de coincidencia esperada, incluidas las que no deben coincidir («helicopter», «a person»), y el salto a una pasada de Sentinel-2 |
+| `live.mjs [base] [out]` | Análisis en vivo: fps reproduciendo e IoU de la máscara del navegador frente a Python en el mismo fichero y frente al pipeline grabado (necesita `python -m pipeline.pinhao.live_ref`) |
 
 Ejemplo: `node scripts/audit/states.mjs 'http://localhost:8000/?nointro' audit-out 1920x1080,390x844`

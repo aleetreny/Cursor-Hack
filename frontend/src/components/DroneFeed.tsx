@@ -8,6 +8,8 @@ import { Icon } from './Icon';
 import { unitState, unitsFor } from '../sim/ops';
 import { useSimCtx } from '../sim/useSim';
 import { sceneRef } from '../scene/SceneView';
+import { LiveOverlay } from './LiveOverlay';
+import { pickVideoFile } from '../ai/localVideo';
 
 /** Drag the camera window inside the map pane (by its bar), keep it inside on resize, and leave full view with Esc. */
 function useFeedWindow() {
@@ -37,7 +39,8 @@ function useFeedWindow() {
 
 /** Drone camera window. The <video> follows the global timeline (the timeline is the master clock). */
 export function DroneFeed() {
-  const sel = useStore((s) => s.selectedUnitId), hasReal = useStore((s) => s.sources.length > 0);
+  const sel = useStore((s) => s.selectedUnitId), hasReal = useStore((s) => s.sources.length > 0), local = useStore((s) => s.localVideo);
+  if (local) return <LocalFeed key={local.url} url={local.url} name={local.name} />;
   // no published footage (regional fire): the camera opens on the simulated drone circling the front
   const sim = sel?.startsWith('FT-') ? sel : hasReal ? null : 'FT-02';
   return sim ? <SimFeed key={sim} id={sim} /> : <RealFeed />;
@@ -110,6 +113,7 @@ function RealFeed() {
   const [sensor, setSensor] = useState<'EO' | 'IR'>('EO');
   const [palette, setPalette] = useState<'ironbow' | 'whitehot'>('ironbow');
   const [zoom, setZoom] = useState(1);
+  const [live, setLive] = useState(false);
   const vs = videoSecondsAt(src, time);
 
   useEffect(() => {
@@ -129,7 +133,8 @@ function RealFeed() {
 
   // the HUD's top and bottom rows (whatever is shown at this width): detection labels are placed clear of them
   const vid = useRef<HTMLDivElement>(null);
-  const [bands, setBands] = useState({ H: 270, top: 52, bottom: 48 });
+  const [bands, setBands] = useState({ H: 270, W: 480, top: 52, bottom: 48 });
+  const placed: { x: number; y: number; w: number }[] = [];
   useEffect(() => {
     const el = vid.current;
     if (!el) return;
@@ -137,8 +142,8 @@ function RealFeed() {
       const r = el.getBoundingClientRect();
       if (!r.height) return;
       const rects = (sel: string) => [...el.querySelectorAll<HTMLElement>(sel)].filter((x) => x.offsetParent).map((x) => x.getBoundingClientRect());
-      const next = { H: r.height, top: Math.max(0, ...rects('.hud > .tl, .hud > .tr').map((b) => b.bottom - r.top)), bottom: Math.max(0, ...rects('.hud > .bl, .hud > .br, .hud > .bc').map((b) => r.bottom - b.top)) };
-      setBands((o) => (Math.abs(o.H - next.H) + Math.abs(o.top - next.top) + Math.abs(o.bottom - next.bottom) > 1 ? next : o));
+      const next = { H: r.height, W: r.width, top: Math.max(0, ...rects('.hud > .tl, .hud > .tr').map((b) => b.bottom - r.top)), bottom: Math.max(0, ...rects('.hud > .bl, .hud > .br, .hud > .bc').map((b) => r.bottom - b.top)) };
+      setBands((o) => (Math.abs(o.H - next.H) + Math.abs(o.W - next.W) + Math.abs(o.top - next.top) + Math.abs(o.bottom - next.bottom) > 1 ? next : o));
     };
     upd();
     const ro = new ResizeObserver(upd); ro.observe(el);
@@ -161,6 +166,7 @@ function RealFeed() {
         <video ref={v} src={mediaUrl(src.media_url)} muted playsInline preload="auto" onError={() => setErr('Video unavailable: ' + src.media_url)}
           style={{ transform: `scale(${zoom})`, filter: sensor === 'IR' ? `url(#lut-${palette})` : undefined }} />
         {err && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#bbb', fontSize: 12 }}>{err}</div>}
+        <LiveOverlay video={v} on={live && sensor === 'EO'} zoom={zoom} />
         <div className="hud">
           {corner({ left: 8, top: 8 }, '1.5px 0 0 1.5px')}{corner({ right: 8, top: 8 }, '1.5px 1.5px 0 0')}{corner({ left: 8, bottom: 8 }, '0 0 1.5px 1.5px')}{corner({ right: 8, bottom: 8 }, '0 1.5px 1.5px 0')}
           <div className="tl"><div className="rec">REPLAY {fmtVideo(vs)}</div><div>{src.id.toUpperCase().replace('DRONE_REPLAY_', 'UAV-')} · {src.label}</div><div>{sensor === 'EO' ? 'EO · RGB' : `IR* · ${palette === 'ironbow' ? 'IRONBOW' : 'WHITE-HOT'}`}</div></div>
@@ -168,12 +174,15 @@ function RealFeed() {
           <div className="cross" />
           {activeEvents.map((e) => {
             const [x0, y0, x1, y1] = e.image_region!;
-            // label below the box, else above it, else inside (bottom, then top) — the first spot clear of the HUD rows
-            const { H, top, bottom } = bands, LH = H < 200 ? 14 : 17, yT = y0 * H, yB = y1 * H;
-            const fits = (y: number) => y >= top + 1 && y + LH <= H - bottom - 1;
+            // label below the box, else above it, else inside (bottom, then top): the first spot clear of the HUD rows
+            // and of the labels already placed (two events can be active at once over the same area)
+            const { H, W, top, bottom } = bands, LH = H < 200 ? 14 : 17, yT = y0 * H, yB = y1 * H;
+            const lx = x0 * W, lw = Math.min(W - lx, e.title.length * (H < 200 ? 5.6 : 6.2) + 12);
+            const fits = (y: number) => y >= top + 1 && y + LH <= H - bottom - 1 && !placed.some((p) => lx < p.x + p.w && p.x < lx + lw && y < p.y + LH && p.y < y + LH);
             const ly = [yB + 1, yT - LH - 1, yB - LH - 2, yT + 2].find(fits);
+            if (ly != null) placed.push({ x: lx, y: ly, w: lw });
             return (
-              <div key={e.event_id} className={'roi ' + (e.severity === 'alert' ? 'alert' : '')} style={{ left: `${x0 * 100}%`, top: `${y0 * 100}%`, width: `${(x1 - x0) * 100}%`, height: `${(y1 - y0) * 100}%` }}>
+              <div key={e.event_id} className={'roi ' + (e.severity === 'alert' ? 'alert' : '')} title={e.title} style={{ left: `${x0 * 100}%`, top: `${y0 * 100}%`, width: `${(x1 - x0) * 100}%`, height: `${(y1 - y0) * 100}%` }}>
                 {ly != null && <span style={{ top: ly - yT, bottom: 'auto' }}>{e.title}</span>}
               </div>
             );
@@ -188,6 +197,8 @@ function RealFeed() {
         <div className="seg2"><button className={sensor === 'EO' ? 'on' : ''} onClick={() => setSensor('EO')}>EO</button><button className={sensor === 'IR' ? 'on' : ''} onClick={() => setSensor('IR')} title="False-colour look on RGB luminance — the aircraft has no thermal sensor">IR*</button></div>
         {sensor === 'IR' && <button className="feed-pal" onClick={() => setPalette(palette === 'ironbow' ? 'whitehot' : 'ironbow')}>{palette === 'ironbow' ? 'Ironbow' : 'White-hot'}</button>}
         <span className="replay">RECORDED</span>
+        <button className={'feed-ai' + (live ? ' on' : '')} onClick={() => { setLive(!live); if (sensor === 'IR') setSensor('EO'); }} aria-pressed={live} title="Analyse the video live in your browser: burned ground (learned model), flames and smoke (colour rules)"><span className="l-long">Live AI</span><span className="l-short">AI</span></button>
+        <button className="feed-open" onClick={pickVideoFile} title="Analyse a video file from this device (it is not uploaded)" aria-label="Analyse a video file from this device"><Icon name="video" size={13} /></button>
         <span className="sp" />
         <span className="feed-time">{fmtVideo(vs)} / {fmtVideo(src.duration_seconds)}</span>
         <button className="feed-z" onClick={() => setZoom(Math.max(1, +(zoom - 0.5).toFixed(1)))} title="Zoom out" aria-label="Zoom out">−</button>
@@ -195,6 +206,39 @@ function RealFeed() {
         <button className="feed-z" onClick={() => setZoom(Math.min(4, +(zoom + 0.5).toFixed(1)))} title="Zoom in" aria-label="Zoom in">+</button>
         <button onClick={() => setFull(!full)} title={full ? 'Exit full view (Esc)' : 'Full camera view'} aria-label="Full camera view"><Icon name="full" size={13} /></button>
         <button onClick={() => set({ feedOpen: false })} title="Close" aria-label="Close camera view"><Icon name="x" size={13} /></button>
+      </div>
+    </div>
+  );
+}
+
+/** A video file from this device, analysed live. It never leaves the browser (an object URL). */
+function LocalFeed({ url, name }: { url: string; name: string }) {
+  const set = useStore((s) => s.set);
+  const v = useRef<HTMLVideoElement>(null);
+  const { full, setFull, box, startDrag, style, barStyle } = useFeedWindow();
+  const [live, setLive] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [aspect, setAspect] = useState(16 / 9);
+  const close = () => { URL.revokeObjectURL(url); set({ localVideo: null }); };
+  return (
+    <div ref={box} className={'feed local' + (full ? ' full' : '')} style={style}>
+      {/* the box takes the file's own shape, so the analysis overlay lines up with the picture */}
+      <div className="vid" style={full ? undefined : { aspectRatio: String(aspect) }}>
+        <video ref={v} src={url} muted playsInline autoPlay loop controls onLoadedMetadata={(e) => { const el = e.currentTarget; if (el.videoWidth && el.videoHeight) setAspect(Math.min(2.4, Math.max(0.5, el.videoWidth / el.videoHeight))); }} onError={() => setErr('This browser cannot play that file')} />
+        {err && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#bbb', fontSize: 12 }}>{err}</div>}
+        <LiveOverlay video={v} on={live} />
+        <div className="hud">
+          <div className="tl"><div className="rec">LOCAL FILE</div><div className="feed-file">{name}</div></div>
+          <div className="tr"><div style={{ color: '#9fe6a0' }}>NOT UPLOADED</div><div>analysed in this browser</div></div>
+        </div>
+      </div>
+      <div className="feed-bar" onPointerDown={startDrag} style={barStyle}>
+        <b>FILE</b><span className="feed-name">{name}</span>
+        <button className={'feed-ai' + (live ? ' on' : '')} onClick={() => setLive(!live)} aria-pressed={live} title="Live analysis on this file. The model was trained on one prescribed-burn flight: on other footage, a rough guide only"><span className="l-long">Live AI</span><span className="l-short">AI</span></button>
+        <button className="feed-open" onClick={pickVideoFile} title="Open another video file" aria-label="Open another video file"><Icon name="video" size={13} /></button>
+        <span className="sp" />
+        <button onClick={() => setFull(!full)} title={full ? 'Exit full view (Esc)' : 'Full camera view'} aria-label="Full camera view"><Icon name="full" size={13} /></button>
+        <button onClick={close} title="Close the file" aria-label="Close the video file"><Icon name="x" size={13} /></button>
       </div>
     </div>
   );

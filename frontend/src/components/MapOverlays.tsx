@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { useStore } from '../state/store';
+import { qt, useStore } from '../state/store';
 import { sceneRef } from '../scene/SceneView';
 import { aspectName, formatLat, formatLon } from '../scene/geo';
 import { fmtClock, fmtArea, fmtWhen } from '../lib/format';
@@ -16,6 +16,7 @@ function niceScale(mpp: number) {
   return { m: n, px: n / mpp };
 }
 const fmtM = (m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`);
+const fmtAgo = (ms: number) => (ms >= 48 * 3600e3 ? `${Math.round(ms / 86400e3)} days` : `${Math.round(ms / 3600e3)} h`);
 
 /** Full-screen the map pane (its overlays and the drone camera come along); Safari needs the webkit prefix. */
 export function toggleFullscreen() {
@@ -53,6 +54,15 @@ export function MapOverlays() {
   const sc = niceScale(cam.metersPerPx || 1);
   const frames = useStore((s) => s.timeline?.frames);
   const regional = incident?.scale === 'regional';
+  // the Sentinel-2 pass draped now: the latest one taken before the cursor
+  const satPass = useStore((s) => {
+    const ps = s.incident?.satellite?.passes;
+    if (!ps?.length || !s.layers.satellite) return null;
+    let k = 0;
+    for (let i = 0; i < ps.length; i++) if (Date.parse(ps[i].time) <= s.time) k = i;
+    return ps[k];
+  });
+  const nowM = useStore((s) => qt(s.time, 60e3));
   const burnedAt = (t: number) => {
     if (regional) { let v: number | null = null; for (const f of frames ?? []) { if (Date.parse(f.timestamp) <= t) v = f.burned_area_m2.value; else break; } return v; }
     let best: number | null = null, bt = -Infinity;
@@ -85,6 +95,11 @@ export function MapOverlays() {
         {layers.projection && regional && incident?.scenario && (
           <span className="pill exp" title={`${incident.scenario.method}. Calibrated only on the ${incident.scenario.calibrated_on.image_time.slice(0, 10)} EMS perimeter, then run freely. IoU against the later perimeters: ${incident.scenario.perimeters.map((r) => r.iou.toFixed(2)).join(', ')}.`}>
             SPREAD SCENARIO (HINDCAST) · IoU {incident.scenario.perimeters.find((r) => r.perimeter === 'DEL_MONIT02')?.iou.toFixed(2) ?? incident.scenario.final_iou.toFixed(2)} vs what burned · NOT WHAT HAPPENED
+          </span>
+        )}
+        {layers.satellite && regional && satPass && (
+          <span className="pill sat" title={`Copernicus Sentinel-2 L2A true colour, ${satPass.products.join(' + ')} (${satPass.cloud_cover_pct}% cloud). The latest pass before the timeline cursor.`}>
+            <Icon name="layers" size={12} /> SENTINEL-2 · {fmtWhen(Date.parse(satPass.time))} UTC{nowM - Date.parse(satPass.time) > 3 * 3600e3 ? ` · ${fmtAgo(nowM - Date.parse(satPass.time))} before the cursor` : nowM < Date.parse(satPass.time) ? ' · the first pass, later than the cursor' : ''}
           </span>
         )}
         {layers.projection && !regional && <span className="pill exp" title={`Illustrative wind- and slope-driven spread on the real terrain. The 15-minute timeline replays the scenario as a ×${Math.round(scenario.lapse)} time-lapse.`}>SIMULATED FIRE SCENARIO · T+{Math.floor(scenario.hours)}h{String(Math.floor((scenario.hours % 1) * 60)).padStart(2, '0')} · {Math.round(scenario.ha).toLocaleString('en-US')} ha · ×{Math.round(scenario.lapse).toLocaleString('en-US')} time-lapse · NOT A FORECAST</span>}

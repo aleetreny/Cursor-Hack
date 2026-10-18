@@ -45,6 +45,9 @@ const click = async (sel: string, text?: string, wait = 450) => {
   el?.click();
 };
 
+// held-out accuracy of the burned-area segmentation (data/processed/drone_replay_01/eval.json)
+const GT = { ground: '0.90', image: '0.92', frames: 46 };
+
 const STEPS: Step[] = [
   {
     id: 'title', title: 'FireScope 3D', dur: 9, kind: 'slide',
@@ -130,7 +133,7 @@ const STEPS: Step[] = [
   {
     id: 'truth', title: 'Ground truth', dur: 11, spot: '.map', at: 'tl',
     kicker: 'Verified', head: 'Checked against human annotators', tags: ['GROUND TRUTH', 'MEASURED'],
-    body: <><b style={{ color: '#7dd3fc' }}>Blue</b> is the dataset's hand-drawn burned area. Our segmentation agrees with it at <b>0.71 IoU</b> on the ground (0.68 in the image), across 226 annotated frames.</>,
+    body: <><b style={{ color: '#7dd3fc' }}>Blue</b> is the dataset's hand-drawn burned area. Our segmentation, a small neural network fine-tuned on the other annotated frames, agrees with it at <b>{GT.ground}</b> IoU on the ground ({GT.image} in the image), on {GT.frames} frames it never trained on.</>,
     enter: async () => { const s = st(); s.set({ playing: false, mode: 'incident', panel: 'layers', feedOpen: false }); s.setTime(s.t0 + 9 * 60000); sc().flyFrame(300, 45, 0.3, 1000); await sleep(1100); st().set({ view: '2d' }); st().setLayer('groundTruth', true); },
   },
   {

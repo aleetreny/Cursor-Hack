@@ -47,6 +47,8 @@ export default function App() {
   }), [layout]);
   // fetch the tour in the background once the incident is up, so the Tour button opens instantly
   useEffect(() => { if (loaded) { const t = setTimeout(() => { loadPresenter().catch(() => {}); }, 2500); return () => clearTimeout(t); } }, [loaded]);
+  // in-browser AI the visitor turned on before (model from the browser cache), once the incident is up
+  useEffect(() => { if (loaded) { const t = setTimeout(() => { import('./ai/visual').then((m) => m.restoreVisual()).catch(() => {}); }, 3000); return () => clearTimeout(t); } }, [loaded]);
 
   // playback clock: the timeline is the single source of truth for map + video + panels
   useEffect(() => {

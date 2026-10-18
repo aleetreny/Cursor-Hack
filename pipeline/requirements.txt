@@ -5,3 +5,10 @@ shapely>=2.0
 pyproj>=3.6
 rasterio>=1.4
 pillow>=10
+h5py>=3.10              # Meteosat FRP-PIXEL (larouco/meteosat.py)
+opencv-python-headless>=4.9
+# Pinhão segmenter (pinhao/segmenter.py) and its ONNX export / check
+torch>=2.4
+torchvision>=0.19
+onnx>=1.16
+onnxruntime>=1.19

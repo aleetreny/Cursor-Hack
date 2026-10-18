@@ -7,6 +7,8 @@ import { seekCitation, selectEvent } from '../scene/SceneView';
 import { fmtClock, fmtDay, fmtVideo, fmtWhen } from '../lib/format';
 import { Icon } from './Icon';
 import { eventIcon } from './Timeline';
+import { VisualResults, VisualSearchToggle } from './VisualSearch';
+import { useVisual, visualSearch, type VisualSearch } from '../ai/visual';
 
 const SUGGESTIONS = [
   'How did the fire change during the recording?',
@@ -96,10 +98,17 @@ export function EvidencePanel() {
   const [res, setRes] = useState<SearchResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [vres, setVres] = useState<VisualSearch | null>(null);
+  const visualOn = useVisual((v) => v.status === 'ready');
   const run = async (query: string) => {
     if (!query.trim()) return;
     setBusy(true); setErr(null);
-    try { setRes(await api.search({ query, top_k: 8 })); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+    // keyword search over events and measurements, and (when turned on) the visual search over the pixels
+    const [kw, vis] = await Promise.allSettled([api.search({ query, top_k: 8 }), visualOn ? visualSearch(query) : Promise.resolve(null)]);
+    if (kw.status === 'fulfilled') setRes(kw.value); else setErr(kw.reason instanceof Error ? kw.reason.message : String(kw.reason));
+    setVres(vis.status === 'fulfilled' ? vis.value : null);
+    if (vis.status === 'rejected') setErr(`Visual search failed: ${vis.reason instanceof Error ? vis.reason.message : String(vis.reason)}`);
+    setBusy(false);
   };
   const thumb = sources[0]?.thumbnail_url;
   const regional = useStore((st) => st.incident?.scale === 'regional');
@@ -112,12 +121,17 @@ export function EvidencePanel() {
           <button type="submit" aria-label="Search" title="Search"><Icon name="search" size={13} /></button>
         </form>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
-          {(regional ? ['fast run', 'strongest gusts', 'dry air', 'most intense pass'] : ['first appearance of flames', 'fire expanding', 'dense smoke', 'flames ahead of the front']).map((s) => <button key={s} className="btn-sm" onClick={() => { setQ(s); run(s); }}>{s}</button>)}
+          {(visualOn
+            ? (regional ? ['smoke plume', 'burn scar', 'pyrocumulus', 'embalse', 'fast run'] : ['dense smoke', 'tall flames', 'burned ground', 'llamas altas', 'fire expanding'])
+            : (regional ? ['fast run', 'strongest gusts', 'dry air', 'most intense pass'] : ['first appearance of flames', 'fire expanding', 'dense smoke', 'flames ahead of the front'])).map((s) => <button key={s} className="btn-sm" onClick={() => { setQ(s); run(s); }}>{s}</button>)}
         </div>
+        <VisualSearchToggle />
         {busy && <div className="muted" style={{ marginTop: 8 }}>Searching…</div>}
         {err && <div className="err">Search failed: {err}</div>}
-        {res && (
+        {vres && <VisualResults r={vres} />}
+        {res && !(vres && vres.hits.length && !res.results.length) && (
           <div style={{ marginTop: 8 }}>
+            {vres && <div className="vh" style={{ fontSize: 11, fontWeight: 650, marginTop: 6 }}>Events and measurements</div>}
             <div className="muted" style={{ fontSize: 11 }}>{res.results.length} {regional ? 'moment' : 'clip'}{res.results.length === 1 ? '' : 's'} · {res.model}{res.latency_ms != null ? ` · ${res.latency_ms} ms` : ''}</div>
             {!res.results.length && <div className="muted" style={{ fontSize: 11.5, marginTop: 6, lineHeight: 1.4 }}>{regional ? `Nothing matches “${res.query}”. Search covers the computed events and a summary of each day (growth, satellite passes, wind).` : `No clip matches “${res.query}”. Search covers the recorded events and what was measured in each clip, not the pixels themselves.`}</div>}
             {res.results.map((r) => (

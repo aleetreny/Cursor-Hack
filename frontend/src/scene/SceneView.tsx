@@ -130,3 +130,13 @@ export function seekCitation(sourceId: string, startSeconds: number, eventId?: s
   const e = eventId ? s.events.find((x) => x.event_id === eventId) : undefined;
   if (e?.location) sceneRef.current?.flyToLonLat(e.location[0], e.location[1], 95);
 }
+
+/** A visual-search hit on the satellite archive: go to that pass, drape it, outline the place and fly there. */
+export function showSatelliteHit(passTime: string, box: [number, number, number, number]) {
+  const s = useStore.getState();
+  s.set({ playing: false });
+  if (!s.layers.satellite) s.setLayer('satellite', true);
+  s.setTime(Date.parse(passTime) + 60e3);
+  sceneRef.current?.highlightBox(box);
+  sceneRef.current?.flyToBox(box);
+}
