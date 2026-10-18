@@ -12,8 +12,11 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const PUBLIC = join(ROOT, 'frontend', 'public');
 const OUT = join(PUBLIC, 'incidents');
 
-/** Processed incidents in this repo: data/processed/<source>/ + media/<source>.mp4 + media/<source>/clip_*.jpg */
-const INCIDENTS = [{ source: 'drone_replay_01', default: true }];
+/** Processed incidents in this repo:
+ *  · drone (site scale): data/processed/<source>/ + media/<source>.mp4 + media/<source>/clip_*.jpg
+ *  · regional: data/processed/<source>/, already in package form (pipeline/larouco/package.py) */
+const INCIDENTS = [{ source: 'drone_replay_01', default: true }, { source: 'larouco', regional: true }];
+const REGIONAL_FILES = ['incident.json', 'sources.json', 'timeline.json', 'events.json', 'observations.json', 'weather.json', 'clips.json', 'eval.json', 'arrival.png'];
 
 // Update files in place instead of wiping the folder: the repo may live in an iCloud-synced folder, where deleting and
 // recreating a directory makes iCloud keep "name 2" conflict copies.
@@ -23,7 +26,44 @@ const writeIfChanged = (path, text) => { if (!existsSync(path) || readFileSync(p
 const copyIfChanged = (from, to) => { if (!existsSync(to) || statSync(to).size !== statSync(from).size || statSync(to).mtimeMs < statSync(from).mtimeMs) copyFileSync(from, to); };
 const index = { format_version: 1, default: null, incidents: [] };
 
-for (const { source, default: isDefault } of INCIDENTS) {
+function exportRegional(source, isDefault) {
+  const SRC = join(ROOT, 'data', 'processed', source);
+  if (!existsSync(join(SRC, 'incident.json'))) { console.warn(`export-static: data/processed/${source}/ missing — run python -m pipeline.larouco.package`); return; }
+  const read = (f) => JSON.parse(readFileSync(join(SRC, f), 'utf8'));
+  const incident = read('incident.json');
+  const dir = join(OUT, incident.id), rel = `incidents/${incident.id}/`;
+  mkdirSync(dir, { recursive: true });
+  for (const f of REGIONAL_FILES) copyIfChanged(join(SRC, f), join(dir, f));
+  const tl = read('timeline.json'), ev = read('eval.json'), obs = read('observations.json'), w = read('weather.json'), p = incident.progression;
+  const iou = ev.perimeters.map((r) => `${r.image_time.slice(5, 10)} ${r.iou_leave_one_out.toFixed(2)}`).join(', ');
+  const sev = ev.severity.classes.find((c) => c.id === 5);
+  const manifest = {
+    format_version: 1, id: incident.id, name: incident.name, location: incident.location, kind: incident.kind,
+    start: incident.start, end: incident.end, center: incident.center, packaged: new Date().toISOString(),
+    files: Object.fromEntries(REGIONAL_FILES.map((f) => [f.replace(/\..*$/, ''), f])),
+    counts: { frames: tl.frames.length, events: tl.events.length, clips: 0, features: obs.features.length, detections: obs.hotspots.length },
+    methods: [
+      { id: 'scar', name: 'Burnt area', provenance: 'external', detail: `Copernicus EMS EMSR837 delineations (Sentinel-2, SPOT 6/7, WorldView-2, Legion): ${incident.summary.burned_ha.toLocaleString('en-US')} ha by 30 Aug 2025` },
+      { id: 'detections', name: 'Satellite fire detections', provenance: 'external', detail: `${obs.hotspots.length.toLocaleString('en-US')} NASA FIRMS detections inside the scar (VIIRS S-NPP 375 m, MODIS 1 km) on ${ev.satellite_passes} passes over the region` },
+      { id: 'progression', name: 'When each place burned', provenance: 'derived', detail: `First satellite detection of each 30 m cell, gaps interpolated, bounded by the dated EMS perimeters. Each perimeter held out in turn: IoU ${iou}` },
+      { id: 'expansion', name: 'Expansion rate', provenance: 'derived', detail: 'Growth of the equivalent radius √(area/π) over 6 h: the speed of the scar as a whole, lower than the head-fire speed. Satellite passes are hours apart, so no front line is drawn.' },
+      { id: 'severity', name: 'Burn severity', provenance: 'derived', detail: `Sentinel-2 dNBR, 1 Aug vs 5 Sep 2025, Key & Benson classes: ${Math.round(sev.share * 100)}% high severity` },
+      { id: 'events', name: 'Events', provenance: 'derived', detail: `${tl.events.length} events computed from the reconstruction, the perimeters, FIRMS and ERA5; all need human review` },
+      { id: 'weather', name: 'Weather', provenance: 'external', detail: `${w.source} (${w.grid}); reanalysis, not an on-site sensor` },
+      { id: 'video', name: 'Video', provenance: 'real', detail: 'No footage of this fire is published here: real drone or aircraft video needs the owners\' permission.' },
+      { id: 'analyst', name: 'Questions & search', provenance: 'derived', detail: 'Computed in the browser from the reconstruction and the events. No language model, nothing generated.' },
+    ],
+    attribution: incident.attribution,
+    progression: { image: p.image, width: p.width, height: p.height },
+  };
+  writeIfChanged(join(dir, 'manifest.json'), JSON.stringify(manifest));
+  index.incidents.push({ id: incident.id, name: incident.name, location: incident.location, kind: incident.kind, scale: 'regional', start: incident.start, end: incident.end, center: incident.center, path: rel });
+  if (isDefault) index.default = incident.id;
+  console.log(`export-static: ${incident.id} — ${tl.events.length} events, ${tl.frames.length} frames → public/${rel}`);
+}
+
+for (const { source, default: isDefault, regional } of INCIDENTS) {
+  if (regional) { exportRegional(source, isDefault); continue; }
   const SRC = join(ROOT, 'data', 'processed', source);
   const read = (f) => JSON.parse(readFileSync(join(SRC, f), 'utf8'));
   const incident = read('incident.json');
@@ -83,7 +123,7 @@ for (const { source, default: isDefault } of INCIDENTS) {
     attribution: incident.attribution,
   };
   write('manifest.json', manifest);
-  index.incidents.push({ id: incident.id, name: incident.name, location: incident.location, kind: incident.kind, start: incident.start, end: incident.end, center: incident.center, path: rel });
+  index.incidents.push({ id: incident.id, name: incident.name, location: incident.location, kind: incident.kind, scale: 'site', start: incident.start, end: incident.end, center: incident.center, path: rel });
   if (isDefault) index.default = incident.id;
   console.log(`export-static: ${incident.id} — ${events.events.length} events, ${timeline.frames.length} frames → public/${rel}`);
 }

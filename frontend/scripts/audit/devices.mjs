@@ -53,7 +53,9 @@ for (const [name, w, h, dpr] of DEVICES) {
     ['06-tour', async () => { await S(`s.set({ presenting: true });`); await p.waitForSelector('.pz-dots i'); for (let i = 0; i < 4; i++) { await p.keyboard.press('ArrowRight'); await p.waitForTimeout(200); } await p.waitForTimeout(2500); }],
   ];
   report[name] = { layout };
-  for (const [state, run] of states) {
+  // the guided tour belongs to the drone incident; a regional fire has none
+  const regional = await p.evaluate(() => window.__store.getState().incident?.scale === 'regional');
+  for (const [state, run] of states.filter(([st]) => !(regional && /tour/.test(st)))) {
     try {
       await run(); await p.waitForTimeout(700);
       report[name][state] = await p.evaluate(() => window.__geom());

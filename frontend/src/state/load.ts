@@ -1,6 +1,8 @@
 import { api } from '../api/client';
 import { useStore } from './store';
 import { startUrlSync } from './url';
+import { defaultSpeed, isRegional } from '../lib/incident';
+import { setMultiDay } from '../lib/format';
 
 export async function loadAll() {
   const set = useStore.getState().set;
@@ -10,11 +12,17 @@ export async function loadAll() {
     const events = sources[0] ? (await api.events(sources[0].id).catch(() => ({ events: timeline.events }))).events : timeline.events;
     const t0 = Date.parse(timeline.start), t1 = Date.parse(timeline.end);
     // open on an instant where the front is clearly active
-    const first = events.find((e) => e.event_type === 'visible_fire_expansion' && e.severity === 'alert') ?? events.find((e) => e.severity === 'alert') ?? events[0];
+    // (a regional fire opens on its most intense satellite pass, mid-growth, when the whole front is alight)
+    const first = (isRegional(incident) ? events.find((e) => e.event_type === 'intensity_change' && e.severity === 'alert') : undefined)
+      ?? events.find((e) => e.event_type === 'visible_fire_expansion' && e.severity === 'alert') ?? events.find((e) => e.severity === 'alert') ?? events[0];
+    const regional = isRegional(incident);
+    setMultiDay(t1 - t0 > 36 * 3600000);
     set({
-      incident, sources, timeline, features: obs.features, hotspots: obs.hotspots ?? [],
+      incident, sources, timeline, features: obs.features, hotspots: obs.hotspots ?? [], speed: defaultSpeed(incident),
+      // a regional fire has no drone footprint, event track, trees or ground-truth masks to show
+      ...(regional ? { layers: { ...useStore.getState().layers, imagery: 0.6, path: false, footprint: false, trees: false, groundTruth: false } } : {}),
       events: [...events].sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp)),
-      t0, t1, time: first ? Math.min(t1, Date.parse(first.timestamp) + 20000) : t0 + (t1 - t0) * 0.35,
+      t0, t1, time: first ? Math.min(t1, Date.parse(first.timestamp) + (regional ? 3600000 : 20000)) : t0 + (t1 - t0) * 0.35,
       selectedSourceId: sources[0]?.id ?? null, loaded: true, loadMsg: 'Loading terrain',
     });
     startUrlSync();   // ?t=&mode=&cam=… → view, and keep the address bar in sync from now on

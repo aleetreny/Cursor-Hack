@@ -45,7 +45,7 @@ export interface IncidentManifest {
 /** incidents/index.json — the incidents published in the static demo. */
 export interface IncidentIndex {
   format_version: number; default: string | null;
-  incidents: { id: string; name: string; location: string; kind: Incident['kind']; start: ISODate; end: ISODate; center: LonLat; path: string }[];
+  incidents: { id: string; name: string; location: string; kind: Incident['kind']; scale?: Incident['scale']; start: ISODate; end: ISODate; center: LonLat; path: string }[];
 }
 
 /* ---------------------------------------------------------------- incident */
@@ -64,6 +64,27 @@ export interface Incident {
   reference_perimeter?: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null;
   landmarks?: Landmark[];
   attribution: string[];              // dataset / imagery credits shown in the UI footer
+  /** 'site' (default): a drone's view of a few hundred metres. 'regional': a whole wildfire over days, tens of km. */
+  scale?: 'site' | 'regional';
+  /** Regional incidents: when each cell burned, reconstructed from satellite detections and dated perimeters. */
+  progression?: Progression | null;
+  summary?: { burned_ha: number; first_detection: ISODate; growth_below_50ha_day: ISODate; high_severity_share: number } | null;
+}
+
+/** arrival.png: RGBA on a lon/lat-aligned grid over `bbox`; R·256+G = minutes after t0 the cell burned (`never` = did
+ *  not burn), B = burn-severity class × 40 (0 = outside the scar). */
+export interface Progression {
+  image: string;
+  bbox: [number, number, number, number];
+  width: number;
+  height: number;
+  t0: ISODate;
+  unit: 'min';
+  never: number;
+  encoding: string;
+  severity_classes: { id: number; label: string }[];
+  method: string;
+  resolution_m: number;
 }
 
 export interface Landmark {
@@ -137,6 +158,11 @@ export interface TimelineFrame {
   front_advance_m_min?: Metric;
   /** Direction the visible front moved toward, degrees from true north (static export). */
   front_bearing_deg?: Metric;
+  /** Regional incidents: fire radiative power of the latest satellite pass (MW) and when that pass was. */
+  frp_mw?: Metric;
+  pass_time?: ISODate | null;
+  /** where the front was: centroid and equivalent radius of the area reached in the previous 6 h */
+  front?: { center: [number, number]; radius_m: number } | null;
   has_ground_truth: boolean;
 }
 
@@ -156,6 +182,7 @@ export type FireClass =
   | 'smoke'                // smoke plume region (model)
   | 'area_change'          // newly burned since previous frame (derived)
   | 'ground_truth_burned'  // annotation mask, for comparison only
+  | 'external_perimeter'   // dated burnt-area perimeter mapped by a third party (e.g. Copernicus EMS)
   | 'projection';          // EXPERIMENTAL scenario — never an observation
 
 export interface FireFeatureProps {
@@ -184,6 +211,10 @@ export interface HotspotProps {
   temperature_c?: number | null;    // ONLY for real thermal/radiometric sources
   provenance: Provenance;
   event_id?: string | null;
+  /** satellite detections: fire radiative power (MW), sensor and the radius of the pixel's footprint (m) */
+  frp_mw?: number | null;
+  sensor?: string | null;
+  radius_m?: number | null;
 }
 export type Hotspot = GeoJSON.Feature<GeoJSON.Point, HotspotProps>;
 

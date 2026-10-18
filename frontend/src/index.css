@@ -132,7 +132,7 @@ input[type=range].rng::-webkit-slider-thumb { appearance: none; width: 11px; hei
 .tl-ctrl { display: flex; gap: 4px; margin-top: 12px; }
 .tl-ctrl button { width: 26px; height: 24px; border-radius: 5px; display: grid; place-items: center; color: var(--ink-2); }
 .tl-ctrl button.on { background: #3d3832; color: #fff; }
-.tl-ctrl .speed { width: auto; padding: 0 6px; gap: 3px; display: flex; border: 1px solid var(--line); background: var(--card); font-size: 12px; }
+.tl-ctrl .speed { width: auto; padding: 0 6px; gap: 3px; display: flex; white-space: nowrap; align-items: center; border: 1px solid var(--line); background: var(--card); font-size: 12px; }
 .track { position: relative; height: 62px; cursor: pointer; user-select: none; margin: 0 22px 0 26px; }
 .track .rail { position: absolute; left: 0; right: 0; top: 12px; height: 3px; background: #d7d0c5; border-radius: 2px; }
 .track .rail .fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #e9b4a5, #e08870); border-radius: 2px; }
@@ -145,7 +145,7 @@ input[type=range].rng::-webkit-slider-thumb { appearance: none; width: 11px; hei
 .track .tick { position: absolute; transform: translateX(-50%); font-size: 11px; color: var(--ink-2); text-align: center; line-height: 1.15; white-space: nowrap; }
 .track .tick b { display: block; font-weight: 600; color: var(--ink); }
 .charts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); min-height: 0; }
-.chart { padding: 6px 12px 4px; border-right: 1px solid var(--line); min-width: 0; display: grid; grid-template-rows: auto 1fr; }
+.chart { padding: 6px 12px 4px; border-right: 1px solid var(--line); min-width: 0; display: grid; grid-template-rows: auto 1fr; grid-template-columns: minmax(0, 1fr); }
 .chart:last-child { border-right: 0; }
 .chart-h { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 600; margin-bottom: 7px; white-space: nowrap; }
 .chart-h span small { color: var(--muted); font-weight: 400; }
@@ -622,3 +622,10 @@ input[type=range].rng:focus-visible { outline-offset: 4px; }
 .app.tablet .map.drawer-open > .feed:not(.full) { width: min(calc(100% - min(360px, 52%) - 80px), 360px); }
 .app.phone .map.sheet-side > .banner.left { left: calc(var(--side-w) + 52px); transform: none; }
 .map.attr-stack > .attribution { bottom: 50px; max-width: calc(100% - var(--ctl-right, 0px) - 24px); }
+/* search results of a regional fire: a date tile instead of a video thumbnail */
+.result .thumb.date { background: var(--chip); display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--ink); gap: 1px; }
+.result .thumb.date b { font-size: 12px; } .result .thumb.date span { position: static; background: none; color: var(--muted); padding: 0; font-size: 10.5px; }
+/* a long chart title never widens the chart (it would push the plot under the next panel) */
+.chart-h > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.chart { container: chart / inline-size; }
+@container chart (max-width: 240px) { .chart-h small { display: none; } }

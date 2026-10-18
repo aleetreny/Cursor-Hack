@@ -2,6 +2,9 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { FireScene } from './FireScene';
 import { useStore } from '../state/store';
+import { IS_STATIC, incidentBase, mediaUrl } from '../api/client';
+import type { WeatherResponse } from '../api/types';
+import { simCtxFor } from '../sim/useSim';
 
 /** Global handle so panels can drive the camera (fly-to, 2D/3D, etc.). */
 export const sceneRef: { current: FireScene | null } = { current: null };
@@ -36,18 +39,30 @@ export function SceneView() {
     scene.setObservations(s.features, s.hotspots);
     scene.setLayers(s.layers);
     scene.setTime(s.time);
-    scene.load(s.incident!, src).then(() => {
-      const st = useStore.getState();
-      const ring = (st.incident!.reference_perimeter?.geometry.coordinates[0] ?? []) as [number, number][];
-      scene.setSim({ t0: st.t0, t1: st.t1, center: st.incident!.center as [number, number], cell: ring });
+    scene.load(s.incident!, src).then(async () => {
+      const st = useStore.getState(), inc = st.incident!;
+      if (inc.progression) {
+        // the reconstructed arrival-time field lives next to the incident files
+        const url = IS_STATIC ? `${await incidentBase()}${inc.progression.image}` : mediaUrl(inc.progression.image)!;
+        await scene.setProgression(inc.progression, url).catch((e) => console.warn(e));
+      }
+      const ctx = simCtxFor(inc, st.timeline, st.t0, st.t1);
+      if (ctx) scene.setSim(ctx);
       scene.setOpsMode(st.mode);
       scene.setEvents(st.events);
       scene.setTime(useStore.getState().time);
       updateProfile();
     }).catch((e) => useStore.getState().set({ loadError: String(e) }));
 
-    let lastFrameKey = '';
+    let lastFrameKey = '', lastWind = '';
+    const wind = (w: WeatherResponse | null, t: number) => {
+      const h = w?.hourly.find((x) => Math.abs(Date.parse(x.timestamp) - t) <= 1800000);
+      const k = h?.timestamp ?? '';
+      if (h && k !== lastWind) { lastWind = k; scene.setWind(h.wind_dir_deg, h.wind_kmh); }
+    };
+    wind(s.weather, s.time);
     const unsub = useStore.subscribe((st, prev) => {
+      if (st.time !== prev.time || st.weather !== prev.weather) wind(st.weather, st.time);
       if (st.time !== prev.time) {
         scene.setTime(st.time);
         const k = String(Math.floor(st.time / 4000));
@@ -98,8 +113,16 @@ export function selectEvent(id: string, fly = true) {
 }
 
 /** Seek to a cited clip and show the footage. */
-export function seekCitation(sourceId: string, startSeconds: number, eventId?: string | null) {
+export function seekCitation(sourceId: string, startSeconds: number, eventId?: string | null, timestamp?: string) {
   const s = useStore.getState();
+  // a moment of a regional fire (event, satellite pass, day): seek the timeline and show the place, no footage
+  if (sourceId === 'progression' || sourceId === 'firms') {
+    const e = eventId ? s.events.find((x) => x.event_id === eventId) : undefined;
+    s.set({ playing: false, selectedEventId: eventId ?? s.selectedEventId });
+    s.setTime(Date.parse(e?.timestamp ?? timestamp ?? new Date(s.time).toISOString()));
+    if (e?.location) sceneRef.current?.flyToLonLat(e.location[0], e.location[1], 95);
+    return;
+  }
   const src = s.sources.find((x) => x.id === sourceId) ?? s.sources[0];
   if (!src) return;
   s.set({ playing: false, selectedSourceId: src.id, feedOpen: true, selectedEventId: eventId ?? s.selectedEventId });

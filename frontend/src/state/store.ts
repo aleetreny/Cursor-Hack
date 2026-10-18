@@ -51,7 +51,7 @@ export const useStore = create<State>((set, get) => ({
   incident: null, sources: [], timeline: null, features: [], hotspots: [], events: [], manifest: null, incidents: [], toast: null, weather: null,
   t0: 0, t1: 1, time: 0, playing: false, speed: 8,
   mode: 'incident', panel: 'layers', view: '3d',
-  layers: { terrain: true, imagery: 0.18, burned: 0.95, active: 1, change: 0.6, hotspots: true, groundTruth: false, perimeter: true, footprint: true, path: true, projection: false, trees: true, smoke: true },
+  layers: { terrain: true, imagery: 0.18, burned: 0.95, active: 1, change: 0.6, hotspots: true, groundTruth: false, perimeter: true, footprint: true, path: true, projection: false, trees: true, smoke: true, severity: 0, isochrones: false, ems: true },
   exaggeration: 1.8,
   selectedEventId: null, selectedSourceId: null, selectedUnitId: null, follow: null, feedOpen: false,
   compare: { on: false, before: null },

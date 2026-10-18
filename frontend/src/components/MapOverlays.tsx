@@ -3,7 +3,9 @@ import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../state/store';
 import { sceneRef } from '../scene/SceneView';
 import { aspectName, formatLat, formatLon } from '../scene/geo';
-import { fmtClock, fmtArea } from '../lib/format';
+import { fmtClock, fmtArea, fmtWhen } from '../lib/format';
+
+const SEVERITY = ['', 'Unburned', 'Low', 'Moderate-low', 'Moderate-high', 'High'];
 import { Icon } from './Icon';
 import { getLayout, useLayout } from '../lib/layout';
 
@@ -49,7 +51,10 @@ export function MapOverlays() {
     return () => { ro.disconnect(); mo.disconnect(); el.removeEventListener('transitionend', upd); map.removeEventListener('transitionend', upd); };
   }, []);
   const sc = niceScale(cam.metersPerPx || 1);
+  const frames = useStore((s) => s.timeline?.frames);
+  const regional = incident?.scale === 'regional';
   const burnedAt = (t: number) => {
+    if (regional) { let v: number | null = null; for (const f of frames ?? []) { if (Date.parse(f.timestamp) <= t) v = f.burned_area_m2.value; else break; } return v; }
     let best: number | null = null, bt = -Infinity;
     for (const f of features) if (f.properties.classification === 'burned_area') { const ft = Date.parse(f.properties.timestamp); if (ft <= t && ft > bt) { bt = ft; best = f.properties.area_m2 ?? null; } }
     return best;
@@ -75,7 +80,7 @@ export function MapOverlays() {
 
       <div className={'banner' + (feedOpen ? ' left' : '')}>
         {compare.on && compare.before != null && (
-          <span className="pill"><Icon name="compare" size={12} /> BEFORE {fmtClock(compare.before)} ┆ CURRENT {fmtClock(time)} · Δ burned <b>{delta != null && delta >= 0 ? '+' : ''}{da.v} {da.u}</b></span>
+          <span className="pill"><Icon name="compare" size={12} /> BEFORE {regional ? fmtWhen(compare.before) : fmtClock(compare.before)} ┆ CURRENT {regional ? fmtWhen(time) : fmtClock(time)} · Δ burned <b>{delta != null && delta >= 0 ? '+' : ''}{da.v} {da.u}</b></span>
         )}
         {layers.projection && <span className="pill exp" title={`Illustrative wind- and slope-driven spread on the real terrain. The 15-minute timeline replays the scenario as a ×${Math.round(scenario.lapse)} time-lapse.`}>SIMULATED FIRE SCENARIO · T+{Math.floor(scenario.hours)}h{String(Math.floor((scenario.hours % 1) * 60)).padStart(2, '0')} · {Math.round(scenario.ha).toLocaleString('en-US')} ha · ×{Math.round(scenario.lapse).toLocaleString('en-US')} time-lapse · NOT A FORECAST</span>}
       </div>
@@ -83,7 +88,9 @@ export function MapOverlays() {
       {hover && !useStore.getState().presenting && (
         <div className="hovertip" style={{ left: hover.x, top: hover.y, transform: `translate(${hover.x > (document.querySelector('.map')?.clientWidth ?? 9999) - 290 ? 'calc(-100% - 14px)' : '14px'}, ${hover.y > (document.querySelector('.map')?.clientHeight ?? 9999) - 110 ? 'calc(-100% - 14px)' : '14px'})` }}>
           <div><b>{Math.round(hover.elevation).toLocaleString()} m</b> · {Math.round(hover.slope)}° slope · {aspectName(hover.aspect)}-facing</div>
-          <div><span className={'dot' + (hover.inBurned ? ' burn' : '')} />{hover.inBurned ? 'Inside observed burned area' : hover.inPerimeter ? 'Inside planned burn cell' : 'Outside burn cell'}</div>
+          {hover.arrival !== undefined
+            ? <div><span className={'dot' + (hover.inBurned ? ' burn' : '')} />{hover.arrival == null ? 'Did not burn' : `${hover.inBurned ? 'Burned' : 'Burns'} ${fmtWhen(hover.arrival)} UTC${hover.severity ? ` · ${SEVERITY[hover.severity]} severity` : ''}`}</div>
+            : <div><span className={'dot' + (hover.inBurned ? ' burn' : '')} />{hover.inBurned ? 'Inside observed burned area' : hover.inPerimeter ? 'Inside planned burn cell' : 'Outside burn cell'}</div>}
           <div className="c">{formatLat(hover.lat)} {formatLon(hover.lon)}</div>
         </div>
       )}

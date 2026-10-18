@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore, qt } from '../state/store';
 import { profileRef, selectEvent } from '../scene/SceneView';
-import { fmtClock, fmtDay, fmtDayClock } from '../lib/format';
+import { fmtClock, fmtDay, fmtDayClock, fmtNow, fmtWhen, isMultiDay } from '../lib/format';
+import { speedLabel, speedsFor, timeSteps } from '../lib/incident';
 import { downloadCsv, useDismiss } from '../lib/ui';
 import type { AnalysisEvent, EventType } from '../api/types';
 import { Icon } from './Icon';
@@ -10,8 +11,6 @@ import { MiniChart, type Pt } from './MiniChart';
 import { SIM_UNITS, opsTotals, unitState } from '../sim/ops';
 import { useSimCtx } from '../sim/useSim';
 import { useMemo } from 'react';
-
-const SPEEDS = [1, 4, 8, 16, 32];
 
 export function eventIcon(t: EventType, sev: AnalysisEvent['severity'], size = 12) {
   const c = sev === 'alert' ? '#d2402a' : sev === 'watch' ? '#ea7a2c' : '#8b8379';
@@ -60,7 +59,8 @@ export function Timeline() {
 
 /** Playback controls + scrub track (the master clock). `compact` drops the header line (phones). */
 export function TimelineBar({ compact = false }: { compact?: boolean }) {
-  const { t0, t1, time, playing, speed, set, setTime, events, selectedEventId, compare } = useStore(useShallow((s) => ({ t0: s.t0, t1: s.t1, time: s.time, playing: s.playing, speed: s.speed, set: s.set, setTime: s.setTime, events: s.events, selectedEventId: s.selectedEventId, compare: s.compare })));
+  const { t0, t1, time, playing, speed, set, setTime, events, selectedEventId, compare, incident } = useStore(useShallow((s) => ({ t0: s.t0, t1: s.t1, time: s.time, playing: s.playing, speed: s.speed, set: s.set, setTime: s.setTime, events: s.events, selectedEventId: s.selectedEventId, compare: s.compare, incident: s.incident })));
+  const SPEEDS = speedsFor(incident), [stepS, stepL] = timeSteps(incident), regional = incident?.scale === 'regional';
   const track = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<'time' | 'before' | null>(null);
   const [speedOpen, setSpeedOpen] = useState(false);
@@ -106,13 +106,15 @@ export function TimelineBar({ compact = false }: { compact?: boolean }) {
     if (last && x - last.x < 18) last.items.push(e); else clusters.push({ x, items: [e] });
   }
   for (const c of clusters) c.items.sort((a, b) => SEV[a.severity] - SEV[b.severity] || Date.parse(a.timestamp) - Date.parse(b.timestamp));
-  const stepMs = [30000, 60000, 120000, 300000, 600000, 1800000, 3600000].find((st) => span / st <= maxTicks) ?? 3600000;
-  for (let t = Math.ceil(t0 / stepMs) * stepMs; t <= t1; t += stepMs) ticks.push({ t, label: fmtClock(t, false) });
+  const H = 3600000, D = 24 * H;
+  const stepMs = [30000, 60000, 120000, 300000, 600000, 1800000, H, 3 * H, 6 * H, 12 * H, D, 2 * D].find((st) => span / st <= maxTicks) ?? 2 * D;
+  // ticks of a day or more are labelled with the date; finer ones with the clock (and the date at midnight)
+  for (let t = Math.ceil(t0 / stepMs) * stepMs; t <= t1; t += stepMs) ticks.push({ t, label: stepMs >= D || (stepMs >= 3 * H && t % D === 0) ? fmtDay(t) : fmtClock(t, false) });
   if (ticks.length) ticks[0].day = fmtDay(t0);
 
   return (
         <div className={'tl-top' + (compact ? ' compact' : '')}>
-          {!compact && <div className="tl-head"><span>Timeline <span className="muted" style={{ fontWeight: 400, fontSize: 11.5, marginLeft: 6, transition: 'opacity .25s', opacity: hideSub ? 0 : 1 }}>UTC · drone replay</span></span><span className="range" style={{ transition: 'opacity .25s', opacity: hideRange ? 0 : 1 }}>{t0 ? `${fmtDayClock(t0)} – ${fmtClock(t1)}` : ''}</span></div>}
+          {!compact && <div className="tl-head"><span>Timeline <span className="muted" style={{ fontWeight: 400, fontSize: 11.5, marginLeft: 6, transition: 'opacity .25s', opacity: hideSub ? 0 : 1 }}>{regional ? 'UTC · reconstructed from satellites' : 'UTC · drone replay'}</span></span><span className="range" style={{ transition: 'opacity .25s', opacity: hideRange ? 0 : 1 }}>{t0 ? (isMultiDay() ? `${fmtDay(t0)} – ${fmtDay(t1)}, ${new Date(t1).getUTCFullYear()}` : `${fmtDayClock(t0)} – ${fmtClock(t1)}`) : ''}</span></div>}
           <div className="tl-row">
             <div className="tl-ctrl">
               <button onClick={() => { if (time >= t1 - 500) setTime(t0); set({ playing: true }); }} className={playing ? 'on' : ''} title="Play (Space)" aria-label="Play"><Icon name="play" size={12} /></button>
@@ -120,12 +122,12 @@ export function TimelineBar({ compact = false }: { compact?: boolean }) {
               <button onClick={() => stepEvent(-1)} title="Previous event ([)" aria-label="Previous event" disabled={!events.some((e) => Date.parse(e.timestamp) < time - 1000)}><Icon name="prev" size={12} /></button>
               <button onClick={() => stepEvent(1)} title="Next event (])" aria-label="Next event" disabled={!events.some((e) => Date.parse(e.timestamp) > time + 1000)}><Icon name="step" size={12} /></button>
               <div style={{ position: 'relative' }} ref={speedRef}>
-                <button className="speed" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setSpeedAt({ left: r.left, bottom: innerHeight - r.top + 4 }); setSpeedOpen(!speedOpen); }} aria-haspopup="menu" aria-expanded={speedOpen} title="Playback speed">{speed}× <Icon name="chev" size={10} /></button>
-                {speedOpen && <div className="menu-pop fixed" role="menu" style={{ ...speedAt, top: 'auto', minWidth: 70 }}>{SPEEDS.map((s) => <button key={s} role="menuitemradio" aria-checked={s === speed} onClick={() => { set({ speed: s }); setSpeedOpen(false); }}>{s}×</button>)}</div>}
+                <button className="speed" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setSpeedAt({ left: r.left, bottom: innerHeight - r.top + 4 }); setSpeedOpen(!speedOpen); }} aria-haspopup="menu" aria-expanded={speedOpen} title="Playback speed">{speedLabel(speed)} <Icon name="chev" size={10} /></button>
+                {speedOpen && <div className="menu-pop fixed" role="menu" style={{ ...speedAt, top: 'auto', minWidth: 70 }}>{SPEEDS.map((s) => <button key={s} role="menuitemradio" aria-checked={s === speed} onClick={() => { set({ speed: s }); setSpeedOpen(false); }}>{speedLabel(s)}</button>)}</div>}
               </div>
             </div>
-            <div className="track" ref={track} role="slider" tabIndex={0} aria-label="Timeline position" aria-valuemin={0} aria-valuemax={Math.round(span / 1000)} aria-valuenow={Math.round((time - t0) / 1000)} aria-valuetext={`${fmtDayClock(time)} UTC`}
-              onKeyDown={(e) => { const step = e.shiftKey ? 60000 : 8000; if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); setTime(time + step); } if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); setTime(time - step); } }}
+            <div className="track" ref={track} role="slider" tabIndex={0} aria-label="Timeline position" aria-valuemin={0} aria-valuemax={Math.round(span / 1000)} aria-valuenow={Math.round((time - t0) / 1000)} aria-valuetext={`${fmtNow(time)} UTC`}
+              onKeyDown={(e) => { const step = e.shiftKey ? stepL : stepS; if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); setTime(time + step); } if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); setTime(time - step); } }}
               onPointerDown={(e) => { const r = track.current!.getBoundingClientRect(); setTime(t0 + ((e.clientX - r.left) / r.width) * span); set({ playing: false }); setDrag('time'); }}>
               <div className="rail"><div className="fill" style={{ width: `${pct(time)}%` }} /></div>
               {clusters.map((c) => {
@@ -133,7 +135,7 @@ export function TimelineBar({ compact = false }: { compact?: boolean }) {
                 const sel = c.items.some((e) => e.event_id === selectedEventId);
                 return (
                   <div key={lead.event_id} className={'mk' + (sel ? ' sel' : '')} style={{ left: c.x }}
-                    title={c.items.map((e) => `${fmtClock(Date.parse(e.timestamp), false)}  ${e.title}`).join('\n')}
+                    title={c.items.map((e) => `${fmtWhen(Date.parse(e.timestamp))}  ${e.title}`).join('\n')}
                     onPointerDown={(ev) => { ev.stopPropagation(); selectEvent(lead.event_id); }}>
                     {eventIcon(lead.event_type, lead.severity, 11)}
                   </div>
@@ -141,11 +143,11 @@ export function TimelineBar({ compact = false }: { compact?: boolean }) {
               })}
               {compare.on && compare.before != null && (
                 <>
-                  {!mergeBubbles && <div className="bubble before" style={{ left: bubbleX(compare.before) }}>Before {fmtClock(compare.before)}</div>}
+                  {!mergeBubbles && <div className="bubble before" style={{ left: bubbleX(compare.before) }}>Before {isMultiDay() ? fmtWhen(compare.before) : fmtClock(compare.before)}</div>}
                   <div className="handle before" style={{ left: `${pct(compare.before)}%` }} onPointerDown={(e) => { e.stopPropagation(); setDrag('before'); }} title="Drag to change the 'before' time" />
                 </>
               )}
-              <div className={'bubble' + (mergeBubbles ? ' wide' : '')} style={{ left: mergeBubbles ? Math.min(trackW - 95, Math.max(95, (bubbleX(time) + bubbleX(compare.before!)) / 2)) : bubbleX(time) }}>{mergeBubbles ? `${fmtClock(compare.before!)} → ${fmtClock(time)}` : fmtDayClock(time)}</div>
+              <div className={'bubble' + (mergeBubbles ? ' wide' : '')} style={{ left: mergeBubbles ? Math.min(trackW - 95, Math.max(95, (bubbleX(time) + bubbleX(compare.before!)) / 2)) : bubbleX(time) }}>{mergeBubbles ? (isMultiDay() ? `${fmtWhen(compare.before!)} → ${fmtWhen(time)}` : `${fmtClock(compare.before!)} → ${fmtClock(time)}`) : fmtNow(time)}</div>
               <div className="handle" style={{ left: `${pct(time)}%` }} />
               <div className="ticks">
                 {ticks.map((k) => <div key={k.t} className="tick" style={{ left: `${pct(k.t)}%` }}>{k.label}</div>)}
@@ -161,7 +163,14 @@ export function ChartsRow() {
   const { t0, t1, time, mode, timeline } = useStore(useShallow((s) => ({ t0: s.t0, t1: s.t1, time: s.time, mode: s.mode, timeline: s.timeline })));
   const span = t1 - t0 || 1;
   const frames = useMemo(() => timeline?.frames ?? [], [timeline]);
-  const xLab = (n = 4) => Array.from({ length: n + 1 }, (_, i) => { const t = t0 + (span * i) / n; return { x: t, label: fmtClock(t, false) }; });
+  // x labels: evenly spaced clock times in a recording; whole days (every 1–3) in a days-long fire
+  const xLab = (n = 4) => {
+    if (!isMultiDay()) return Array.from({ length: n + 1 }, (_, i) => { const t = t0 + (span * i) / n; return { x: t, label: fmtClock(t, false) }; });
+    const D = 86400000, every = Math.max(1, Math.ceil(span / D / n)), out: { x: number; label: string }[] = [];
+    for (let t = Math.ceil(t0 / D) * D; t <= t1; t += every * D) out.push({ x: t, label: fmtDay(t) });
+    return out;
+  };
+  const regional = useStore((st) => st.incident?.scale === 'regional');
   const ser = (fn: (f: (typeof frames)[number]) => number | null | undefined): Pt[] => frames.map((f) => ({ x: Date.parse(f.timestamp), y: fn(f) ?? null }));
   const stepS = frames.length > 1 ? (Date.parse(frames[1].timestamp) - Date.parse(frames[0].timestamp)) / 1000 : 4;
   const profile = useProfile();
@@ -184,21 +193,29 @@ export function ChartsRow() {
   // series are rebuilt only when the data or the mode change, not on every timeline tick
   const charts = useMemo(() => mode === 'resources' && opsSeries
     ? [
-      { title: 'Retardant / Water Dropped', unit: 'gal', pts: opsSeries.gal, color: '#c0392b', kind: 'area' as const, prov: 'demo_parameter' },
+      { title: 'Water / Retardant', unit: 'gal', pts: opsSeries.gal, color: '#c0392b', kind: 'area' as const, prov: 'demo_parameter' },
       { title: 'Fire Line Built', unit: 'chains', pts: opsSeries.chains, color: '#7c5a3a', kind: 'area' as const, prov: 'demo_parameter' },
       { title: 'Personnel Assigned', unit: 'count', pts: opsSeries.pers, color: '#5f7a4c', kind: 'area' as const, prov: 'demo_parameter' },
     ]
     : mode === 'drones' && droneSeries
     ? [
       { title: `Altitude · ${selUnit}`, unit: 'ft AGL', pts: droneSeries.alt, color: '#d2402a', kind: 'line' as const, prov: 'demo_parameter' },
-      { title: 'Active Fire Area', unit: 'm² · UAV-01', pts: ser((f) => f.active_fire_area_m2.value), color: '#e8742c', kind: 'area' as const, prov: frames[0]?.active_fire_area_m2.provenance },
+      regional
+        ? { title: 'Area Reached in 6 h', unit: 'ha', pts: ser((f) => (f.active_fire_area_m2.value == null ? null : f.active_fire_area_m2.value / 1e4)), color: '#e8742c', kind: 'area' as const, prov: frames[0]?.active_fire_area_m2.provenance }
+        : { title: 'Active Fire Area', unit: 'm² · UAV-01', pts: ser((f) => f.active_fire_area_m2.value), color: '#e8742c', kind: 'area' as const, prov: frames[0]?.active_fire_area_m2.provenance },
       { title: `Battery · ${selUnit}`, unit: '%', pts: droneSeries.bat, color: '#5f7a4c', kind: 'line' as const, prov: 'demo_parameter' },
+    ]
+    : regional
+    ? [
+      { title: 'Burned Area', unit: 'ha', pts: ser((f) => (f.burned_area_m2.value == null ? null : f.burned_area_m2.value / 1e4)), color: '#c9503a', kind: 'area' as const, prov: frames[0]?.burned_area_m2.provenance },
+      { title: 'Expansion Rate', unit: 'm/min', hint: 'Growth of the equivalent radius √(area/π) over 6 h: the speed of the scar as a whole, lower than the head-fire speed', pts: ser((f) => f.front_advance_m_min?.value), color: '#cf3b2a', kind: 'line' as const, prov: frames[0]?.front_advance_m_min?.provenance },
+      { title: 'Fire Power', unit: 'MW', hint: 'Fire radiative power of the latest satellite pass (≤ 12 h), sum of the FIRMS detections in the scar', pts: ser((f) => f.frp_mw?.value), color: '#b8641c', kind: 'area' as const, prov: frames[0]?.frp_mw?.provenance },
     ]
     : mode === 'drones'
     ? [
-      { title: 'Burned Area in View', unit: 'm²', pts: ser((f) => f.burned_area_m2.value), color: '#c9503a', kind: 'area' as const, prov: frames[0]?.burned_area_m2.provenance },
+      { title: 'Burned in View', unit: 'm²', pts: ser((f) => f.burned_area_m2.value), color: '#c9503a', kind: 'area' as const, prov: frames[0]?.burned_area_m2.provenance },
       { title: 'Active Fire Area', unit: 'm²', pts: ser((f) => f.active_fire_area_m2.value), color: '#e8742c', kind: 'area' as const, prov: frames[0]?.active_fire_area_m2.provenance },
-      { title: 'Flame Hotspots (RGB)', unit: 'count', pts: ser((f) => f.hotspot_count.value), color: '#b8641c', kind: 'line' as const, prov: frames[0]?.hotspot_count.provenance },
+      { title: 'Flame Hotspots', unit: 'RGB count', pts: ser((f) => f.hotspot_count.value), color: '#b8641c', kind: 'line' as const, prov: frames[0]?.hotspot_count.provenance },
     ]
     : [
       { title: 'Burned Area', unit: 'm²', pts: ser((f) => f.burned_area_m2.value), color: '#c9503a', kind: 'area' as const, prov: frames[0]?.burned_area_m2.provenance },
@@ -207,13 +224,13 @@ export function ChartsRow() {
         : { title: 'Area Growth', unit: 'm²/min · 40 s avg', pts: smooth(ser((f) => (f.area_change_m2.value == null ? null : Math.max(0, (f.area_change_m2.value / stepS) * 60))), 10), color: '#cf3b2a', kind: 'line' as const, prov: frames[0]?.area_change_m2.provenance },
     ],
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [mode, frames, opsSeries, droneSeries, selUnit, stepS]);
+  [mode, frames, opsSeries, droneSeries, selUnit, stepS, regional]);
 
   return (
         <div className="charts">
           {charts.map((c) => (
             <div className="chart" key={c.title}>
-              <div className="chart-h"><span>{c.title} <small>({c.unit})</small>{c.prov && <span className={'prov ' + c.prov}>{c.prov === 'demo_parameter' ? 'sim' : c.prov}</span>}</span>
+              <div className="chart-h" title={'hint' in c ? (c.hint as string) : undefined}><span>{c.title} <small>({c.unit})</small>{c.prov && <span className={'prov ' + c.prov}>{c.prov === 'demo_parameter' ? 'sim' : c.prov}</span>}</span>
                 <button className="chart-dl" title="Download CSV" aria-label={`Download ${c.title} as CSV`} onClick={() => downloadCsv(`${c.title.toLowerCase().replace(/\W+/g, '-')}.csv`, ['time_utc', `${c.title} (${c.unit})`], c.pts.map((p) => [new Date(p.x).toISOString(), p.y]))}><Icon name="download" size={12} /></button></div>
               <MiniChart pts={c.pts} cursor={time} color={c.color} kind={c.kind} xTicks={xLab()} label={`${c.title} over the recording`} />
             </div>
@@ -246,7 +263,7 @@ export function AirOpsLog() {
           <div key={i} className="ev" onClick={() => { set({ selectedUnitId: d.unitId, follow: null, playing: false }); setTime(d.t); }}>
             <span style={{ width: 9, height: 9, borderRadius: 2, background: d.kind === 'retardant' ? '#c0392b' : '#3b82f6', display: 'inline-block' }} />
             <span className="ev-title">{d.unitId} · {d.gal.toLocaleString()} gal {d.kind}</span>
-            <span className="t">{fmtClock(d.t, false)}</span>
+            <span className="t">{fmtWhen(d.t)}</span>
           </div>
         ))}
         {!drops.length && <div className="muted" style={{ padding: 10, fontSize: 12 }}>No drops yet at this time.</div>}
@@ -268,7 +285,7 @@ export function KeyEvents() {
           <div key={e.event_id} className={'ev' + (e.event_id === selectedEventId ? ' sel' : '') + (Date.parse(e.timestamp) > time ? ' future' : '')} onClick={() => selectEvent(e.event_id)} title={e.description}>
             {eventIcon(e.event_type, e.severity)}
             <span className="ev-title">{e.title}</span>
-            <span className="t">{fmtClock(Date.parse(e.timestamp), false)}</span>
+            <span className="t">{fmtWhen(Date.parse(e.timestamp))}</span>
           </div>
         ))}
         {!list.length && <div className="muted" style={{ padding: 10, fontSize: 12 }}>No events yet.</div>}

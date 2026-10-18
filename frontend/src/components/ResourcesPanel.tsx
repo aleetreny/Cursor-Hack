@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore, qt } from '../state/store';
-import { SIM_UNITS, opsTotals, unitState, type SimUnit } from '../sim/ops';
+import { opsTotals, unitState, unitsFor, type SimUnit } from '../sim/ops';
 import { useSimCtx } from '../sim/useSim';
 import { formatLat, formatLon } from '../scene/geo';
 import { fmtNum } from '../lib/format';
@@ -17,7 +17,7 @@ export function ResourcesPanel() {
   useEffect(() => { if (selectedUnitId) scroll.current?.scrollTo({ top: 0, behavior: 'smooth' }); }, [selectedUnitId]);
   if (!ctx) return null;
   const tot = opsTotals(time, ctx);
-  const units = SIM_UNITS.filter((u) => u.group !== 'drones');
+  const units = unitsFor(ctx).filter((u) => u.group !== 'drones');
   const sel = units.find((u) => u.id === selectedUnitId);
   const st = sel ? unitState(sel, time, ctx) : null;
   const air = sel?.group === 'aircraft';

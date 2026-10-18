@@ -3,7 +3,7 @@ import { SpreadWindCard } from './SpreadWindCard';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore, type PanelTab, qt } from '../state/store';
 import type { SceneLayers } from '../scene/FireScene';
-import { fmtArea, fmtClock, fmtDayClock, fmtNum } from '../lib/format';
+import { fmtArea, fmtClock, fmtDayClock, fmtNum, fmtWhen } from '../lib/format';
 import { Icon } from './Icon';
 import { AgentPanel, EvidencePanel } from './AgentPanels';
 import { DronePanel } from './DronePanel';
@@ -25,6 +25,21 @@ const LAYERS: LayerRow[] = [
   { id: 'groundTruth', label: 'Ground Truth', sw: 'linear-gradient(135deg,#bfe6fb,#40c8ff)', kind: 'toggle', prov: 'ground_truth' },
   { id: 'trees', label: 'Vegetation', sw: 'radial-gradient(circle,#2f4a2a 35%,#e6d8bd 40%)', kind: 'toggle', prov: 'derived' },
   { id: 'projection', label: 'Fire Scenario (sim)', sw: 'repeating-linear-gradient(45deg,#c7a7f7 0 3px,#f3ecfd 3px 6px)', kind: 'toggle', prov: 'demo_parameter' },
+];
+
+/** A days-long wildfire reconstructed from satellites: no drone, no burn cell, no ground-truth masks. */
+const REGIONAL_LAYERS: LayerRow[] = [
+  { id: 'terrain', label: 'Terrain (3D DEM)', sw: 'linear-gradient(135deg,#7d8a5c,#c8a777 60%,#e6d2ad)', kind: 'toggle', prov: 'external' },
+  { id: 'imagery', label: 'Aerial Imagery', sw: 'linear-gradient(135deg,#6f7a62,#a59c84 50%,#5b6650)', kind: 'opacity', prov: 'external', def: 0.6 },
+  { id: 'burned', label: 'Burned Area', sw: 'linear-gradient(135deg,#2a1e1c,#5a3a34 60%,#a24a35)', kind: 'opacity', prov: 'derived', def: 0.95 },
+  { id: 'active', label: 'Active Front (3 h)', sw: 'radial-gradient(circle at 40% 40%,#ffe08a,#ff7a1a 45%,#c0290f)', kind: 'opacity', prov: 'derived', def: 1 },
+  { id: 'severity', label: 'Burn Severity', sw: 'linear-gradient(90deg,#f5db6b,#f39a38 35%,#d13d1f 65%,#6b0d1f)', kind: 'opacity', prov: 'derived', def: 0.85 },
+  { id: 'hotspots', label: 'Satellite Detections', sw: 'radial-gradient(circle,#ffd27a 25%,#ff7a2a 45%,#f3ece2 50%)', kind: 'toggle', prov: 'external' },
+  { id: 'ems', label: 'EMS Perimeter (dated)', sw: 'linear-gradient(135deg,#d9f3ff,#78dcff)', kind: 'toggle', prov: 'external' },
+  { id: 'perimeter', label: 'Final Burnt Area', sw: 'repeating-linear-gradient(90deg,#fff 0 4px,#8b8379 4px 7px)', kind: 'toggle', prov: 'external' },
+  { id: 'isochrones', label: 'Daily Isochrones', sw: 'repeating-linear-gradient(90deg,#3a2a24 0 5px,#ff9a5a 5px 7px)', kind: 'toggle', prov: 'derived' },
+  { id: 'change', label: 'Change vs Before', sw: 'linear-gradient(135deg,#f0a35a,#d9542a)', kind: 'opacity', prov: 'derived', def: 0.6 },
+  { id: 'smoke', label: 'Smoke', sw: 'linear-gradient(135deg,#b7b2ac,#7d7873)', kind: 'toggle' },
 ];
 
 export function RightPanel() {
@@ -70,11 +85,11 @@ function LayersTab() {
 }
 
 export function LayersSection() {
-  const { layers, setLayer, features } = useStore(useShallow((s) => ({ layers: s.layers, setLayer: s.setLayer, features: s.features })));
+  const { layers, setLayer, features, regional } = useStore(useShallow((s) => ({ layers: s.layers, setLayer: s.setLayer, features: s.features, regional: s.incident?.scale === 'regional' })));
   const hasGT = features.some((f) => f.properties.classification === 'ground_truth_burned');
   return (
     <div className="section" style={{ paddingTop: 8 }}>
-      {LAYERS.map((l) => {
+      {(regional ? REGIONAL_LAYERS : LAYERS).map((l) => {
         const v = layers[l.id];
         const on = typeof v === 'boolean' ? v : (v as number) > 0.001;
         const unavailable = l.id === 'groundTruth' && !hasGT;
@@ -98,6 +113,7 @@ export function IncidentOverview() {
   const { incident, t0, t1, timeline, events } = useStore(useShallow((s) => ({ incident: s.incident, t0: s.t0, t1: s.t1, timeline: s.timeline, events: s.events })));
   const last = timeline?.frames[timeline.frames.length - 1];
   const total = fmtArea(last?.burned_area_m2.value);
+  const sum = incident?.summary;
   return (
     <div className="section">
       <div className="section-h">Incident Overview</div>
@@ -106,9 +122,20 @@ export function IncidentOverview() {
         <dt className="opt">Incident ID</dt><dd className="mono opt" style={{ fontSize: 11.5 }}>{incident?.id}</dd>
         <dt>Location</dt><dd>{incident?.location}</dd>
         <dt>Type</dt><dd>{incident?.kind === 'prescribed_burn' ? 'Prescribed burn' : 'Wildfire'}</dd>
-        <dt>First obs.</dt><dd>{t0 ? fmtDayClock(t0) : '—'} UTC</dd>
-        <dt>Last obs.</dt><dd>{t1 ? fmtDayClock(t1) : '—'} UTC</dd>
-        <dt>Burned (view)</dt><dd>{total.v} {total.u}{last && <span className={'prov ' + last.burned_area_m2.provenance}>{last.burned_area_m2.provenance}</span>}</dd>
+        {sum ? (
+          <>
+            <dt>First detection</dt><dd>{fmtWhen(Date.parse(sum.first_detection))} UTC</dd>
+            <dt>Growth ended</dt><dd>{fmtWhen(Date.parse(sum.growth_below_50ha_day))} UTC</dd>
+            <dt>Burned</dt><dd>{fmtNum(sum.burned_ha)} ha<span className="prov external">EMS</span></dd>
+            <dt>High severity</dt><dd>{Math.round(sum.high_severity_share * 100)}% of the scar<span className="prov derived">dNBR</span></dd>
+          </>
+        ) : (
+          <>
+            <dt>First obs.</dt><dd>{t0 ? fmtDayClock(t0) : '—'} UTC</dd>
+            <dt>Last obs.</dt><dd>{t1 ? fmtDayClock(t1) : '—'} UTC</dd>
+            <dt>Burned (view)</dt><dd>{total.v} {total.u}{last && <span className={'prov ' + last.burned_area_m2.provenance}>{last.burned_area_m2.provenance}</span>}</dd>
+          </>
+        )}
         <dt>Events</dt><dd>{events.length} detected · {events.filter((e) => e.review_required).length} to review</dd>
       </dl>
     </div>

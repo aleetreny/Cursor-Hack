@@ -3,6 +3,7 @@ import { SIM_UNITS, opsTotals } from '../sim/ops';
 import { formatLat, formatLon } from '../scene/geo';
 import { clipCitation, eventCitation, frameAt, growthSeries, loadCorpus, type Corpus } from './corpus';
 import { compass, detectLang, mmss, norm, num, t, utc, type Lang } from './lang';
+import { regionalAsk } from './regional';
 
 /**
  * FireScope incident analyst — answers questions about the incident in English or Spanish, in the browser, from the recorded
@@ -34,7 +35,7 @@ const INTENTS: [Intent, RegExp, number][] = [
   ['resources', /\b(resources?|aircraft|planes?|tankers?|helicopters?|engines?|crews?|retardant|dozer|recursos?|aviones?|avionetas?|helicopteros?|brigad\w*|retardante|medios|cisternas?|bomberos|camion\w*)\b/, 2.5],
   ['drone', /\b(drones?|uav|camera|altitude|footage|video|dron|camara|altura|grabacion|filmacion)\b/, 1.5],
   ['method', /\b(how (do|does|did) (you|it|this)|method\w*|algorithm|segment\w*|computed|calculated|metodo|algoritmo|calcul\w*)\b|\bcomo (funciona|se calcula|lo sabes|lo calculas)\b/, 2],
-  ['summary', /\b(change\w*|happen\w*|evolv\w*|summar\w*|overview|progress\w*|cambi\w*|paso|ocurri\w*|evolu\w*|resumen|resume)\b/, 1],
+  ['summary', /\b(change\w*|happen\w*|evolv\w*|summar\w*|overview|progress\w*|grow|grew|growth|develop\w*|cambi\w*|paso|ocurri\w*|evolu\w*|resumen|resume|crec\w*|desarroll\w*)\b/, 1],
 ];
 
 export function classify(question: string): Intent | null {
@@ -267,6 +268,7 @@ const A: Record<Intent, (x: Ctx) => string> = {
 export async function analystAsk(body: AskRequest, base: string): Promise<AskResponse> {
   const t0 = performance.now();
   const c = await loadCorpus(base);
+  if (c.incident.scale === 'regional') return regionalAsk(body, c, classify(body.question), t0);
   const lang = detectLang(body.question);
   const ms = body.context?.timestamp ? Date.parse(body.context.timestamp) : c.t1;
   const x: Ctx = { c, lang, q: body.question, ms, vs: Math.max(0, (ms - c.t0) / 1000), selected: c.events.find((e) => e.event_id === body.context?.selected_event_id), cites: [] };

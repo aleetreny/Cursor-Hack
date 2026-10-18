@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore, qt } from '../state/store';
 import { fmtNum } from '../lib/format';
@@ -12,7 +12,7 @@ const diff = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
  * ERA5 wind blows, at the timeline cursor. Sized by the parent to the space left in the Layers tab.
  */
 export function SpreadWindCard({ height }: { height: number }) {
-  const { timeline, time, weather } = useStore(useShallow((s) => ({ timeline: s.timeline, time: qt(s.time, 2000), weather: s.weather })));
+  const { timeline, time, weather, regional } = useStore(useShallow((s) => ({ timeline: s.timeline, time: qt(s.time, 2000), weather: s.weather, regional: s.incident?.scale === 'regional' })));
   const frames = timeline?.frames ?? [];
   const now = useMemo(() => {
     let best = frames[0];
@@ -29,15 +29,35 @@ export function SpreadWindCard({ height }: { height: number }) {
     const h = weather?.hourly ?? [];
     return h.length ? h.reduce((a, b) => (Math.abs(Date.parse(b.timestamp) - time) < Math.abs(Date.parse(a.timestamp) - time) ? b : a)) : null;
   }, [weather, time]);
+  // Fit by measuring, not by guessing from the card height: the compass takes the height the body really has, and the
+  // text steps down (0 full + note → 1 full → 2 compact → 3 one line) until it fits at this time's wording.
+  const body = useRef<HTMLDivElement>(null), text = useRef<HTMLDivElement>(null);
+  const [bodyH, setBodyH] = useState(0);
+  const [level, setLevel] = useState(0);
+  useLayoutEffect(() => {
+    const el = body.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setBodyH(el.clientHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
+  const key = `${now?.front_bearing_deg?.value}|${now?.front_advance_m_min?.value}|${wx?.wind_dir_deg}|${wx?.wind_kmh}|${overall}|${height}`;
+  useLayoutEffect(() => { setLevel(0); }, [key]);
+  useLayoutEffect(() => {
+    const t = text.current, b = body.current;
+    if (!t || !b || level >= 3) return;
+    if (t.offsetHeight > b.clientHeight + 1 || t.scrollWidth > t.clientWidth + 1) setLevel(level + 1);
+  });
   if (!now?.front_bearing_deg || !wx || wx.wind_dir_deg == null) return null;
   const front = now.front_bearing_deg.value, ros = now.front_advance_m_min?.value ?? null;
   const windTo = (wx.wind_dir_deg + 180) % 360;
   const ref = front ?? overall;
   const d = ref != null ? diff(ref, windTo) : null;
   const verdict = d == null ? '' : d < 30 ? 'with the wind' : d < 70 ? 'at an angle to the wind' : d < 120 ? 'across the wind' : 'against the wind';
-  const compact = height < 170, tiny = height < 112, micro = height < 86;
   const tall = height >= 330;   // compass above the text
-  const S = tall ? Math.min(230, height - 200) : Math.max(30, Math.min(132, height - (compact ? 38 : 66)));
+  const compact = level >= 2 || height < 170, micro = level >= 3 || height < 86, tiny = micro || height < 112, note = level === 0 && !compact;
+  const S = tall ? Math.min(230, height - 200) : Math.max(0, Math.min(132, (bodyH || height - 66) - 2));   // never taller than the body
+  const showCompass = tall || S >= 18;
   const arrow = (deg: number, len: number, color: string, w: number, dash?: string) => {
     const a = (deg * Math.PI) / 180, x = Math.sin(a) * len, y = -Math.cos(a) * len, h = 7, ax = Math.sin(a), ay = -Math.cos(a);
     return (
@@ -50,8 +70,8 @@ export function SpreadWindCard({ height }: { height: number }) {
   return (
     <div className="section spread-card" style={{ height }}>
       <div className="section-h"><span>Spread vs wind <small>(at cursor)</small></span><span className="prov derived">derived</span></div>
-      <div className={'sw-body' + (tall ? ' tall' : '')}>
-        <svg width={S} height={S} viewBox="-60 -60 120 120" role="img" aria-label={`Front moving ${front != null ? dir(front) : 'not measurable'}, wind blowing toward ${dir(windTo)}`}>
+      <div className={'sw-body' + (tall ? ' tall' : '')} ref={body}>
+        {showCompass && <svg width={S} height={S} viewBox="-60 -60 120 120" role="img" aria-label={`Front moving ${front != null ? dir(front) : 'not measurable'}, wind blowing toward ${dir(windTo)}`}>
           <circle r={50} fill="none" stroke="var(--line)" strokeWidth={1.2} />
           <circle r={25} fill="none" stroke="var(--line-2)" strokeWidth={1} />
           {[0, 90, 180, 270].map((t) => <line key={t} x1={0} y1={-50} x2={0} y2={-44} stroke="var(--muted)" strokeWidth={1.2} transform={`rotate(${t})`} />)}
@@ -60,27 +80,27 @@ export function SpreadWindCard({ height }: { height: number }) {
           {overall != null && arrow(overall, 30, '#e8742c', 1.8, '3 3')}
           {front != null && arrow(front, 44, '#d2402a', 3.4)}
           <circle r={3} fill="var(--ink)" />
-        </svg>
+        </svg>}
         {micro ? (
-          <div className="sw-text compact">
+          <div className="sw-text compact" ref={text}>
             <div className="sw-line"><span className="sw-key fire" /><b>{front != null ? `${dir(front)} ${front}°` : 'still'}</b> <span className="sw-key wind" style={{ marginLeft: 8 }} /><b>{dir(windTo)} {Math.round(windTo)}°</b>{d != null && <span className="muted"> · {Math.round(d)}° off</span>}</div>
           </div>
         ) : compact ? (
-          <div className="sw-text compact">
+          <div className="sw-text compact" ref={text}>
             <div className="sw-line"><span className="sw-key fire" />Front <b>{front != null ? `${dir(front)} ${front}°` : 'still'}</b>{!tiny && ros != null && front != null && <span className="muted"> · {fmtNum(ros, 1)} m/min</span>}</div>
             <div className="sw-line"><span className="sw-key wind" />Wind to <b>{dir(windTo)} {Math.round(windTo)}°</b>{!tiny && <span className="muted"> · {fmtNum(wx.wind_kmh, 1)} km/h</span>}</div>
             {d != null && <div className="sw-line sw-verdict"><b>{Math.round(d)}°</b> off the wind</div>}
           </div>
         ) : (
-          <div className="sw-text">
+          <div className="sw-text" ref={text}>
             <div className="sw-item"><span className="sw-key fire" /><span className="lab">Front moving toward</span><b>{front != null ? `${dir(front)} ${front}°` : 'not advancing'}{ros != null && front != null && <span className="muted"> · {fmtNum(ros, 1)} m/min</span>}</b></div>
             <div className="sw-item"><span className="sw-key wind" /><span className="lab">Wind blowing toward</span><b>{dir(windTo)} {Math.round(windTo)}°<span className="muted"> · {fmtNum(wx.wind_kmh, 1)} km/h</span></b></div>
-            {overall != null && <div className="sw-item"><span className="sw-key dash" /><span className="lab">Front, whole recording</span><b>{dir(overall)} {Math.round(overall)}°</b></div>}
+            {overall != null && <div className="sw-item"><span className="sw-key dash" /><span className="lab">{regional ? 'Front, whole fire' : 'Front, whole recording'}</span><b>{dir(overall)} {Math.round(overall)}°</b></div>}
             {verdict && <div className="sw-verdict">{front != null ? 'Moving' : 'Overall it moved'} <b>{verdict}</b> ({Math.round(d!)}° off).</div>}
           </div>
         )}
       </div>
-      {!compact && <div className="muted sw-note">Front direction from the burned outlines (visible part only); wind from the ERA5 reanalysis.</div>}
+      {note && <div className="muted sw-note">{regional ? 'Spread direction from the reconstructed arrival time (1 km scale); wind from the ERA5 reanalysis.' : 'Front direction from the burned outlines (visible part only); wind from the ERA5 reanalysis.'}</div>}
     </div>
   );
 }

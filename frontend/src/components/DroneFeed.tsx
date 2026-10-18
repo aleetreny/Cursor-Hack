@@ -3,9 +3,9 @@ import { useShallow } from 'zustand/react/shallow';
 import { useStore, videoSecondsAt, qt } from '../state/store';
 import { mediaUrl } from '../api/client';
 import { formatLat, formatLon } from '../scene/geo';
-import { fmtClock, fmtVideo } from '../lib/format';
+import { fmtClock, fmtDay, fmtVideo, isMultiDay } from '../lib/format';
 import { Icon } from './Icon';
-import { SIM_UNITS, unitState } from '../sim/ops';
+import { unitState, unitsFor } from '../sim/ops';
 import { useSimCtx } from '../sim/useSim';
 import { sceneRef } from '../scene/SceneView';
 
@@ -37,8 +37,10 @@ function useFeedWindow() {
 
 /** Drone camera window. The <video> follows the global timeline (the timeline is the master clock). */
 export function DroneFeed() {
-  const sel = useStore((s) => s.selectedUnitId);
-  return sel?.startsWith('FT-') ? <SimFeed id={sel} /> : <RealFeed />;
+  const sel = useStore((s) => s.selectedUnitId), hasReal = useStore((s) => s.sources.length > 0);
+  // no published footage (regional fire): the camera opens on the simulated drone circling the front
+  const sim = sel?.startsWith('FT-') ? sel : hasReal ? null : 'FT-02';
+  return sim ? <SimFeed key={sim} id={sim} /> : <RealFeed />;
 }
 
 /** Simulated drone camera: a second camera rendering the 3D twin from the drone's pose (spatially coherent, labelled). */
@@ -50,7 +52,7 @@ function SimFeed({ id }: { id: string }) {
   const [sensor, setSensor] = useState<'EO' | 'IR'>('EO');
   const [palette, setPalette] = useState<'ironbow' | 'whitehot'>('ironbow');
   const [zoom, setZoom] = useState(1);
-  const u = SIM_UNITS.find((x) => x.id === id)!;
+  const u = unitsFor(ctx).find((x) => x.id === id)!;
   useEffect(() => {
     let on = true;
     const tick = async () => {
@@ -76,7 +78,7 @@ function SimFeed({ id }: { id: string }) {
         <canvas ref={cv} width={480} height={270} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transform: `scale(${zoom})`, filter: sensor === 'IR' ? `url(#lut-${palette}-s)` : undefined }} />
         <div className="hud">
           <div className="tl"><div className="rec">SIM {fmtVideo(st.flightS)}</div><div>{u.id} · {u.name.toUpperCase()}</div><div>{sensor === 'EO' ? 'EO · RENDERED' : `IR* · ${palette === 'ironbow' ? 'IRONBOW' : 'WHITE-HOT'}`}</div></div>
-          <div className="tr"><div>{fmtClock(time)} UTC</div><div style={{ color: '#c9a7f7' }}>SIMULATED VIEW</div><div style={{ color: '#c9a7f7' }}>rendered from 3D twin</div></div>
+          <div className="tr"><div>{isMultiDay() ? `${fmtDay(time).toUpperCase()} ` : ''}{fmtClock(time)} UTC</div><div style={{ color: '#c9a7f7' }}>SIMULATED VIEW</div><div style={{ color: '#c9a7f7' }}>rendered from 3D twin</div></div>
           <div className="cross" />
           <div className="bl"><div>ALT {Math.round(st.agl * 3.281)} FT AGL</div><div>GS {Math.round(st.speedKt)} KT</div><div>HDG {String(Math.round(st.heading)).padStart(3, '0')}°</div></div>
           <div className="bc">{formatLat(st.lat)}  {formatLon(st.lon)}</div>

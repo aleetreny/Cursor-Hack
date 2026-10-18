@@ -36,7 +36,9 @@ export function MiniChart({ pts, cursor, color, kind = 'area', xTicks, yTicks, c
     const area = valid.length > 1 ? `${line}L${X(valid[valid.length - 1].x).toFixed(1)},${Y(base).toFixed(1)}L${X(valid[0].x).toFixed(1)},${Y(base).toFixed(1)}Z` : '';
     return { valid, x0, x1, yt, X, Y, line, area };
   }, [pts, w, h, zero, keyY]);   // eslint-disable-line react-hooks/exhaustive-deps
-  const xStep = Math.max(1, Math.ceil((xTicks.length - 1) / Math.max(1, Math.floor(w / 46))));
+  // thin the x labels by their real width ("12:33" or "Aug 14"): 9.5 px text ≈ 6 px a character, plus a gap
+  const labW = Math.max(30, ...xTicks.map((t) => t.label.length * 6 + 14));
+  const xStep = Math.max(1, Math.ceil((xTicks.length - 1) / Math.max(1, Math.floor(w / labW))));
   const statics = useMemo(() => g && (
     <>
       {g.yt.map((v, i) => <g key={i}><line x1={L} x2={L + w} y1={g.Y(v)} y2={g.Y(v)} stroke="#e2dbd0" strokeWidth={1} /><text x={L - 5} y={g.Y(v) + 3} textAnchor="end">{fmtTick(v)}</text></g>)}

@@ -1,6 +1,7 @@
 import type { SearchRequest, SearchResponse, SearchResult } from '../api/types';
 import { CLIP_SECONDS, growthSeries, loadCorpus, type Corpus } from './corpus';
 import { norm } from './lang';
+import { regionalSearch } from './regional';
 
 /**
  * Footage search for the static demo: keyword matching (English or Spanish) over the recorded events and a short
@@ -60,6 +61,7 @@ function docs(c: Corpus) {
 export async function staticSearch(body: SearchRequest, base: string): Promise<SearchResponse> {
   const t0 = performance.now();
   const c = await loadCorpus(base);
+  if (c.incident.scale === 'regional') return regionalSearch(body, c, t0);
   const qs = queryTerms(body.query);
   const ranked = docs(c).map((d) => ({ d, s: score(qs, d.text) * (d.ev ? 1.4 : 1) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).slice(0, body.top_k ?? 8);
   const results: SearchResult[] = ranked.map(({ d, s }) => ({

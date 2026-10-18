@@ -8,13 +8,20 @@
 
 FireScope 3D takes drone video of a fire, measures what the camera sees (burned ground, flames, smoke), projects it onto real terrain, and lets you scrub through time, click an event to see the exact video evidence, search the footage and ask questions about the incident in English or Spanish.
 
+It ships two incidents (switch with the incident menu in the top bar, or `?incident=`):
+
+| Incident | Scale | What is real |
+|---|---|---|
+| **Pinhão Cell Burn**, Portugal, 1 Mar 2019 (default) | A drone's view: 15 min, ~0.2 ha burned in view | Drone video, camera pose, segmentation evaluated against hand-drawn masks |
+| **Larouco Wildfire**, Ourense, Spain, 13–27 Aug 2025 (`?incident=larouco-2025-08`) | 33,132 ha over 14 days, 42 × 41 km of terrain | When each 30 m cell burned, reconstructed from NASA FIRMS and Copernicus EMS perimeters and validated against them; Sentinel-2 burn severity; ERA5 weather |
+
 The interface recreates the "FireTrace" wildfire forensic prototype (Dilum Sanjaya / Claude, shared by Anthropic). Its layout is a full-bleed 3D terrain with a right-hand layers and incident panel, a bottom timeline with linked charts and a key-events column, Incident / Drones / Resources modes, a drone camera window, and 2D/3D map switching. Here it runs on **real data**.
 
 > Exploratory decision-support prototype. **Not** a certified emergency-management or fire-spread prediction system.
 
 ---
 
-## What you are looking at
+## Pinhão: what you are looking at
 
 | | Source | Status |
 |---|---|---|
@@ -33,6 +40,29 @@ The interface recreates the "FireTrace" wildfire forensic prototype (Dilum Sanja
 | Trees, smoke particles | Rendered for readability | Stylized |
 
 Every metric in the UI carries a provenance chip (`model`, `derived`, `ground_truth`, `external`, `sim`), and the **About** tab lists how each part was produced.
+
+## Larouco: a whole wildfire from open satellite data
+
+The pipeline (`pipeline/larouco/`, see its [README](pipeline/larouco/README.md)) only uses open data that needs no account. It downloads the inputs, reconstructs when each 30 m cell burned, computes severity and writes a ~2 MB package.
+
+| | Source | Status |
+|---|---|---|
+| Burnt area | Copernicus EMS EMSR837: 12 dated delineations, 13–30 Aug 2025 (Sentinel-2, SPOT 6/7, WorldView-2, Legion) | External: **33,132 ha** |
+| When each place burned | First NASA FIRMS detection of each 30 m cell (VIIRS 375 m, MODIS 1 km); gaps interpolated; bounded by every dated EMS perimeter | Derived. Each perimeter held out in turn: **IoU 0.78 / 0.85 / 0.94** on 16 / 20 / 21 Aug |
+| Expansion rate | Growth of the equivalent radius √(area/π) over 6 h, peaking at 4 m/min | Derived: the speed of the scar as a whole, lower than the head-fire speed. No front line is drawn, because passes are hours apart |
+| Fire power | FIRMS fire radiative power per pass, up to 33 GW on 17 Aug | External |
+| Burn severity | Sentinel-2 dNBR, 1 Aug vs 5 Sep 2025 | Derived: 70 % high severity |
+| Events | 19 computed events: first detection, area milestones, the fastest 6 h runs, the most intense pass, perimeters, weather extremes | Derived, all need review |
+| Weather | ERA5 hourly via Open-Meteo | External (reanalysis) |
+| Drones, aircraft, ground units | The same exercise, re-tasked for the large fire: they follow the reconstructed front, and aircraft fly in daylight only | **Simulated**, tagged SIM |
+| Video | None published: real footage of this fire needs its owners' permission | — |
+
+In the app:
+- **Fire on the terrain.** The reconstructed fire grows hour by hour over 42 × 41 km. A glowing front marks the last 3 h and embers the last half day, and fresh char turns to ash.
+- **Map layers.** The dated EMS perimeter, FIRMS detections (shown for 12 h after each pass), daily isochrones and a severity tint.
+- **Smoke.** Columns lean with the ERA5 wind of that hour.
+- **Timeline.** It runs at 15 min to 4 h of fire time per second. The charts show burned area, expansion rate and fire power.
+- **Ask and Search.** They answer from the reconstruction and cite moments on the timeline.
 
 ## Any device
 
@@ -138,6 +168,12 @@ Every push to `main` runs [`.github/workflows/pages.yml`](.github/workflows/page
 * The video's wall-clock start (12:33:00Z) is an assumption anchored to the photo metadata.
 * The analyst and search work on the recorded measurements and events only; they cannot answer about things that were not measured.
 * The large-fire scenario, fleet and resources are an illustrative simulation.
+* **Larouco:**
+  * Timing between satellite passes (about six a day) is interpolated, and the first detection is not the ignition.
+  * The scar's own EMS perimeters were used to pick the method's parameters, so the IoU is slightly optimistic.
+  * Smoke and spot fires are not measured.
+  * Terrain and imagery are streamed at runtime, not packaged.
+  * The fleet and resources around it are an exercise, not the real operation, and the app has no data on people or houses.
 
 ## History
 
@@ -145,4 +181,4 @@ FireScope 3D was built in a day at the **VAST Builders Challenge (17 Oct 2026)**
 
 ## Credits
 
-BurnedAreaUAV, Ribeiro et al. 2023 (CC-BY-4.0) · AWS Terrain Tiles · Esri World Imagery · ERA5 via Open-Meteo · UI inspired by FireTrace (Dilum Sanjaya). The FireScope implementation is independent.
+BurnedAreaUAV, Ribeiro et al. 2023 (CC-BY-4.0) · Copernicus Emergency Management Service (© 2025 European Union), EMSR837 · NASA FIRMS (LANCE) · contains modified Copernicus Sentinel data (2025) · ERA5 (Copernicus C3S) via Open-Meteo · AWS Terrain Tiles · Esri World Imagery · UI inspired by FireTrace (Dilum Sanjaya). The FireScope implementation is independent.

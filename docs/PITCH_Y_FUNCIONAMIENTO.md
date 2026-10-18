@@ -147,7 +147,8 @@ Ese clúster ya no existe y aquellos resultados no se guardaron, así que **la v
 
 * **Motor 3D: nos quedamos con Three.js** en lugar de migrar a Cesium o MapLibre. Ya tiene LOD por anillos, depth logarítmico, sombras, bloom e instancing, y medimos **60 fps** reproduciendo a 1440×900. Migrar costaría el control sobre el shader del fuego pegado al terreno.
 * **Funciona en cualquier pantalla:** escritorio, tablet (panel deslizante) y móvil (hoja inferior; en horizontal, panel lateral). Carga en menos de un segundo y sigue funcionando sin conexión tras la primera visita.
-* **Lo pendiente**, desde el incendio grande hasta la búsqueda semántica en el navegador, está en el [plan de mejora](PLAN_DE_MEJORA.md).
+* **El incendio grande ya está:** Larouco (Ourense, agosto de 2025, 33.132 ha), reconstruido hora a hora con datos abiertos de satélite (NASA FIRMS, Copernicus EMS y Sentinel-2) y validado contra los perímetros de EMS. Se abre con el menú de incidentes o con `?incident=larouco-2025-08`.
+* **Lo pendiente**, desde el motor 3D de nueva generación hasta la búsqueda semántica en el navegador, está en el [plan de mejora](PLAN_DE_MEJORA.md).
 
 ## 12. Cómo ejecutarlo
 

@@ -42,7 +42,7 @@ export function PhoneBar() {
 }
 
 function PhoneMenu({ close }: { close: () => void }) {
-  const { view, layers, compare, exaggeration, set, notify } = useStore(useShallow((s) => ({ view: s.view, layers: s.layers, compare: s.compare, exaggeration: s.exaggeration, set: s.set, notify: s.notify })));
+  const { view, layers, compare, exaggeration, set, notify, regional } = useStore(useShallow((s) => ({ view: s.view, layers: s.layers, compare: s.compare, exaggeration: s.exaggeration, set: s.set, notify: s.notify, regional: s.incident?.scale === 'regional' })));
   const ref = useRef<HTMLDivElement>(null);
   useDismiss(true, close, ref);
   const item = (label: string, on: (() => void), state?: string) => (
@@ -58,15 +58,24 @@ function PhoneMenu({ close }: { close: () => void }) {
       <div className="pm-h">View</div>
       {item(view === '3d' ? 'Top-down 2D map' : 'Oblique 3D view', () => set({ view: view === '3d' ? '2d' : '3d' }))}
       {item('Reset camera', () => sceneRef.current?.flyHome())}
-      {item('Go to the drone', () => sceneRef.current?.flyToDrone())}
+      {!regional && item('Go to the drone', () => sceneRef.current?.flyToDrone())}
       {item('Vertical exaggeration', () => set({ exaggeration: exaggeration === 1 ? 1.8 : 1 }), `${exaggeration}×`)}
       {item('Full-screen map', toggleFullscreen)}
       <div className="pm-h">Analysis</div>
-      {item('Compare before / current', () => { const s = useStore.getState(); set({ compare: compare.on ? { on: false, before: null } : { on: true, before: Math.max(s.t0, s.time - 180000) } }); }, compare.on ? 'on' : 'off')}
-      {item('Ground-truth masks', () => useStore.getState().setLayer('groundTruth', !layers.groundTruth), layers.groundTruth ? 'on' : 'off')}
-      {item('Large-fire scenario (sim)', () => useStore.getState().setLayer('projection', !layers.projection), layers.projection ? 'on' : 'off')}
+      {item('Compare before / current', () => { const s = useStore.getState(); set({ compare: compare.on ? { on: false, before: null } : { on: true, before: Math.max(s.t0, s.time - (regional ? 86400000 : 180000)) } }); }, compare.on ? 'on' : 'off')}
+      {regional ? (
+        <>
+          {item('Burn severity (dNBR)', () => useStore.getState().setLayer('severity', layers.severity > 0 ? 0 : 0.85), layers.severity > 0 ? 'on' : 'off')}
+          {item('Daily isochrones', () => useStore.getState().setLayer('isochrones', !layers.isochrones), layers.isochrones ? 'on' : 'off')}
+        </>
+      ) : (
+        <>
+          {item('Ground-truth masks', () => useStore.getState().setLayer('groundTruth', !layers.groundTruth), layers.groundTruth ? 'on' : 'off')}
+          {item('Large-fire scenario (sim)', () => useStore.getState().setLayer('projection', !layers.projection), layers.projection ? 'on' : 'off')}
+        </>
+      )}
       <div className="pm-h">FireScope</div>
-      {item('Guided tour', () => set({ presenting: true }))}
+      {!regional && item('Guided tour', () => set({ presenting: true }))}
       {item('Share this view', share)}
       {item('About this demo', () => set({ mode: 'incident', panel: 'notes' }))}
     </div>

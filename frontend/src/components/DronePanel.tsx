@@ -3,7 +3,7 @@ import { useStore, videoSecondsAt, qt } from '../state/store';
 import { sceneRef } from '../scene/SceneView';
 import { formatLat, formatLon } from '../scene/geo';
 import { fmtNum, fmtVideo } from '../lib/format';
-import { SIM_UNITS, unitState } from '../sim/ops';
+import { unitState, unitsFor } from '../sim/ops';
 import { useSimCtx } from '../sim/useSim';
 import { Icon } from './Icon';
 
@@ -12,16 +12,16 @@ export function DronePanel() {
   const { sources, selectedSourceId, selectedUnitId, set, time, feedOpen, follow } = useStore(useShallow((s) => ({ sources: s.sources, selectedSourceId: s.selectedSourceId, selectedUnitId: s.selectedUnitId, set: s.set, time: qt(s.time, 1000), feedOpen: s.feedOpen, follow: s.follow })));
   const ctx = useSimCtx();
   const src = sources.find((s) => s.id === selectedSourceId) ?? sources[0];
-  const simSel = selectedUnitId?.startsWith('FT-') ? SIM_UNITS.find((u) => u.id === selectedUnitId) : undefined;
+  const simSel = selectedUnitId?.startsWith('FT-') ? unitsFor(ctx).find((u) => u.id === selectedUnitId) : undefined;
   const p = src?.pose;
   const heading = p?.yaw_deg != null ? ((p.yaw_deg % 360) + 360) % 360 : null;
   const vs = videoSecondsAt(src, time);
-  const drones = SIM_UNITS.filter((u) => u.group === 'drones');
+  const drones = unitsFor(ctx).filter((u) => u.group === 'drones');
   return (
     <div className="scroll">
       <div className="section" style={{ padding: '10px 0 6px' }}>
         <div className="section-h" style={{ padding: '0 12px' }}><span>Drone Fleet <small>{sources.length} real · {drones.length} simulated</small></span>
-          <span style={{ fontSize: 10.5, fontWeight: 700, color: '#b8641c', letterSpacing: '.05em' }} title="UAV-01 is a recorded flight, replayed in sync with the timeline">● REPLAY</span></div>
+          {sources.length > 0 ? <span style={{ fontSize: 10.5, fontWeight: 700, color: '#b8641c', letterSpacing: '.05em' }} title="UAV-01 is a recorded flight, replayed in sync with the timeline">● REPLAY</span> : <span className="sim-tag" title="No footage of this fire is published here: the fleet is a simulated exercise that follows the reconstructed front">SIM</span>}</div>
         {sources.map((s) => (
           <div key={s.id} className={'fleet-row' + (!simSel && s.id === src?.id ? ' sel' : '')} onClick={() => { set({ selectedSourceId: s.id, selectedUnitId: null, feedOpen: true, follow: null }); sceneRef.current?.flyToDrone(); }}>
             <div className="fleet-ic"><Icon name="drone" size={15} /></div>

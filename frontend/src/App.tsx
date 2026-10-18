@@ -34,6 +34,7 @@ export default function App() {
   const feedOpen = useStore((s) => s.feedOpen);
   const loaded = useStore((s) => s.loaded);
   const presenting = useStore((s) => s.presenting);
+  const regional = useStore((s) => s.incident?.scale === 'regional');
   const toast = useStore((s) => s.toast);
   const drawer = useStore((s) => s.drawer);
   const layout = useLayout();
@@ -97,7 +98,7 @@ export default function App() {
         </div>
         {layout === 'desktop' && <RightPanel />}
       </div>
-      {loaded && presenting && <Suspense fallback={null}><Presenter /></Suspense>}
+      {loaded && presenting && !regional && <Suspense fallback={null}><Presenter /></Suspense>}
       {toast && <div className="toast" role="status">{toast}</div>}
       <IncidentSummary />
     </div>

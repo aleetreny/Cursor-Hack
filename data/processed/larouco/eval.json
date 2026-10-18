@@ -1,0 +1,94 @@
+{
+ "model": "firescope-progression v1 (FIRMS VIIRS/MODIS first detection + Copernicus EMS perimeters, IDW, σ 150 m)",
+ "kind": "progression",
+ "mean": {
+  "iou": 0.8567,
+  "iou_firms_only": 0.8477
+ },
+ "perimeters": [
+  {
+   "perimeter": "DEL_PRODUCT",
+   "image_time": "2025-08-16T11:21:00Z",
+   "sensors": [
+    "Sentinel-2"
+   ],
+   "burned_share_of_final": 0.158,
+   "image_covers_share_of_scar": 0.888,
+   "iou_leave_one_out": 0.781,
+   "iou_firms_only": 0.761
+  },
+  {
+   "perimeter": "DEL_MONIT01",
+   "image_time": "2025-08-20T11:24:00Z",
+   "sensors": [
+    "SPOT-6-7"
+   ],
+   "burned_share_of_final": 0.443,
+   "image_covers_share_of_scar": 0.529,
+   "iou_leave_one_out": 0.847,
+   "iou_firms_only": 0.838
+  },
+  {
+   "perimeter": "DEL_MONIT02",
+   "image_time": "2025-08-21T11:21:00Z",
+   "sensors": [
+    "Sentinel-2"
+   ],
+   "burned_share_of_final": 0.924,
+   "image_covers_share_of_scar": 0.979,
+   "iou_leave_one_out": 0.942,
+   "iou_firms_only": 0.944
+  }
+ ],
+ "detections_in_scar": 1914,
+ "satellite_passes": 159,
+ "severity": {
+  "scene_pre": [
+   "S2C_29TPG_20250801_0_L2A",
+   "S2C_29TPH_20250801_0_L2A"
+  ],
+  "scene_post": [
+   "S2B_29TPG_20250905_0_L2A",
+   "S2B_29TPH_20250905_0_L2A"
+  ],
+  "valid_share_of_scar": 0.999,
+  "mean_dnbr_in_scar": 0.761,
+  "classes": [
+   {
+    "id": 1,
+    "label": "Unburned / regrowth",
+    "ha": 116,
+    "share": 0.003
+   },
+   {
+    "id": 2,
+    "label": "Low",
+    "ha": 479,
+    "share": 0.014
+   },
+   {
+    "id": 3,
+    "label": "Moderate-low",
+    "ha": 2053,
+    "share": 0.062
+   },
+   {
+    "id": 4,
+    "label": "Moderate-high",
+    "ha": 7411,
+    "share": 0.224
+   },
+   {
+    "id": 5,
+    "label": "High",
+    "ha": 23030,
+    "share": 0.696
+   }
+  ]
+ },
+ "notes": [
+  "Each intermediate EMS perimeter is held out in turn and compared with the reconstruction built from the others (IoU inside that image's footprint).",
+  "Method parameters were chosen among 18 combinations on these same scores: they are slightly optimistic.",
+  "Timing between satellite passes (about six a day: VIIRS S-NPP, Terra and Aqua MODIS) is interpolated."
+ ]
+}
