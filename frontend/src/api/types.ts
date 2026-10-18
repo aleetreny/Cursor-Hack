@@ -135,6 +135,8 @@ export interface TimelineFrame {
   hotspot_count: Metric;
   /** Rate of spread of the visible front (static export; absent from the backend API). */
   front_advance_m_min?: Metric;
+  /** Direction the visible front moved toward, degrees from true north (static export). */
+  front_bearing_deg?: Metric;
   has_ground_truth: boolean;
 }
 

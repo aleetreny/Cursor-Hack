@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { SpreadWindCard } from './SpreadWindCard';
 import { useStore, type PanelTab } from '../state/store';
 import type { SceneLayers } from '../scene/FireScene';
 import { fmtArea, fmtClock, fmtDayClock, fmtNum } from '../lib/format';
@@ -33,12 +34,38 @@ export function RightPanel() {
   return (
     <aside className="right">
       <div className="tabs">{tab('layers', 'Layers')}{tab('analysis', 'Analysis')}{tab('evidence', 'Evidence')}{tab('notes', 'About')}</div>
-      {panel === 'layers' && <div className="scroll fit"><LayersSection /><IncidentOverview /><WeatherCard /></div>}
+      {panel === 'layers' && <LayersTab />}
       {panel === 'analysis' && <AgentPanel />}
       {panel === 'evidence' && <EvidencePanel />}
       {panel === 'notes' && <div className="scroll"><NotesSection /></div>}
     </aside>
   );
+}
+
+/** Layers tab: fixed cards, then the spread-vs-wind card in exactly the space that is left (never a scrollbar). */
+function LayersTab() {
+  const col = useRef<HTMLDivElement>(null);
+  const [free, setFree] = useState(0);
+  const extra = useRef(0);   // px added to each layer row when the leftover is too small for the card
+  useLayoutEffect(() => {
+    const el = col.current!;
+    const measure = () => {
+      const cs = getComputedStyle(el), gap = parseFloat(cs.rowGap) || 0;
+      const kids = [...el.children].filter((k) => !k.classList.contains('spread-card')) as HTMLElement[];
+      const used = kids.reduce((a, k) => a + k.offsetHeight, 0) + gap * kids.length + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+      const rows = el.querySelectorAll('.layer').length || 1;
+      const f = Math.floor(el.clientHeight - used) + extra.current * rows;   // space as if rows had no extra
+      const ex = f >= 56 ? 0 : Math.max(0, Math.min(6, Math.floor(((f + gap) / rows) * 100) / 100));
+      if (Math.abs(ex - extra.current) > 0.01) { extra.current = ex; el.style.setProperty('--layer-extra', `${ex}px`); }
+      setFree(f >= 56 ? f : 0);
+    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    for (const k of el.children) if (!k.classList.contains('spread-card')) ro.observe(k);
+    measure();
+    return () => ro.disconnect();
+  }, []);
+  return <div className="scroll fit" ref={col}><LayersSection /><IncidentOverview /><WeatherCard />{free >= 56 && <SpreadWindCard height={free} />}</div>;
 }
 
 function LayersSection() {
@@ -67,10 +94,9 @@ function LayersSection() {
 }
 
 function IncidentOverview() {
-  const { incident, sources, t0, t1, timeline, events } = useStore();
+  const { incident, t0, t1, timeline, events } = useStore();
   const last = timeline?.frames[timeline.frames.length - 1];
   const total = fmtArea(last?.burned_area_m2.value);
-  const src = sources[0];
   return (
     <div className="section">
       <div className="section-h">Incident Overview</div>
@@ -83,7 +109,6 @@ function IncidentOverview() {
         <dt>Last obs.</dt><dd>{t1 ? fmtDayClock(t1) : '—'} UTC</dd>
         <dt>Burned (view)</dt><dd>{total.v} {total.u}{last && <span className={'prov ' + last.burned_area_m2.provenance}>{last.burned_area_m2.provenance}</span>}</dd>
         <dt>Events</dt><dd>{events.length} detected · {events.filter((e) => e.review_required).length} to review</dd>
-        <dt className="opt">Georeferencing</dt><dd className="opt">{src?.georeferencing.method.replace(/_/g, ' ')} · {src?.georeferencing.accuracy}</dd>
       </dl>
     </div>
   );

@@ -421,13 +421,13 @@ button.tb-incident:disabled { cursor: default; }
 .menu-pop.fixed { position: fixed; z-index: 70; }   /* escapes the clipped top bar / timeline */
 /* Layers tab: everything down to Weather fits without scrolling */
 .right > .scroll.fit { gap: 8px; }
-.right > .scroll.fit .layer { height: 26px; }
+.right > .scroll.fit .layer { height: calc(26px + var(--layer-extra, 0px)); }
 .right > .scroll.fit .section { padding: 8px 12px 10px; }
 .right > .scroll.fit .kv { row-gap: 2px; }
 .right > .scroll.fit .metrics { gap: 8px 6px; }
 @media (max-height: 820px) {
   .right > .scroll.fit { gap: 6px; padding-top: 6px; }
-  .right > .scroll.fit .layer { height: 21px; font-size: 11.5px; }
+  .right > .scroll.fit .layer { height: calc(21px + var(--layer-extra, 0px)); font-size: 11.5px; }
   .right > .scroll.fit .layer .sw { height: 17px; }
   .right > .scroll.fit .section { padding: 6px 10px 7px; }
   .right > .scroll.fit .section-h { margin-bottom: 4px; }
@@ -437,3 +437,24 @@ button.tb-incident:disabled { cursor: default; }
   .right > .scroll.fit .metric .sub { display: none; }
   .right > .scroll.fit .wx-note { display: none; }
 }
+/* spread vs wind card (fills the rest of the Layers tab) */
+.spread-card { display: flex; flex-direction: column; overflow: hidden; flex: none; }
+.spread-card .sw-body { flex: 1; min-height: 0; display: flex; align-items: center; gap: 12px; }
+.spread-card svg { flex: none; }
+.spread-card .sw-body { align-items: center; overflow: hidden; }
+.spread-card .sw-text { font-size: 12px; line-height: 1.35; min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.spread-card .sw-item { display: grid; grid-template-columns: 18px 1fr; align-items: center; row-gap: 1px; }
+.spread-card .sw-item .lab { color: var(--muted); font-size: 11px; }
+.spread-card .sw-item b { grid-column: 2; white-space: nowrap; }
+.spread-card .sw-item .muted { font-weight: 400; font-size: 11px; }
+.spread-card .sw-text.compact { gap: 2px; font-size: 11.5px; }
+.spread-card .sw-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spread-card .sw-line .sw-key { margin-right: 6px; vertical-align: middle; }
+.spread-card .sw-note { font-size: 10.5px; margin-top: 6px; line-height: 1.35; }
+.spread-card .sw-key { display: inline-block; width: 12px; height: 3px; border-radius: 2px; }
+.spread-card .sw-key.fire { background: #d2402a; } .spread-card .sw-key.wind { background: #3b82c4; }
+.spread-card .sw-key.dash { background: repeating-linear-gradient(90deg, #e8742c 0 3px, transparent 3px 6px); }
+.spread-card .sw-verdict { color: var(--ink-2); font-size: 11.5px; line-height: 1.35; white-space: normal; }
+.spread-card .sw-body.tall { flex-direction: column; justify-content: center; gap: 14px; }
+.spread-card .sw-body.tall .sw-text { flex: none; width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+.spread-card .sw-body.tall .sw-verdict { grid-column: 1 / -1; }

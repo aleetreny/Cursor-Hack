@@ -16,17 +16,19 @@ function inside([x, y], rings) {          // even-odd over all rings (holes incl
   }
   return c;
 }
-function distTo([x, y], rings) {
-  let d = Infinity;
+/** Distance to the nearest point of the outline, and the vector from that point (east, north). */
+function nearest([x, y], rings) {
+  let d = Infinity, vx = 0, vy = 0;
   for (const r of rings) for (let i = 1; i < r.length; i++) {
     const [ax, ay] = r[i - 1], [bx, by] = r[i], dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy;
     const t = L ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / L)) : 0;
-    d = Math.min(d, Math.hypot(x - ax - t * dx, y - ay - t * dy));
+    const ex = x - ax - t * dx, ey = y - ay - t * dy, dd = Math.hypot(ex, ey);
+    if (dd < d) { d = dd; vx = ex; vy = ey; }
   }
-  return d;
+  return { d, vx, vy };
 }
 
-/** @returns Map timestamp → { value: m/min | null } for every burned_area frame */
+/** @returns Map timestamp → { value: m/min | null, bearing: degrees from north the leading edge moved toward | null } */
 export function frontAdvance(features, { window = 60, pct = 0.9 } = {}) {
   const burn = features.filter((f) => f.properties.classification === 'burned_area').sort((a, b) => a.properties.video_seconds - b.properties.video_seconds);
   if (!burn.length) return new Map();
@@ -35,17 +37,26 @@ export function frontAdvance(features, { window = 60, pct = 0.9 } = {}) {
   const raw = geo.map((g, i) => {
     const prev = [...geo.slice(0, i)].reverse().find((p) => g.t - p.t >= window - 0.5);
     if (!prev) return null;
-    const ds = [];
-    for (const r of g.rings) for (const pt of r) if (!inside(pt, prev.rings)) ds.push(distTo(pt, prev.rings));
-    if (!ds.length) return 0;
-    ds.sort((a, b) => a - b);
-    return ds[Math.min(ds.length - 1, Math.floor(ds.length * pct))] / ((g.t - prev.t) / 60);
+    const ns = [];
+    for (const r of g.rings) for (const pt of r) if (!inside(pt, prev.rings)) ns.push(nearest(pt, prev.rings));
+    if (!ns.length) return { v: 0, ex: 0, ny: 0 };
+    ns.sort((a, b) => a.d - b.d);
+    const k = Math.min(ns.length - 1, Math.floor(ns.length * pct));
+    // direction: the displacement of the leading quarter of the new outline, weighted by distance
+    let ex = 0, ny = 0;
+    for (const n of ns.slice(Math.floor(ns.length * 0.75))) { ex += n.vx; ny += n.vy; }
+    return { v: ns[k].d / ((g.t - prev.t) / 60), ex, ny };
   });
-  // median of 3 against single-frame segmentation jitter
+  // rate: median of 3 against single-frame segmentation jitter; direction: vector sum over ±2 frames
   const out = new Map();
   geo.forEach((g, i) => {
-    const w = [raw[i - 1], raw[i], raw[i + 1]].filter((v) => v != null).sort((a, b) => a - b);
-    out.set(g.ts, raw[i] == null ? null : +w[Math.floor(w.length / 2)].toFixed(2));
+    if (raw[i] == null) { out.set(g.ts, { value: null, bearing: null }); return; }
+    const w = [raw[i - 1], raw[i], raw[i + 1]].filter(Boolean).map((r) => r.v).sort((a, b) => a - b);
+    let ex = 0, ny = 0;
+    for (const r of raw.slice(Math.max(0, i - 2), i + 3)) if (r) { ex += r.ex; ny += r.ny; }
+    const value = +w[Math.floor(w.length / 2)].toFixed(2);
+    const bearing = value >= 0.3 && Math.hypot(ex, ny) > 1e-6 ? Math.round((Math.atan2(ex, ny) * 180 / Math.PI + 360) % 360) : null;
+    out.set(g.ts, { value, bearing });
   });
   return out;
 }

@@ -38,7 +38,9 @@ for (const { source, default: isDefault } of INCIDENTS) {
   // rate of spread of the visible front (m/min), derived from the georeferenced outlines
   const ros = frontAdvance(observations.features);
   const tl = read('timeline.json');
-  const timeline = { ...tl, events: events.events, frames: tl.frames.map((f) => ({ ...f, front_advance_m_min: { value: ros.get(f.timestamp) ?? null, unit: 'm/min', provenance: 'derived', method: 'P90 distance of the new burned outline from the outline 60 s earlier, median of 3 frames' } })) };
+  const timeline = { ...tl, events: events.events, frames: tl.frames.map((f) => ({ ...f,
+    front_advance_m_min: { value: ros.get(f.timestamp)?.value ?? null, unit: 'm/min', provenance: 'derived', method: 'P90 distance of the new burned outline from the outline 60 s earlier, median of 3 frames' },
+    front_bearing_deg: { value: ros.get(f.timestamp)?.bearing ?? null, unit: 'deg', provenance: 'derived', method: 'direction the leading quarter of the burned outline moved over 60 s (true north, clockwise)' } })) };
   const ev = read('eval.json');
   const sources = read('sources.json').map((s) => ({ ...s, media_url: media(s.media_url), thumbnail_url: media(s.thumbnail_url) }));
   write('incident.json', incident);
