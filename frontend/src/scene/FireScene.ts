@@ -6,6 +6,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import type { AnalysisEvent, FireFeature, Hotspot, Incident, Progression, VideoSource } from '../api/types';
 import { type GeoFrame, makeFrame, toLonLat, toXZ } from './geo';
+import { lightingFor, sunPosition } from './sun';
 import { ESRI_IMAGERY, TERRARIUM, cropToBBox, decodeTerrarium, imageMosaic, loadMosaic } from './tiles';
 import { dropsUntil, firelinesUntil, frontAt, unitState, unitsFor, type SimCtx, type SimUnit } from '../sim/ops';
 
@@ -13,6 +14,8 @@ type BBox = [number, number, number, number];
 type Ring = [number, number][];
 
 export interface HoverInfo {
+  /** regional: land cover at the point (ESA WorldCover) */
+  cover?: string;
   x: number; y: number; lon: number; lat: number; elevation: number; slope: number; aspect: number; inBurned: boolean; inPerimeter: boolean;
   /** regional incidents: when this place burned (ms, null = it did not) and its burn-severity class (1–5, 0 = none) */
   arrival?: number | null; severity?: number;
@@ -23,6 +26,8 @@ export interface SceneLayers {
   groundTruth: boolean; perimeter: boolean; footprint: boolean; path: boolean; projection: boolean; trees: boolean; smoke: boolean;
   /** regional incidents: burn-severity tint (opacity), daily isochrones, dated EMS perimeters */
   severity: number; isochrones: boolean; ems: boolean;
+  /** light from the real sun at the timeline time (night included); off = the fixed afternoon sun */
+  realSun: boolean;
 }
 export interface SceneCallbacks {
   onHover?: (h: HoverInfo | null) => void;
@@ -36,7 +41,7 @@ export interface SceneCallbacks {
   onProgress?: (msg: string) => void;
 }
 
-const DEFAULT_LAYERS: SceneLayers = { terrain: true, imagery: 0.18, burned: 0.95, active: 1, change: 0.6, hotspots: true, groundTruth: false, perimeter: true, footprint: true, path: true, projection: false, trees: true, smoke: true, severity: 0, isochrones: false, ems: true };
+const DEFAULT_LAYERS: SceneLayers = { terrain: true, imagery: 0.18, burned: 0.95, active: 1, change: 0.6, hotspots: true, groundTruth: false, perimeter: true, footprint: true, path: true, projection: false, trees: true, smoke: true, severity: 0, isochrones: false, ems: true, realSun: true };
 
 const NOISE_GLSL = /* glsl */ `
 float fsHash(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p+45.32); return fract(p.x*p.y); }
@@ -88,7 +93,8 @@ export class FireScene {
     // regional incidents: reconstructed arrival time (hours after progression.t0) and burn severity
     uArr: { value: null as THREE.Texture | null }, uSev: { value: null as THREE.Texture | null }, uArrBounds: { value: new THREE.Vector4() },
     uArrT: { value: -1 }, uArrOn: { value: 0 }, uArrBefore: { value: -1 }, uSevOp: { value: 0 }, uIsoOp: { value: 0 }, uFrontH: { value: 3 },
-    uSim: { value: null as THREE.Texture | null }, uSimOn: { value: 0 },   // retrospective scenario (same grid as uArr)
+    uSim: { value: null as THREE.Texture | null }, uSimOn: { value: 0 },
+    uNight: { value: 0 },   // 0 day … 1 night (fire reads stronger in the dark)   // retrospective scenario (same grid as uArr)
   };
 
   // dynamic content
@@ -122,10 +128,15 @@ export class FireScene {
   private rFlames?: THREE.Points;
   private rSmoke?: THREE.Points;
   private firms?: THREE.Points;
+  private lc?: Uint8Array;
+  private veg?: THREE.InstancedMesh;
+  private vegAt = { x: Infinity, z: Infinity, half: 0, t: 0 };
   private innerTex?: THREE.CanvasTexture;
   private assetBase = '';
   private innerCanvas?: HTMLCanvasElement;
   private sky?: THREE.Mesh;
+  private hemi!: THREE.HemisphereLight;
+  private sunKey = '';
   private windU = { value: new THREE.Vector2(0.5, 0.2) };
 
   // data
@@ -188,8 +199,8 @@ export class FireScene {
     this.scene.fog = new THREE.FogExp2(haze.getHex(), 0.000052);
     this.sky = this.makeSky();
     this.scene.add(this.sky);
-    const hemi = new THREE.HemisphereLight('#dfe6ef', '#6e5440', 0.85);
-    this.scene.add(hemi);
+    this.hemi = new THREE.HemisphereLight('#dfe6ef', '#6e5440', 0.85);
+    this.scene.add(this.hemi);
     this.sun = new THREE.DirectionalLight('#ffe9cc', 3.3);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(4096, 4096);
@@ -295,7 +306,7 @@ export class FireScene {
       this.gridN = 640;   // ~66 m cells over ~42 km
       this.controls.minDistance = 250; this.controls.maxDistance = 260000;
       this.camera.near = 5; this.camera.far = 2e6; this.camera.updateProjectionMatrix();
-      (this.scene.fog as THREE.FogExp2).density = 0.0000105;
+      this.fogBase = 0.0000105;
       this.sky?.scale.setScalar(8);
     }
 
@@ -334,17 +345,17 @@ export class FireScene {
     (this.innerMesh.userData as { bbox: BBox }).bbox = this.innerBBox;
 
     // sun from WSW, fairly low — long warm shadows like the reference
-    const sunDir = new THREE.Vector3(-0.85, 0.36, 0.38).normalize();
     const sc = this.sun.shadow.camera as THREE.OrthographicCamera;
     if (this.regional) {
-      this.sun.position.copy(sunDir.multiplyScalar(120000));
+      this.sunDist = 120000;
       sc.left = sc.bottom = -26000; sc.right = sc.top = 26000; sc.near = 1000; sc.far = 260000;
       this.sun.shadow.normalBias = 20;
     } else {
-      this.sun.position.copy(sunDir.multiplyScalar(3000));
+      this.sunDist = 3000;
       sc.left = sc.bottom = -1400; sc.right = sc.top = 1400; sc.near = 100; sc.far = 7000;
     }
     sc.updateProjectionMatrix();
+    this.updateSun(true);
 
     this.computeOverlayBounds();
     this.addPeakLabels();
@@ -360,6 +371,37 @@ export class FireScene {
     this.ringsReady = this.loadRings(cx, cy);
     if (this.regional) this.ringsReady.then(() => this.loadScarImagery());
   }
+
+  /** Sun, sky and fog for the timeline time (real sun) or the fixed afternoon light. Re-evaluated every 5 min of time. */
+  private sunDist = 3000;
+  /** fog density at a typical viewing height; it thins as the camera climbs (you look down through less air) */
+  private fogBase = 0.000052;
+  private updateSun(force = false) {
+    if (!this.frame) return;
+    const real = this.layers.realSun;
+    const key = real ? String(Math.round(this.time / 300000)) : 'fixed';
+    if (!force && key === this.sunKey) return;
+    this.sunKey = key;
+    const L = real
+      ? (() => { const p = sunPosition(this.time, this.frame.lat0, this.frame.lon0); return { ...lightingFor(p.elevation, p.azimuth), elevation: p.elevation }; })()
+      : { ...lightingFor(30, 240), dir: new THREE.Vector3(-0.85, 0.36, 0.38).normalize(), sunColor: new THREE.Color('#ffe9cc'), sunIntensity: 3.3, hemiIntensity: 0.85, elevation: 30 };
+    this.sun.position.copy(L.dir).multiplyScalar(this.sunDist);
+    this.sun.color.copy(L.sunColor); this.sun.intensity = L.sunIntensity;
+    this.hemi.color.copy(L.hemiSky); this.hemi.groundColor.copy(L.hemiGround); this.hemi.intensity = L.hemiIntensity;
+    const sm = this.sky?.material as THREE.ShaderMaterial | undefined;
+    if (sm) { sm.uniforms.top.value.copy(L.skyTop); sm.uniforms.bottom.value.copy(L.skyBottom); }
+    (this.scene.fog as THREE.FogExp2).color.copy(L.fog);
+    (this.scene.background as THREE.Color).copy(L.fog);
+    this.renderer.toneMappingExposure = L.exposure;
+    this.uniforms.uNight.value = L.night;
+    this.smokeDay.value = 0.22 + 0.78 * (1 - L.night);
+    this.sunInfo = { elevation: L.elevation, night: L.night };
+    this.shadowDirty = 3;
+    this.markActive();
+  }
+  /** Current sun elevation (deg) and night factor, for the UI. */
+  sunInfo = { elevation: 30, night: 0 };
+  private smokeDay = { value: 1 };
 
   /** Draw a sharper imagery mosaic over part of the inner terrain texture. */
   private paintPatch(m: Awaited<ReturnType<typeof loadMosaic>>, b: BBox, size: number) {
@@ -468,7 +510,7 @@ uniform sampler2D uMask; uniform sampler2D uDecal; uniform vec4 uMaskBounds; uni
 uniform float uTime, uBurnOp, uFireOp, uChangeOp, uImageryMix, uMapStyle, uStyleOn, uInner;
 uniform sampler2D uScen; uniform vec4 uScenBounds; uniform float uScenT, uScenOn;
 uniform sampler2D uArr; uniform sampler2D uSev; uniform vec4 uArrBounds; uniform float uArrT, uArrOn, uArrBefore, uSevOp, uIsoOp, uFrontH;
-uniform sampler2D uSim; uniform float uSimOn;
+uniform sampler2D uSim; uniform float uSimOn; uniform float uNight;
 ${NOISE_GLSL}
 void main() {`)
         .replace('#include <map_fragment>', /* glsl */ `
@@ -524,8 +566,11 @@ void main() {`)
   if (uArrOn > 0.5) {   // regional: when each place burned (reconstructed) vs the timeline clock, in hours
     vec2 auv = fsBoundsUv(vWorld.xz, uArrBounds);
     if (fsInside(auv) > 0.) {
-      float a = texture2D(uArr, auv).r;
-      float cls = floor(texture2D(uSev, auv).r * 255.0 / 40.0 + 0.5);
+      // organic edges: a ±1.5-cell noise warp of where the 30 m field is read (the timing itself is unchanged)
+      vec2 tx = 1.0 / vec2(textureSize(uArr, 0));
+      vec2 wuv = auv + (vec2(fsFbm(vWorld.xz * 0.011), fsFbm(vWorld.xz * 0.011 + 17.3)) - 0.5) * tx * 3.0;
+      float a = texture2D(uArr, wuv).r;
+      float cls = floor(texture2D(uSev, wuv).r * 255.0 / 40.0 + 0.5);
       float age = uArrT - a;
       float burnt = step(0.0, age) * step(a, 50000.0);
       float n = fsFbm(vWorld.xz*0.004);
@@ -533,6 +578,7 @@ void main() {`)
       vec3 charC = mix(vec3(0.018,0.014,0.013), vec3(0.07,0.045,0.035), n);
       vec3 ashC = mix(vec3(0.20,0.18,0.17), vec3(0.06,0.05,0.05), clamp((cls - 1.0) / 4.0, 0.0, 1.0)) * (0.8 + 0.4*n);
       vec3 burnC = mix(charC, ashC, smoothstep(6.0, 48.0, age));
+      burnC *= 0.55 + 0.9 * smoothstep(0.03, 0.4, lum);   // the ground's own light and shade (tracks, rock, gullies) under the char
       vec3 sevC = cls < 1.5 ? vec3(0.42,0.62,0.30) : cls < 2.5 ? vec3(0.96,0.86,0.42) : cls < 3.5 ? vec3(0.95,0.60,0.22) : cls < 4.5 ? vec3(0.82,0.24,0.12) : vec3(0.42,0.05,0.12);
       burnC = mix(burnC, sevC, uSevOp * step(0.5, cls));
       alb = mix(alb, mix(burnC, vec3(0.58,0.30,0.27), uMapStyle*0.6*(1.0 - uSevOp)), burnt * uBurnOp);
@@ -542,14 +588,16 @@ void main() {`)
       // active front (reached in the last uFrontH hours) and embers behind it
       float front = burnt * (1.0 - smoothstep(0.0, uFrontH, age));
       float fl = fsNoise(vWorld.xz*0.012 + vec2(0., -uTime*0.9)) * fsNoise(vWorld.xz*0.031 + vec2(uTime*0.6, 0.));
-      fireEm += vec3(1.0, 0.34, 0.06) * front * uFireOp * (1.4 + 5.0*fl);
-      fireEm += vec3(0.6, 0.10, 0.02) * burnt * (1.0 - smoothstep(uFrontH, 14.0, age)) * smoothstep(0.55, 0.8, fsNoise(vWorld.xz*0.05 + uTime*0.15)) * uFireOp * 0.9;
+      fireEm += vec3(1.0, 0.34, 0.06) * front * uFireOp * (0.9 + 3.6*fl) * (1.0 - smoothstep(0.0, uFrontH, age) * 0.5);
+      // embers: small, sparse glowing spots in what burned in the last half day, fading
+      float emb = smoothstep(0.80, 0.95, fsNoise(vWorld.xz*0.11 + vec2(uTime*0.07, 0.))) * smoothstep(0.6, 0.9, fsNoise(vWorld.xz*0.023));
+      fireEm += vec3(0.7, 0.14, 0.03) * burnt * (1.0 - smoothstep(uFrontH, 12.0, age)) * emb * uFireOp * 1.4;
       // daily isochrones (00:00 UTC) inside what has burned
       float da = a / 24.0, w = fwidth(da);
       float iso = (1.0 - smoothstep(0.0, w * 1.4, abs(fract(da + 0.5) - 0.5))) * step(w, 0.2) * burnt;
       alb = mix(alb, vec3(1.0, 0.55, 0.30), iso * uIsoOp * 0.85);
       if (uSimOn > 0.5) {   // retrospective scenario: violet where the model has burned and the real fire had not, and its front
-        float sa = texture2D(uSim, auv).r, sb = step(sa, uArrT) * step(sa, 50000.0);
+        float sa = texture2D(uSim, wuv).r, sb = step(sa, uArrT) * step(sa, 50000.0);
         float hatch = step(0.5, fract((vWorld.x + vWorld.z) * 0.004));
         alb = mix(alb, vec3(0.55, 0.38, 0.86), sb * (1.0 - burnt * uBurnOp) * (0.32 + 0.18 * hatch));
         float sf = sb * (1.0 - smoothstep(0.0, 2.0, uArrT - sa));
@@ -561,6 +609,7 @@ void main() {`)
   vec2 duv = fsBoundsUv(vWorld.xz, uDecalBounds);
   if (fsInside(duv) > 0.) { vec4 d = texture2D(uDecal, duv); alb = mix(alb, d.rgb, d.a); }
   diffuseColor.rgb *= alb;
+  fireEm *= mix(0.5, 1.35, uNight);   // flames are pale in daylight and dominate at night
 `)
         .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance += fireEm;');
     };
@@ -615,6 +664,7 @@ void main() {`)
       g.computeBoundingSphere();
     }
     this.placeTreesFromCache();
+    this.vegAt.x = Infinity;
     if (this.source) this.buildDrone(this.source);
     this.drawnKey = '';
     this.redrawOverlays(true);
@@ -658,7 +708,7 @@ void main() {`)
     if (ms !== this.time) { this.markActive(); this.shadowDirty = 2; }
     this.time = ms;
     if (this.progT0) this.uniforms.uArrT.value = (ms - this.progT0) / 3.6e6;
-    this.redrawOverlays(); this.updateScenario(); this.updateRegionalFire();
+    this.redrawOverlays(); this.updateScenario(); this.updateRegionalFire(); this.updateSun();
   }
   setSelectedEvent(id: string | null) { this.selectedEvent = id; this.drawnKey = ''; this.redrawOverlays(); }
   setCompare(ms: number | null) { this.compareTime = ms; this.uniforms.uArrBefore.value = ms != null && this.progT0 ? (ms - this.progT0) / 3.6e6 : -1; this.drawnKey = ''; this.redrawOverlays(); }
@@ -674,12 +724,14 @@ void main() {`)
     u.uChangeOp.value = this.layers.change;
     u.uStyleOn.value = this.layers.terrain ? 1 : 0;
     u.uSevOp.value = this.layers.severity;
+    if (prev.realSun !== this.layers.realSun) this.updateSun(true);
     u.uSimOn.value = this.regional && this.layers.projection && u.uSim.value ? 1 : 0;
     u.uIsoOp.value = this.layers.isochrones ? 1 : 0;
     if (this.rFlames) this.rFlames.visible = this.layers.active > 0.01 && !this.mode2D;
     if (this.rSmoke) this.rSmoke.visible = this.layers.smoke && this.layers.active > 0.01 && !this.mode2D;
     if (this.firms) this.firms.visible = this.layers.hotspots;
     if (this.trees) this.trees.visible = this.layers.trees && !this.mode2D;
+    if (this.veg && prev.trees !== this.layers.trees) this.vegAt.x = Infinity;
     if (this.flames) this.flames.visible = this.layers.active > 0.01 && !this.mode2D;
     if (this.smoke) this.smoke.visible = this.layers.smoke && this.layers.active > 0.01 && !this.mode2D;
     if (this.frustum) this.frustum.visible = this.layers.footprint;
@@ -772,7 +824,7 @@ void main() {`)
         const [x0, y0] = dp(d.line[0][0], d.line[0][1]), [x1, y1] = dp(d.line[1][0], d.line[1][1]);
         dc.beginPath(); dc.moveTo(x0, y0); dc.lineTo(x1, y1);
         dc.strokeStyle = d.kind === 'retardant' ? `rgba(220,38,38,${a})` : `rgba(59,130,246,${a})`;
-        dc.lineWidth = Math.max(4, (d.kind === 'retardant' ? 22 : 14) * pxPerM); dc.lineCap = 'round'; dc.stroke(); dc.lineCap = 'butt';
+        dc.lineWidth = this.regional ? 2.2 : Math.max(4, (d.kind === 'retardant' ? 22 : 14) * pxPerM); dc.lineCap = 'round'; dc.stroke(); dc.lineCap = 'butt';
       }
     }
     this.decalTex.needsUpdate = true;
@@ -834,7 +886,7 @@ varying float vSeed; varying float vF; uniform float uTime;
     sg.setDrawRange(0, 0);
     const su = { uTime: this.uniforms.uTime, uScale: pu.uScale };
     this.smoke = new THREE.Points(sg, new THREE.ShaderMaterial({
-      uniforms: su, transparent: true, depthWrite: false,
+      uniforms: { ...su, uDay: this.smokeDay }, transparent: true, depthWrite: false,
       vertexShader: /* glsl */ `#include <common>
 #include <logdepthbuf_pars_vertex>
 attribute float aSeed; uniform float uTime, uScale; varying float vL; varying float vSeed;
@@ -845,11 +897,11 @@ attribute float aSeed; uniform float uTime, uScale; varying float vL; varying fl
           #include <logdepthbuf_vertex>
         }`,
       fragmentShader: /* glsl */ `#include <logdepthbuf_pars_fragment>
-varying float vL; varying float vSeed;
+varying float vL; varying float vSeed; uniform float uDay;
         void main(){
           #include <logdepthbuf_fragment>
  vec2 uv = gl_PointCoord*2.-1.; float d = length(uv); float a = smoothstep(1., .1, d) * smoothstep(0., .12, vL) * (1.-vL) * 0.16;
-          vec3 c = mix(vec3(.22,.20,.19), vec3(.62,.60,.58), vL); gl_FragColor = vec4(c, a); }`,
+          vec3 c = mix(vec3(.22,.20,.19), vec3(.62,.60,.58), vL) * uDay + vec3(0.35, 0.12, 0.03) * (1.0 - uDay) * (1.0 - vL); gl_FragColor = vec4(c, a); }`,
     }));
     this.smoke.frustumCulled = false;
     this.smoke.renderOrder = 6;
@@ -925,7 +977,7 @@ varying float vF; varying float vSeed;
           gl_FragColor = vec4(c*0.75*a, a*0.85); }`,
     }), 5);
     this.rSmoke = pts(700, new THREE.ShaderMaterial({
-      uniforms: { uTime: this.uniforms.uTime, uScale: scaleU, uWind: this.windU }, transparent: true, depthWrite: false,
+      uniforms: { uTime: this.uniforms.uTime, uScale: scaleU, uWind: this.windU, uDay: this.smokeDay }, transparent: true, depthWrite: false,
       vertexShader: /* glsl */ `#include <common>
 #include <logdepthbuf_pars_vertex>
 attribute float aSeed; uniform float uTime, uScale; uniform vec2 uWind; varying float vL; varying float vNear;
@@ -938,12 +990,14 @@ attribute float aSeed; uniform float uTime, uScale; uniform vec2 uWind; varying 
           #include <logdepthbuf_vertex>
         }`,
       fragmentShader: /* glsl */ `#include <logdepthbuf_pars_fragment>
-varying float vL; varying float vNear;
+varying float vL; varying float vNear; uniform float uDay;
         void main(){
           #include <logdepthbuf_fragment>
           vec2 uv = gl_PointCoord*2.-1.; float d = length(uv);
           float a = smoothstep(1., .15, d) * smoothstep(0., .1, vL) * (1.-vL) * 0.20 * vNear;
-          vec3 c = mix(vec3(.26,.23,.21), vec3(.72,.70,.67), vL); gl_FragColor = vec4(c, a); }`,
+          // grey by day; at night lit from below by the fire, dark above
+          vec3 c = mix(vec3(.26,.23,.21), vec3(.72,.70,.67), vL) * uDay + vec3(0.42, 0.14, 0.04) * (1.0 - uDay) * (1.0 - vL) * (1.0 - vL);
+          gl_FragColor = vec4(c, a); }`,
     }), 6);
     (this.rFlames.material as THREE.ShaderMaterial).userData.scaleU = scaleU;
     this.updatePointUniforms();
@@ -956,7 +1010,7 @@ varying float vL; varying float vNear;
     if (!hs.length || !this.frame || !this.progT0) return;
     const pos = new Float32Array(hs.length * 3), at = new Float32Array(hs.length), frp = new Float32Array(hs.length), rad = new Float32Array(hs.length);
     hs.forEach((h, i) => {
-      const p = this.worldAt(h.geometry.coordinates[0], h.geometry.coordinates[1], 25);
+      const p = this.worldAt(h.geometry.coordinates[0], h.geometry.coordinates[1], 160);   // lifted so the terrain in front does not cut the ring
       pos.set([p.x, p.y, p.z], i * 3);
       at[i] = (Date.parse(h.properties.timestamp) - this.progT0) / 3.6e6;
       frp[i] = h.properties.frp_mw ?? 0; rad[i] = h.properties.radius_m ?? 200;
@@ -1038,6 +1092,8 @@ varying float vA; varying float vHot;
     this.prog = { p, W, H, minutes, sev, order, sortedMin, bucket: -1 };
     const sc = this.incident?.scenario;
     if (sc) this.loadScenarioField(url.replace(/[^/]*$/, sc.image), W, H).catch((e) => console.warn(e));
+    const lcInfo = this.incident?.landcover;
+    if (lcInfo) this.loadLandcover(url.replace(/[^/]*$/, lcInfo.image), W, H).catch((e) => console.warn(e));
     this.buildFirms();
     this.updateRegionalFire(true);
     this.markActive();
@@ -1057,14 +1113,91 @@ varying float vA; varying float vHot;
     this.markActive();
   }
 
+  private async loadLandcover(url: string, W: number, H: number) {
+    const img = await new Promise<HTMLImageElement>((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('land cover unavailable: ' + url)); im.src = url; });
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const ctx = c.getContext('2d', { willReadFrequently: true })!; ctx.drawImage(img, 0, 0);
+    const d = ctx.getImageData(0, 0, W, H).data, lc = new Uint8Array(W * H);
+    for (let k = 0; k < lc.length; k++) lc[k] = d[k * 4];
+    this.lc = lc;
+    this.buildVegetation();
+    this.vegAt.x = Infinity;
+    this.markActive();
+  }
+
+  /* Regional vegetation: instanced trees (WorldCover tree cover) and shrubs (shrubland) within a few km of the view
+   * target, re-planted as the camera moves and hidden from far away. Placement is a hash of the cell, so the same
+   * place always has the same trees. Burned ones (arrival ≤ t, read in the vertex shader) become charred snags. */
+  private buildVegetation() {
+    const CAP = 42000;
+    const geo = new THREE.ConeGeometry(1, 1, 6, 1); geo.translate(0, 0.5, 0);
+    const mat = new THREE.MeshStandardMaterial({ roughness: 0.92, flatShading: true });
+    const u = this.uniforms;
+    mat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, { uArr: u.uArr, uArrBounds: u.uArrBounds, uArrT: u.uArrT, uBurnOp: u.uBurnOp });
+      sh.vertexShader = sh.vertexShader.replace('void main() {', `uniform sampler2D uArr; uniform vec4 uArrBounds; uniform float uArrT, uBurnOp; varying float vBurnt;\n${NOISE_GLSL}\nvoid main() {`)
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+  vec2 base = (modelMatrix * instanceMatrix * vec4(0., 0., 0., 1.)).xz;
+  vec2 buv = fsBoundsUv(base, uArrBounds);
+  float a = texture(uArr, buv).r;
+  vBurnt = step(a, uArrT) * step(a, 50000.0) * fsInside(buv) * step(0.05, uBurnOp);
+  transformed.y *= mix(1.0, 0.72, vBurnt);            // the crown burns away: a thinner, shorter snag
+  transformed.xz *= mix(1.0, 0.45, vBurnt);`);
+      sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'varying float vBurnt;\nvoid main() {')
+        .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.03, 0.025, 0.022), vBurnt);');
+    };
+    const mesh = new THREE.InstancedMesh(geo, mat, CAP);
+    mesh.count = 0; mesh.frustumCulled = false; mesh.castShadow = false; mesh.receiveShadow = false;
+    mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(CAP * 3), 3);
+    this.veg = mesh;
+    this.scene.add(mesh);
+  }
+
+  private updateVegetation() {
+    const g = this.prog, lc = this.lc, veg = this.veg;
+    if (!g || !lc || !veg) return;
+    const t = this.controls.target, dist = this.camera.position.distanceTo(t);
+    const show = this.layers.trees && !this.mode2D && dist < 14000;
+    veg.visible = show;
+    if (!show) return;
+    const half = THREE.MathUtils.clamp(dist * 0.55, 900, 3200);
+    const a = this.vegAt;
+    if (Math.hypot(t.x - a.x, t.z - a.z) < half * 0.25 && Math.abs(half - a.half) < half * 0.3) return;
+    a.x = t.x; a.z = t.z; a.half = half;
+    const [w, s, e, n] = g.p.bbox, dLon = (e - w) / g.W, dLat = (n - s) / g.H;
+    const [lonA, latA] = toLonLat(this.frame, t.x - half, t.z + half), [lonB, latB] = toLonLat(this.frame, t.x + half, t.z - half);
+    const i0 = Math.max(0, Math.floor((lonA - w) / dLon)), i1 = Math.min(g.W - 1, Math.ceil((lonB - w) / dLon));
+    const j0 = Math.max(0, Math.floor((n - latB) / dLat)), j1 = Math.min(g.H - 1, Math.ceil((n - latA) / dLat));
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), col = new THREE.Color(), sc = new THREE.Vector3(), p = new THREE.Vector3();
+    const cap = veg.instanceMatrix.count;
+    const step = Math.max(1, Math.round(Math.sqrt(((i1 - i0 + 1) * (j1 - j0 + 1) * 0.9) / cap)));   // thin out evenly when the square is large
+    let k = 0;
+    for (let j = j0; j <= j1 && k < cap; j += step) for (let i = i0; i <= i1 && k < cap; i += step) {
+      const cls = lc[j * g.W + i];
+      if (cls !== 10 && cls !== 20) continue;
+      const h1 = hash2(i, j), h2 = hash2(i + 7919, j + 104729), h3 = hash2(i * 3 + 11, j * 5 + 13);
+      if (cls === 20 && h1 > 0.55) continue;
+      const lon = w + (i + h2) * dLon, lat = n - (j + h3) * dLat;
+      const [x, z] = toXZ(this.frame, lon, lat);
+      p.set(x, this.groundY(x, z) - 0.4, z);
+      if (cls === 10) { const hh = 8 + h1 * 9; sc.set(hh * 0.3, hh * this.exaggeration * 0.75, hh * 0.3); col.setHSL(0.25 + h2 * 0.06, 0.38 + h3 * 0.2, 0.12 + h1 * 0.07); }
+      else { const hh = 1.6 + h1 * 1.8; sc.set(hh * 0.9, hh * this.exaggeration * 0.6, hh * 0.9); col.setHSL(0.17 + h2 * 0.05, 0.35, 0.2 + h3 * 0.08); }
+      m.compose(p, q, sc); veg.setMatrixAt(k, m); veg.setColorAt(k, col); k++;
+    }
+    veg.count = k;
+    veg.instanceMatrix.needsUpdate = true;
+    if (veg.instanceColor) veg.instanceColor.needsUpdate = true;
+  }
+
   /** Arrival (ms, null = did not burn) and severity class at a lon/lat. */
-  progressionAt(lon: number, lat: number): { arrival: number | null; severity: number } | null {
+  progressionAt(lon: number, lat: number): { arrival: number | null; severity: number; cover?: string } | null {
     const g = this.prog;
     if (!g) return null;
     const [w, s, e, n] = g.p.bbox, i = Math.floor(((lon - w) / (e - w)) * g.W), j = Math.floor(((n - lat) / (n - s)) * g.H);
     if (i < 0 || j < 0 || i >= g.W || j >= g.H) return null;
     const m = g.minutes[j * g.W + i];
-    return { arrival: m === g.p.never ? null : this.progT0 + m * 60000, severity: g.sev[j * g.W + i] };
+    const cover = this.lc ? this.incident?.landcover?.classes[String(this.lc[j * g.W + i])] : undefined;
+    return { arrival: m === g.p.never ? null : this.progT0 + m * 60000, severity: g.sev[j * g.W + i], cover };
   }
 
   /** Re-seed the flames on the cells reached in the last 3 h and smoke on the last 2 h (every 10 min of fire time). */
@@ -1368,6 +1501,7 @@ varying float vA; varying float vHot;
       obj.position.set(x, gy + st.agl * this.exaggeration + (u.group === 'drones' || u.group === 'aircraft' ? 2 : 0.6), z);
       obj.rotation.y = -THREE.MathUtils.degToRad(st.heading);
       if (u.kind === 'helicopter' || u.kind === 'drone') obj.children.forEach((ch) => { if (ch.userData.rotor) ch.rotation.y += dt * 30; });
+      else if (u.kind === 'air_tanker' || u.kind === 'air_attack') obj.children.forEach((ch) => { if (ch.userData.prop) ch.rotation.y += dt * 40; });
       obj.userData.hidden = !st.visible;
       if (obj.visible) obj.scale.setScalar(st.visible ? 1 : 0.001);
       const l = this.labels.get('unit_' + u.id);
@@ -1473,7 +1607,7 @@ varying float vA; varying float vHot;
     this.reservedAt = now;
     const map = this.container.parentElement, c = this.container.getBoundingClientRect();
     if (!map) return;
-    this.reserved = [...map.querySelectorAll<HTMLElement>(':scope > .feed, :scope > .mapctl, :scope > .attribution, :scope > .compass, :scope > .banner > *, :scope > .sheet, :scope > .drawer.open')]
+    this.reserved = [...map.querySelectorAll<HTMLElement>(':scope > .feed, :scope > .mapctl, :scope > .attribution, :scope > .compass, :scope > .banner > *, :scope > .sheet, :scope > .drawer.open, :scope > .hovertip')]
       .map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0)
       .map((r) => [r.left - c.left - 4, r.top - c.top - 4, r.right - c.left + 4, r.bottom - c.top + 4]);
   }
@@ -1722,7 +1856,7 @@ varying float vA; varying float vHot;
     const aspect = (THREE.MathUtils.radToDeg(Math.atan2(-ex, -nz)) + 360) % 360;
     const pr = this.progressionAt(lon, lat);
     const inBurned = pr ? pr.arrival != null && pr.arrival <= this.time : this.sampleMask(x, z) > 0.5;
-    this.cb.onHover?.({ x: e.clientX - r.left, y: e.clientY - r.top, lon, lat, elevation: this.elevationAt(x, z), slope, aspect, inBurned, inPerimeter: this.inPerimeter(lon, lat), ...(pr ? { arrival: pr.arrival, severity: pr.severity } : {}) });
+    this.cb.onHover?.({ x: e.clientX - r.left, y: e.clientY - r.top, lon, lat, elevation: this.elevationAt(x, z), slope, aspect, inBurned, inPerimeter: this.inPerimeter(lon, lat), ...(pr ? { arrival: pr.arrival, severity: pr.severity, cover: pr.cover } : {}) });
   };
 
   private onClick = () => {
@@ -1824,9 +1958,19 @@ varying float vA; varying float vHot;
     this.slowSince = slow ? this.slowSince || now : 0;
     this.fastSince = fast ? this.fastSince || now : 0;
     const setPR = (v: number) => { this.renderer.setPixelRatio(v); this.composer.setPixelRatio(v); this.resize(); this.slowSince = this.fastSince = 0; };
-    if (this.slowSince && now - this.slowSince > 2500 && pr > 1) setPR(Math.max(1, +(pr - 0.25).toFixed(2)));
-    else if (this.fastSince && now - this.fastSince > 8000 && pr < this.maxPR) setPR(Math.min(this.maxPR, +(pr + 0.25).toFixed(2)));
+    // weak GPUs (integrated graphics at 1080p): first render fewer pixels (down to 0.6 of the CSS size, upscaled),
+    // then drop the bloom glow; both come back once frames are fast again
+    const MIN = 0.6;
+    if (this.slowSince && now - this.slowSince > 2500) {
+      if (pr > MIN + 0.01) setPR(Math.max(MIN, +(pr - 0.2).toFixed(2)));
+      else if (this.bloom.enabled) { this.bloom.enabled = false; this.slowSince = 0; }
+    } else if (this.fastSince && now - this.fastSince > 8000) {
+      if (!this.bloom.enabled) { this.bloom.enabled = true; this.fastSince = 0; }
+      else if (pr < this.maxPR) setPR(Math.min(this.maxPR, +(pr + 0.25).toFixed(2)));
+    }
   }
+  /** Current render quality (for diagnostics and the audit scripts). */
+  get quality() { return { pixelRatio: this.renderer.getPixelRatio(), bloom: this.bloom.enabled, maxPR: this.maxPR }; }
   private step(dt: number) {
     this.uniforms.uTime.value += dt;
     if (this.anim) {
@@ -1846,6 +1990,11 @@ varying float vA; varying float vHot;
       this.applyInset(); this.markActive();
     }
     this.controls.update();
+    if (this.frame && this.rawHeights) {
+      const ref = this.regional ? 9000 : 350, hgt = Math.max(1, this.camera.position.y - this.groundY(this.camera.position.x, this.camera.position.z));
+      (this.scene.fog as THREE.FogExp2).density = this.fogBase * Math.min(1, Math.max(0.22, (ref / Math.max(hgt, ref)) ** 0.85));
+    }
+    if (this.veg) { const now2 = performance.now(); if (now2 - this.vegAt.t > 350) { this.vegAt.t = now2; this.updateVegetation(); } }
     for (const r of this.rotors) r.rotation.y += dt * 40;
     this.updateUnits(dt);
     if (this.drone) this.drone.position.y += Math.sin(this.uniforms.uTime.value * 1.3) * 0.004;
@@ -1919,6 +2068,7 @@ function pointInPoly(x: number, y: number, poly: Ring[] | number[][][]) {
   }
   return inside;
 }
+function hash2(a: number, b: number) { let h = Math.imul(a, 374761393) + Math.imul(b, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
 function mulberry32(a: number) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function hashStr(s: string) { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h; }
 
@@ -1935,16 +2085,50 @@ function makeUnitMesh(u: SimUnit): THREE.Group {
     for (const [x, z] of [[2.1, 2.1], [-2.1, 2.1], [2.1, -2.1], [-2.1, -2.1]]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.05, 14), new THREE.MeshBasicMaterial({ color: '#888', transparent: true, opacity: 0.35 })); r.position.set(x, 0.35, z); r.userData.rotor = true; g.add(r); }
     box(0.35, 0.35, 0.35, M('#d2402a', 0.8), 0, -0.4, -1.1);
   } else if (u.kind === 'air_tanker' || u.kind === 'air_attack') {
+    // low-poly aircraft, nose toward −z: lathed fuselage, tapered wings, tailplane and fin, engines with propellers
     const L = u.kind === 'air_attack' ? 12 : u.id === 'T-910' ? 50 : 30, s = L / 30;
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(1.7 * s, 1.4 * s, L, 12), white); body.rotation.x = Math.PI / 2; g.add(body);
-    box(38 * s, 0.6 * s, 5 * s, white, 0, 0, 1 * s); box(12 * s, 0.5 * s, 3 * s, white, 0, 0.6 * s, L / 2 - 2 * s);
-    box(0.5 * s, 6 * s, 4 * s, M(u.kind === 'air_attack' ? '#6b7280' : '#c0392b'), 0, 3 * s, L / 2 - 2 * s);
-    box(2.8 * s, 0.4 * s, 4 * s, M('#c0392b'), 0, -1.7 * s, -2 * s);
+    const scooper = /CL-415/.test(u.name), accent = M(u.kind === 'air_attack' ? '#6b7280' : scooper ? '#e5b20d' : '#c0392b');
+    const R = 1.75 * s;
+    const prof = [[0, 0], [0.55, 0.04], [0.85, 0.1], [1, 0.2], [1, 0.62], [0.78, 0.82], [0.42, 0.97], [0.12, 1]].map(([r, y]) => new THREE.Vector2(r * R, (0.5 - y) * L));
+    const body = new THREE.Mesh(new THREE.LatheGeometry(prof, 14), white); body.rotation.x = -Math.PI / 2; body.rotation.y = 0; g.add(body);
+    const wing = (span: number, root: number, tip: number, sweep: number, th: number) => {
+      const sh = new THREE.Shape(); sh.moveTo(-span / 2, sweep + tip / 2); sh.lineTo(-span / 2, sweep - tip / 2); sh.lineTo(0, -root / 2); sh.lineTo(span / 2, sweep - tip / 2); sh.lineTo(span / 2, sweep + tip / 2); sh.lineTo(0, root / 2); sh.closePath();
+      const gm = new THREE.ExtrudeGeometry(sh, { depth: th, bevelEnabled: false }); gm.rotateX(Math.PI / 2); gm.translate(0, th / 2, 0); return gm;
+    };
+    const wy = scooper ? R * 0.9 : -R * 0.35;                 // high wing (amphibian) or low wing
+    const wm = new THREE.Mesh(wing(36 * s, 5.4 * s, 2.4 * s, 0.6 * s, 0.55 * s), white); wm.position.set(0, wy, -1.5 * s); g.add(wm);
+    const tp = new THREE.Mesh(wing(11 * s, 3 * s, 1.6 * s, 0.4 * s, 0.4 * s), white); tp.position.set(0, R * 0.55, L * 0.43); g.add(tp);
+    const fin = new THREE.Shape(); fin.moveTo(0, 0); fin.lineTo(3.8 * s, 0); fin.lineTo(3.4 * s, 5.6 * s); fin.lineTo(1.6 * s, 5.6 * s); fin.closePath();
+    const fg = new THREE.ExtrudeGeometry(fin, { depth: 0.45 * s, bevelEnabled: false }); fg.rotateY(-Math.PI / 2); fg.translate(0.22 * s, R * 0.6, L * 0.36);
+    g.add(new THREE.Mesh(fg, accent));
+    if (u.kind !== 'air_attack') { const stripe = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.01, R * 1.01, L * 0.12, 14, 1, true), accent); stripe.rotation.x = Math.PI / 2; stripe.position.z = -L * 0.08; g.add(stripe); }
+    const glass = new THREE.Mesh(new THREE.SphereGeometry(R * 0.55, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), M('#1f2a36')); glass.scale.set(1.2, 0.55, 1.6); glass.position.set(0, R * 0.62, -L * 0.36); g.add(glass);
+    // engines by type: single nose prop (AT-802, King Air-class coordination), two props (CL-415), four props (C-130),
+    // jets without propellers (DC-10, RJ85)
+    const jet = /DC-10|RJ85/.test(u.name);
+    const nEng = u.kind === 'air_attack' || /AT-802/.test(u.name) ? 1 : /C-130/.test(u.name) || /RJ85/.test(u.name) ? 4 : 2;
+    const xs = nEng === 1 ? [0] : nEng === 2 ? [-6.5 * s, 6.5 * s] : [-11 * s, -5.5 * s, 5.5 * s, 11 * s];
+    for (const x of xs) {
+      const nac = new THREE.Mesh(new THREE.CylinderGeometry(0.75 * s, 0.6 * s, 4.2 * s, 10), M('#d9d6cf')); nac.rotation.x = Math.PI / 2;
+      const zN = nEng === 1 ? -L / 2 - 0.4 * s : -3.6 * s;
+      nac.position.set(x, nEng === 1 ? 0 : wy, nEng === 1 ? -L / 2 + 1.4 * s : zN + 1.6 * s); if (nEng > 1) g.add(nac);
+      if (jet) { nac.position.y = wy - 1.1 * s; continue; }   // podded under the wing, no propeller
+      const prop = new THREE.Mesh(new THREE.CylinderGeometry(2.1 * s, 2.1 * s, 0.05 * s, 18), new THREE.MeshBasicMaterial({ color: '#777', transparent: true, opacity: 0.28 }));
+      prop.rotation.x = Math.PI / 2; prop.position.set(x, nEng === 1 ? 0 : wy, zN); prop.userData.prop = true; g.add(prop);
+    }
+    if (scooper) for (const x of [-15 * s, 15 * s]) { const fl = new THREE.Mesh(new THREE.CapsuleGeometry(0.35 * s, 2.2 * s, 3, 6), white); fl.rotation.x = Math.PI / 2; fl.position.set(x, wy - 1.3 * s, -1.5 * s); g.add(fl); }
   } else if (u.kind === 'helicopter') {
-    const s = u.id === 'H-743' ? 1.4 : 1;
-    box(3 * s, 3 * s, 9 * s, M(u.id === 'H-743' ? '#d97706' : '#e5e7eb')); box(0.6 * s, 0.6 * s, 8 * s, M('#d97706'), 0, 0.8 * s, 8 * s);
-    const r = new THREE.Mesh(new THREE.CylinderGeometry(9 * s, 9 * s, 0.08, 20), new THREE.MeshBasicMaterial({ color: '#555', transparent: true, opacity: 0.3 })); r.position.y = 2.1 * s; r.userData.rotor = true; g.add(r);
-    box(2 * s, 1.4 * s, 2 * s, M('#2f6fb3'), 0, -4 * s, 0);
+    // rounded cabin, tapering tail boom with fin, skids, rotor disc (nose toward −z)
+    const s = u.id === 'H-743' ? 1.4 : 1, paint = M(u.id === 'H-743' ? '#d97706' : '#e5e7eb'), accent = M(u.id === 'H-743' ? '#1f2937' : '#d97706');
+    const cab = new THREE.Mesh(new THREE.SphereGeometry(1.9 * s, 14, 10), paint); cab.scale.set(1, 1.05, 1.9); g.add(cab);
+    const glass = new THREE.Mesh(new THREE.SphereGeometry(1.5 * s, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2.2), M('#1f2a36')); glass.scale.set(1, 0.8, 1.2); glass.rotation.x = -0.9; glass.position.set(0, 0.4 * s, -2.1 * s); g.add(glass);
+    const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.28 * s, 0.6 * s, 8 * s, 10), paint); boom.rotation.x = Math.PI / 2; boom.position.set(0, 0.6 * s, 7 * s); g.add(boom);
+    const tfin = new THREE.Mesh(new THREE.BoxGeometry(0.2 * s, 2.4 * s, 1.4 * s), accent); tfin.position.set(0, 1.5 * s, 10.6 * s); g.add(tfin);
+    const tr = new THREE.Mesh(new THREE.CylinderGeometry(1.1 * s, 1.1 * s, 0.05, 12), new THREE.MeshBasicMaterial({ color: '#555', transparent: true, opacity: 0.3 })); tr.rotation.z = Math.PI / 2; tr.position.set(0.35 * s, 1.5 * s, 10.6 * s); g.add(tr);
+    for (const x of [-1.3 * s, 1.3 * s]) { const sk = new THREE.Mesh(new THREE.CylinderGeometry(0.12 * s, 0.12 * s, 5 * s, 6), M('#2b2b2b')); sk.rotation.x = Math.PI / 2; sk.position.set(x, -2.3 * s, 0); g.add(sk); }
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.25 * s, 0.3 * s, 0.9 * s, 8), M('#2b2b2b')); mast.position.y = 2.2 * s; g.add(mast);
+    const r = new THREE.Mesh(new THREE.CylinderGeometry(9 * s, 9 * s, 0.08, 24), new THREE.MeshBasicMaterial({ color: '#555', transparent: true, opacity: 0.3 })); r.position.y = 2.7 * s; r.userData.rotor = true; g.add(r);
+    const bucket = new THREE.Mesh(new THREE.CylinderGeometry(1 * s, 0.7 * s, 1.4 * s, 10), M('#2f6fb3')); bucket.position.set(0, -6 * s, 0); g.add(bucket);
   } else if (u.kind === 'engine' || u.kind === 'tender') {
     box(2.6, 2.6, 8, M(u.kind === 'tender' ? '#1d4ed8' : '#b91c1c')); box(2.5, 1.6, 2.4, dark, 0, 0.4, -3.4); box(2.7, 0.4, 7.6, M('#f3f1ec'), 0, 1.4, 0.4);
   } else if (u.kind === 'crew') {

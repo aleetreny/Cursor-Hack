@@ -4,6 +4,7 @@ import { useStore, qt } from '../state/store';
 import { profileRef, selectEvent } from '../scene/SceneView';
 import { fmtClock, fmtDay, fmtDayClock, fmtNow, fmtWhen, isMultiDay } from '../lib/format';
 import { speedLabel, speedsFor, timeSteps } from '../lib/incident';
+import { follow, getWin, nights, panBy, resetWin, zoomAround } from '../lib/timewin';
 import { downloadCsv, useDismiss } from '../lib/ui';
 import type { AnalysisEvent, EventType } from '../api/types';
 import { Icon } from './Icon';
@@ -59,7 +60,8 @@ export function Timeline() {
 
 /** Playback controls + scrub track (the master clock). `compact` drops the header line (phones). */
 export function TimelineBar({ compact = false }: { compact?: boolean }) {
-  const { t0, t1, time, playing, speed, set, setTime, events, selectedEventId, compare, incident } = useStore(useShallow((s) => ({ t0: s.t0, t1: s.t1, time: s.time, playing: s.playing, speed: s.speed, set: s.set, setTime: s.setTime, events: s.events, selectedEventId: s.selectedEventId, compare: s.compare, incident: s.incident })));
+  const { t0, t1, time, playing, speed, set, setTime, events, selectedEventId, compare, incident, win } = useStore(useShallow((s) => ({ t0: s.t0, t1: s.t1, time: s.time, playing: s.playing, speed: s.speed, set: s.set, setTime: s.setTime, events: s.events, selectedEventId: s.selectedEventId, compare: s.compare, incident: s.incident, win: s.win })));
+  const [w0, w1] = getWin({ t0, t1, win });
   const SPEEDS = speedsFor(incident), [stepS, stepL] = timeSteps(incident), regional = incident?.scale === 'regional';
   const track = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<'time' | 'before' | null>(null);
@@ -67,21 +69,45 @@ export function TimelineBar({ compact = false }: { compact?: boolean }) {
   const [speedAt, setSpeedAt] = useState({ left: 0, bottom: 0 });
   const speedRef = useRef<HTMLDivElement>(null);
   useDismiss(speedOpen, () => setSpeedOpen(false), speedRef);
-  const span = t1 - t0 || 1;
-  const pct = (t: number) => ((t - t0) / span) * 100;
+  const span = w1 - w0 || 1;
+  const pct = (t: number) => ((t - w0) / span) * 100;
+  const atX = (clientX: number) => { const r = track.current!.getBoundingClientRect(); return w0 + Math.min(1, Math.max(0, (clientX - r.left) / r.width)) * span; };
+  // the window follows the cursor (playback, seeking to an event)
+  useEffect(() => { follow(time); }, [time]);
+  // wheel / trackpad: vertical zooms around the pointer, horizontal pans. Two fingers on a touch screen pinch.
+  useEffect(() => {
+    const el = track.current;
+    if (!el) return;
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) panBy((e.deltaX / el.clientWidth) * (getWin(useStore.getState())[1] - getWin(useStore.getState())[0]));
+      else zoomAround(atX(e.clientX), Math.exp(e.deltaY * (e.ctrlKey ? 0.01 : 0.0018)));
+    };
+    const touches = new Map<number, number>();
+    let pinch = 0;
+    const down = (e: PointerEvent) => { if (e.pointerType === 'touch') { touches.set(e.pointerId, e.clientX); if (touches.size === 2) { setDrag(null); const [a, b] = [...touches.values()]; pinch = Math.abs(a - b); } } };
+    const move = (e: PointerEvent) => {
+      if (!touches.has(e.pointerId)) return;
+      touches.set(e.pointerId, e.clientX);
+      if (touches.size === 2 && pinch > 10) { const [a, b] = [...touches.values()], d = Math.abs(a - b); if (d > 10) { zoomAround(atX((a + b) / 2), pinch / d); pinch = d; } }
+    };
+    const up = (e: PointerEvent) => { touches.delete(e.pointerId); if (touches.size < 2) pinch = 0; };
+    el.addEventListener('wheel', wheel, { passive: false });
+    el.addEventListener('pointerdown', down); window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+    return () => { el.removeEventListener('wheel', wheel); el.removeEventListener('pointerdown', down); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
+  }, [w0, span]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!drag) return;
     const move = (e: PointerEvent) => {
-      const r = track.current!.getBoundingClientRect();
-      const t = t0 + Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * span;
+      const t = atX(e.clientX);
       if (drag === 'time') setTime(t); else set({ compare: { on: true, before: Math.min(t, useStore.getState().time) } });
     };
     const up = () => setDrag(null);
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
-  }, [drag, t0, span, setTime, set]);
+  }, [drag, w0, span, setTime, set]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // minute ticks
   const ticks: { t: number; label: string; day?: string }[] = [];
@@ -102,20 +128,31 @@ export function TimelineBar({ compact = false }: { compact?: boolean }) {
   const SEV = { alert: 0, watch: 1, info: 2 } as const;
   const clusters: { x: number; items: typeof events }[] = [];
   for (const e of events) {
-    const x = (pct(Date.parse(e.timestamp)) / 100) * trackW, last = clusters[clusters.length - 1];
+    const te = Date.parse(e.timestamp);
+    if (te < w0 || te > w1) continue;
+    const x = (pct(te) / 100) * trackW, last = clusters[clusters.length - 1];
     if (last && x - last.x < 18) last.items.push(e); else clusters.push({ x, items: [e] });
   }
   for (const c of clusters) c.items.sort((a, b) => SEV[a.severity] - SEV[b.severity] || Date.parse(a.timestamp) - Date.parse(b.timestamp));
   const H = 3600000, D = 24 * H;
   const stepMs = [30000, 60000, 120000, 300000, 600000, 1800000, H, 3 * H, 6 * H, 12 * H, D, 2 * D].find((st) => span / st <= maxTicks) ?? 2 * D;
   // ticks of a day or more are labelled with the date; finer ones with the clock (and the date at midnight)
-  for (let t = Math.ceil(t0 / stepMs) * stepMs; t <= t1; t += stepMs) ticks.push({ t, label: stepMs >= D || (stepMs >= 3 * H && t % D === 0) ? fmtDay(t) : fmtClock(t, false) });
-  if (ticks.length) ticks[0].day = fmtDay(t0);
+  for (let t = Math.ceil(w0 / stepMs) * stepMs; t <= w1; t += stepMs) ticks.push({ t, label: stepMs >= D || (stepMs >= 3 * H && t % D === 0) ? fmtDay(t) : fmtClock(t, false) });
+  if (ticks.length) ticks[0].day = fmtDay(w0);
+  const zoomed = !!win;
+  const nightBands = incident && isMultiDay() ? nights(t0, t1, incident.center[0], incident.center[1]).filter((n) => n.x1 > w0 && n.x0 < w1) : [];
+  const zoomBtns = (
+    <span className="tl-zoom" role="group" aria-label="Time zoom">
+      <button onClick={() => zoomAround(time >= w0 && time <= w1 ? time : (w0 + w1) / 2, 1.6)} disabled={!zoomed} title="Zoom out (or scroll on the track)" aria-label="Zoom out the timeline">−</button>
+      <button onClick={() => zoomAround(time >= w0 && time <= w1 ? time : (w0 + w1) / 2, 1 / 1.6)} title="Zoom in around the cursor (or scroll / pinch on the track)" aria-label="Zoom in the timeline">+</button>
+      <button className={'fit' + (zoomed ? ' on' : '')} onClick={resetWin} disabled={!zoomed} title={regional ? 'Show the whole fire' : 'Show the whole recording'} aria-label={regional ? 'Show the whole fire' : 'Show the whole recording'}><Icon name="full" size={10} /></button>
+    </span>
+  );
 
   return (
         <div className={'tl-top' + (compact ? ' compact' : '')}>
-          {!compact && <div className="tl-head"><span>Timeline <span className="muted" style={{ fontWeight: 400, fontSize: 11.5, marginLeft: 6, transition: 'opacity .25s', opacity: hideSub ? 0 : 1 }}>{regional ? 'UTC · reconstructed from satellites' : 'UTC · drone replay'}</span></span><span className="range" style={{ transition: 'opacity .25s', opacity: hideRange ? 0 : 1 }}>{t0 ? (isMultiDay() ? `${fmtDay(t0)} – ${fmtDay(t1)}, ${new Date(t1).getUTCFullYear()}` : `${fmtDayClock(t0)} – ${fmtClock(t1)}`) : ''}</span></div>}
-          <div className="tl-row">
+          {!compact && <div className="tl-head"><span>Timeline <span className="muted" style={{ fontWeight: 400, fontSize: 11.5, marginLeft: 6, transition: 'opacity .25s', opacity: hideSub ? 0 : 1 }}>{regional ? 'UTC · reconstructed from satellites' : 'UTC · drone replay'}</span></span><span className="range" style={{ transition: 'opacity .25s', opacity: hideRange ? 0 : 1 }}>{t0 ? (zoomed ? `${fmtWhen(w0)} – ${fmtWhen(w1)}` : isMultiDay() ? `${fmtDay(t0)} – ${fmtDay(t1)}, ${new Date(t1).getUTCFullYear()}` : `${fmtDayClock(t0)} – ${fmtClock(t1)}`) : ''}</span></div>}
+          <div className={'tl-row' + (compact ? '' : ' zoomable')}>
             <div className="tl-ctrl">
               <button onClick={() => { if (time >= t1 - 500) setTime(t0); set({ playing: true }); }} className={playing ? 'on' : ''} title="Play (Space)" aria-label="Play"><Icon name="play" size={12} /></button>
               <button onClick={() => set({ playing: false })} className={!playing ? 'on' : ''} title="Pause (Space)" aria-label="Pause"><Icon name="pause" size={12} /></button>
@@ -125,11 +162,13 @@ export function TimelineBar({ compact = false }: { compact?: boolean }) {
                 <button className="speed" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setSpeedAt({ left: r.left, bottom: innerHeight - r.top + 4 }); setSpeedOpen(!speedOpen); }} aria-haspopup="menu" aria-expanded={speedOpen} title="Playback speed">{speedLabel(speed)} <Icon name="chev" size={10} /></button>
                 {speedOpen && <div className="menu-pop fixed" role="menu" style={{ ...speedAt, top: 'auto', minWidth: 70 }}>{SPEEDS.map((s) => <button key={s} role="menuitemradio" aria-checked={s === speed} onClick={() => { set({ speed: s }); setSpeedOpen(false); }}>{speedLabel(s)}</button>)}</div>}
               </div>
+              {compact && zoomed && <button className="tl-fit" onClick={resetWin} title={regional ? 'Show the whole fire' : 'Show the whole recording'} aria-label="Show the whole timeline"><Icon name="full" size={12} /></button>}
             </div>
-            <div className="track" ref={track} role="slider" tabIndex={0} aria-label="Timeline position" aria-valuemin={0} aria-valuemax={Math.round(span / 1000)} aria-valuenow={Math.round((time - t0) / 1000)} aria-valuetext={`${fmtNow(time)} UTC`}
+            <div className="track" ref={track} role="slider" tabIndex={0} aria-label="Timeline position" aria-valuemin={0} aria-valuemax={Math.round((t1 - t0) / 1000)} aria-valuenow={Math.round((time - t0) / 1000)} aria-valuetext={`${fmtNow(time)} UTC`}
               onKeyDown={(e) => { const step = e.shiftKey ? stepL : stepS; if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); setTime(time + step); } if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); setTime(time - step); } }}
-              onPointerDown={(e) => { const r = track.current!.getBoundingClientRect(); setTime(t0 + ((e.clientX - r.left) / r.width) * span); set({ playing: false }); setDrag('time'); }}>
-              <div className="rail"><div className="fill" style={{ width: `${pct(time)}%` }} /></div>
+              onPointerDown={(e) => { setTime(atX(e.clientX)); set({ playing: false }); setDrag('time'); }}>
+              {nightBands.map((n) => <div key={n.x0} className="tl-night" style={{ left: `${Math.max(0, pct(n.x0))}%`, width: `${Math.min(100, pct(n.x1)) - Math.max(0, pct(n.x0))}%` }} title="Night (sun below −6°)" />)}
+              <div className="rail"><div className="fill" style={{ width: `${Math.min(100, Math.max(0, pct(time)))}%` }} /></div>
               {clusters.map((c) => {
                 const lead = c.items.find((e) => e.event_id === selectedEventId) ?? c.items[0];
                 const sel = c.items.some((e) => e.event_id === selectedEventId);
@@ -148,11 +187,12 @@ export function TimelineBar({ compact = false }: { compact?: boolean }) {
                 </>
               )}
               <div className={'bubble' + (mergeBubbles ? ' wide' : '')} style={{ left: mergeBubbles ? Math.min(trackW - 95, Math.max(95, (bubbleX(time) + bubbleX(compare.before!)) / 2)) : bubbleX(time) }}>{mergeBubbles ? (isMultiDay() ? `${fmtWhen(compare.before!)} → ${fmtWhen(time)}` : `${fmtClock(compare.before!)} → ${fmtClock(time)}`) : fmtNow(time)}</div>
-              <div className="handle" style={{ left: `${pct(time)}%` }} />
+              {time >= w0 && time <= w1 && <div className="handle" style={{ left: `${pct(time)}%` }} />}
               <div className="ticks">
                 {ticks.map((k) => <div key={k.t} className="tick" style={{ left: `${pct(k.t)}%` }}>{k.label}</div>)}
               </div>
             </div>
+            {!compact && zoomBtns}
           </div>
         </div>
   );
@@ -160,8 +200,11 @@ export function TimelineBar({ compact = false }: { compact?: boolean }) {
 
 /** The linked charts for the current mode (series rebuilt only when the data or the mode change). */
 export function ChartsRow() {
-  const { t0, t1, time, mode, timeline } = useStore(useShallow((s) => ({ t0: s.t0, t1: s.t1, time: s.time, mode: s.mode, timeline: s.timeline })));
+  const { t0: T0, t1: T1, time, mode, timeline, win, incident } = useStore(useShallow((s) => ({ t0: s.t0, t1: s.t1, time: s.time, mode: s.mode, timeline: s.timeline, win: s.win, incident: s.incident })));
+  // the charts show the same time window as the timeline
+  const [t0, t1] = getWin({ t0: T0, t1: T1, win });
   const span = t1 - t0 || 1;
+  const nightB = useMemo(() => (incident && isMultiDay() ? nights(T0, T1, incident.center[0], incident.center[1]).map((n) => ({ ...n, color: 'rgba(52,62,96,.10)' })) : []), [incident, T0, T1]);
   const frames = useMemo(() => timeline?.frames ?? [], [timeline]);
   // x labels: evenly spaced clock times in a recording; whole days (every 1–3) in a days-long fire
   const xLab = (n = 4) => {
@@ -236,7 +279,7 @@ export function ChartsRow() {
             <div className="chart" key={c.title}>
               <div className="chart-h" title={'hint' in c ? (c.hint as string) : undefined}><span>{c.title} <small>({c.unit})</small>{c.prov && <span className={'prov ' + c.prov}>{c.prov === 'demo_parameter' ? 'sim' : c.prov}</span>}</span>
                 <button className="chart-dl" title="Download CSV" aria-label={`Download ${c.title} as CSV`} onClick={() => downloadCsv(`${c.title.toLowerCase().replace(/\W+/g, '-')}.csv`, ['time_utc', `${c.title} (${c.unit})`], c.pts.map((p) => [new Date(p.x).toISOString(), p.y]))}><Icon name="download" size={12} /></button></div>
-              <MiniChart pts={c.pts} pts2={'pts2' in c ? (c.pts2 as Pt[] | null) : null} cursor={time} color={c.color} kind={c.kind} xTicks={xLab()} label={`${c.title} over the recording`} />
+              <MiniChart pts={c.pts} pts2={'pts2' in c ? (c.pts2 as Pt[] | null) : null} cursor={time} color={c.color} kind={c.kind} xTicks={xLab()} domain={[t0, t1]} bands={nightB} label={`${c.title} over the recording`} />
             </div>
           ))}
           {mode !== 'drones' && mode !== 'resources' && profile.length > 1 && (

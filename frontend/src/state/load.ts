@@ -20,7 +20,7 @@ export async function loadAll() {
     set({
       incident, sources, timeline, features: obs.features, hotspots: obs.hotspots ?? [], speed: defaultSpeed(incident),
       // a regional fire has no drone footprint, event track, trees or ground-truth masks to show
-      ...(regional ? { layers: { ...useStore.getState().layers, imagery: 0.6, path: false, footprint: false, trees: false, groundTruth: false } } : {}),
+      ...(regional ? { layers: { ...useStore.getState().layers, imagery: 0.6, path: false, footprint: false, groundTruth: false } } : {}),
       events: [...events].sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp)),
       t0, t1, time: first ? Math.min(t1, Date.parse(first.timestamp) + (regional ? 3600000 : 20000)) : t0 + (t1 - t0) * 0.35,
       selectedSourceId: sources[0]?.id ?? null, loaded: true, loadMsg: 'Loading terrain',

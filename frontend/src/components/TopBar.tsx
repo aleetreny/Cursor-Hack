@@ -74,6 +74,7 @@ export function TopBar() {
             <button role="menuitem" onClick={() => { set({ view: view === '3d' ? '2d' : '3d' }); close(); }}>{view === '3d' ? 'Top-down 2D map' : 'Oblique 3D view'}<span className="muted">{view === '3d' ? '2' : '3'}</span></button>
             <button role="menuitem" onClick={() => { sceneRef.current?.flyHome(); close(); }}>Reset camera<span className="muted">H</span></button>
             {!regional && <button role="menuitem" onClick={() => { sceneRef.current?.flyToDrone(); close(); }}>Go to the drone</button>}
+            <button role="menuitemcheckbox" aria-checked={layers.realSun} onClick={() => { useStore.getState().setLayer('realSun', !layers.realSun); close(); }} title="Light from the real sun at the timeline time, night included">Real sun &amp; night<span className="muted">{layers.realSun ? 'on' : 'off'}</span></button>
             <button role="menuitemcheckbox" aria-checked={exaggeration !== 1} onClick={() => { set({ exaggeration: exaggeration === 1 ? 1.8 : 1 }); close(); }}>Vertical exaggeration<span className="muted">{exaggeration}×</span></button>
           </div>
         )}

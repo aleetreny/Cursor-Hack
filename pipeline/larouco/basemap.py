@@ -7,7 +7,7 @@ Everything is redistributable and credited in the app:
   · inner imagery + a sharper patch over the scar: IGN PNOA orthophoto (PNOA-MA), CC BY 4.0, via the IGN WMS
     (flown before the fire: the burned ground comes from the reconstruction drawn on top)
   · outer rings (~160 km and ~600 km): AWS Terrain Tiles (Terrarium, open, attribution) and Sentinel-2 cloudless 2016
-    by EOX (CC BY 4.0, contains modified Copernicus Sentinel data)
+    by EOX (CC BY 4.0, contains modified Copernicus Sentinel data), colour-matched to PNOA over their overlap
 Terrain is stored Terrarium-encoded (R·256 + G + B/256 − 32768 m) in PNG on lon/lat-aligned grids; imagery as JPEG.
 """
 from __future__ import annotations
@@ -134,14 +134,26 @@ def main():
     walk(inc["reference_perimeter"]["geometry"]["coordinates"])
     patch = (min(xs) - 0.02, min(ys) - 0.015, max(xs) + 0.02, max(ys) + 0.015)
     pnoa(patch, 4096, "img_scar.jpg")
-    # 3. outer rings: Terrarium DEM + Sentinel-2 cloudless 2016 (EOX), same boxes as the app's LOD rings
+    # 3. outer rings: Terrarium DEM + Sentinel-2 cloudless 2016 (EOX), same boxes as the app's LOD rings. The two
+    #    imagery sources differ a lot in colour balance (S2 cloudless is much darker), so the rings are matched to PNOA
+    #    per channel (mean and spread) over the area where they overlap — otherwise the inner box reads as a tile.
     rings = []
+    pn = np.asarray(Image.open(BM / "img_inner.jpg").convert("RGB")).astype("float32").reshape(-1, 3)
+    match = None
     for k, (hx, hy, demZ, imgZ, n_dem, n_img) in enumerate([(0.95, 0.72, 9, 10, 640, 2048), (3.6, 2.7, 6, 7, 384, 1024)]):
         b = (cx - hx, cy - hy, cx + hx, cy + hy)
         t, px = mosaic(b, demZ, "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png", "terrarium")
         Image.fromarray(terrarium_encode(resample(t, px, b, n_dem, n_dem, terrarium_decode))).save(BM / f"dem_ring{k}.png", optimize=True)
         im, px = mosaic(b, imgZ, "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg", "s2cloudless")
-        Image.fromarray(np.clip(resample(im, px, b, n_img, n_img), 0, 255).astype("uint8")).save(BM / f"img_ring{k}.jpg", quality=82, optimize=True, progressive=True)
+        ring = resample(im, px, b, n_img, n_img)
+        if match is None:   # statistics of S2 inside the inner box, from the first (finer) ring
+            c0, c1 = int((inner[0] - b[0]) / (b[2] - b[0]) * n_img), int((inner[2] - b[0]) / (b[2] - b[0]) * n_img)
+            r0, r1 = int((b[3] - inner[3]) / (b[3] - b[1]) * n_img), int((b[3] - inner[1]) / (b[3] - b[1]) * n_img)
+            sub = ring[r0:r1, c0:c1].reshape(-1, 3)
+            match = (sub.mean(0), sub.std(0) + 1e-3, pn.mean(0), pn.std(0))
+            print(f"  colour match S2 → PNOA: mean {match[0].round(0)} → {match[2].round(0)}")
+        ring = (ring - match[0]) / match[1] * match[3] + match[2]
+        Image.fromarray(np.clip(ring, 0, 255).astype("uint8")).save(BM / f"img_ring{k}.jpg", quality=82, optimize=True, progressive=True)
         rings.append({"bbox": [round(v, 6) for v in b], "dem": f"basemap/dem_ring{k}.png", "imagery": f"basemap/img_ring{k}.jpg"})
     basemap = {
         "inner": {"bbox": list(inner), "dem": "basemap/dem_inner.png", "imagery": "basemap/img_inner.jpg"},

@@ -120,6 +120,18 @@ The ground-truth masks can be toggled on the map (Layers → Ground Truth), show
 ```
 
 * **Frontend** (`frontend/`): React 19, TypeScript, Vite, Three.js (custom terrain shader, draped canvas masks for burned / active / change, UnrealBloom, GPU point-sprite flames and smoke, instanced vegetation), Zustand. The timeline is the single clock: map overlays, charts, events, the drone video and the panels all follow it.
+* **3D engine** (`frontend/src/scene/`), a custom Three.js renderer:
+  * **Light.** The real sun for the incident's place and timeline time (`sun.ts`: solar position, warm low sun, civil twilight, a moonlit night). In the dark the fire's edge glows and the smoke is lit from below. *View → Real sun & night* switches back to a fixed afternoon light.
+  * **Regional fire.** The arrival-time field drives the burned ground, a 3 h active front, embers, daily isochrones, burn severity and the scenario hatching. The 30 m field is read through a slight noise warp, so edges are organic instead of cell-shaped; the timing itself is unchanged.
+  * **Terrain.** LOD rings out to ~600 km, with the outer imagery colour-matched to PNOA so the detailed box does not read as a tile. Fog thins as the camera climbs.
+  * **Vegetation.** Instanced trees and shrubs from ESA WorldCover are planted around the view target as you move closer, and become charred snags when the fire reaches them.
+  * **Aircraft.** Low-poly scoopers, tankers and helicopters.
+  * **Adaptive quality.** If frames run slower than ~38 fps, the render scale drops (down to 0.6×) and then the bloom glow switches off; both come back when frames are fast.
+  * **Frame rate** (`frontend/scripts/audit/views.mjs --uncapped`). Measured uncapped at 1080p while playing, on Apple M-series: 230–496 fps, against 60 fps displayed (vsync).
+* **Time zoom** (`frontend/src/lib/timewin.ts`):
+  * The timeline and the charts share a time window: zoom with the wheel or a trackpad pinch on the track, pan with a horizontal scroll, pinch with two fingers on phones, or use the −/+/fit buttons.
+  * The window follows the cursor while playing.
+  * Nights (sun below −6°) are shaded on the track and the charts.
 * **Data client** (`frontend/src/api/client.ts`): static mode by default (reads `incidents/<id>/`, chosen with `?incident=<id>` or the index default); optional API mode against the FastAPI backend with `VITE_API_BASE`.
 * **Pipeline / optional backend** (`backend/firescope/`): `pipeline.py` (video → masks → polygons → timeline/events/eval), `geo.py` (DEM + camera), `segment.py`, `weather.py`, `app.py` (FastAPI, `docs/api-contract.md`). The hackathon's NVIDIA adapters (`nvidia.py`, `cosmos_job.py`) are still in the tree but unused by the demo.
 

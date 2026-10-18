@@ -3,12 +3,13 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 export interface Pt { x: number; y: number | null }
 
 /** Small area/line chart in the reference's style: solid to the cursor, faded after it. */
-export function MiniChart({ pts, cursor, color, kind = 'area', xTicks, yTicks, cursorY, fill, zero = true, bands = [], marks = [], label, pts2, color2 = '#8b5cf6' }: {
+export function MiniChart({ pts, cursor, color, kind = 'area', xTicks, yTicks, cursorY, fill, zero = true, bands = [], marks = [], label, pts2, color2 = '#8b5cf6', domain }: {
   zero?: boolean; pts: Pt[]; cursor?: number | null; color: string; kind?: 'area' | 'line'; xTicks: { x: number; label: string }[]; yTicks?: number[]; cursorY?: number | null; fill?: string;
   /** shaded x ranges drawn behind the series */ bands?: { x0: number; x1: number; color: string }[];
   /** labelled point markers on the x axis (e.g. the drone position) */ marks?: { x: number; label: string; color: string }[];
   /** accessible description of the chart */ label?: string;
   /** a second series drawn as a dashed line on the same axes (e.g. a scenario) */ pts2?: Pt[] | null; color2?: string;
+  /** x range to show (e.g. the timeline's zoom window); default: the data's own range */ domain?: [number, number];
 }) {
   const ref = useRef<SVGSVGElement>(null);
   const [size, setSize] = useState({ w: 260, h: 70 });
@@ -26,8 +27,11 @@ export function MiniChart({ pts, cursor, color, kind = 'area', xTicks, yTicks, c
   const g = useMemo(() => {
     const valid = pts.filter((p) => p.y != null) as { x: number; y: number }[];
     if (!valid.length) return null;
-    const xs = pts.map((p) => p.x), x0 = Math.min(...xs), x1 = Math.max(...xs);
-    const ys = [...valid.map((p) => p.y), ...((pts2 ?? []).filter((p) => p.y != null).map((p) => p.y as number))];
+    const xs = pts.map((p) => p.x), x0 = domain ? domain[0] : Math.min(...xs), x1 = domain ? domain[1] : Math.max(...xs);
+    // the y scale follows what is inside the window (plus the neighbours, so lines enter and leave the plot)
+    const inWin = (p: { x: number }) => !domain || (p.x >= x0 - (x1 - x0) * 0.02 && p.x <= x1 + (x1 - x0) * 0.02);
+    const ys = [...valid.filter(inWin).map((p) => p.y), ...((pts2 ?? []).filter((p) => p.y != null && inWin(p)).map((p) => p.y as number))];
+    if (!ys.length) ys.push(0, 1);
     const yt = yTicks ?? (zero ? niceTicks(Math.min(0, ...ys), Math.max(1e-9, ...ys)) : niceTicks(Math.min(...ys) - 1, Math.max(...ys) + 1));
     const y0 = Math.min(yt[0], ...ys), y1 = Math.max(yt[yt.length - 1], ...ys);
     const X = (x: number) => L + ((x - x0) / (x1 - x0 || 1)) * w;
@@ -38,7 +42,7 @@ export function MiniChart({ pts, cursor, color, kind = 'area', xTicks, yTicks, c
     const v2 = (pts2 ?? []).filter((p) => p.y != null) as { x: number; y: number }[];
     const line2 = v2.map((p, i) => `${i ? 'L' : 'M'}${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join('');
     return { valid, x0, x1, yt, X, Y, line, area, line2 };
-  }, [pts, pts2, w, h, zero, keyY]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pts, pts2, w, h, zero, keyY, domain?.[0], domain?.[1]]);   // eslint-disable-line react-hooks/exhaustive-deps
   // thin the x labels by their real width ("12:33" or "Aug 14"): 9.5 px text ≈ 6 px a character, plus a gap
   const labW = Math.max(30, ...xTicks.map((t) => t.label.length * 6 + 14));
   const xStep = Math.max(1, Math.ceil((xTicks.length - 1) / Math.max(1, Math.floor(w / labW))));
@@ -60,13 +64,14 @@ export function MiniChart({ pts, cursor, color, kind = 'area', xTicks, yTicks, c
     <div className="cbody"><svg ref={ref} role="img" aria-label={label}>
       <defs>
         <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={fill ?? color} stopOpacity=".55" /><stop offset="1" stopColor={fill ?? color} stopOpacity=".12" /></linearGradient>
-        <clipPath id={cid + 'p'}><rect x={0} y={0} width={split} height={T + h + 2} /></clipPath>
-        <clipPath id={cid + 'f'}><rect x={split} y={0} width={Math.max(0, L + w + R - split)} height={T + h + 2} /></clipPath>
+        <clipPath id={cid + 'p'}><rect x={L} y={0} width={Math.max(0, split - L)} height={T + h + 2} /></clipPath>
+        <clipPath id={cid + 'f'}><rect x={split} y={0} width={Math.max(0, L + w - split)} height={T + h + 2} /></clipPath>
+        <clipPath id={cid + 'a'}><rect x={L} y={0} width={w} height={T + h + 2} /></clipPath>
       </defs>
       {statics}
       {kind === 'area' && <path d={g.area} fill={`url(#${gid})`} clipPath={`url(#${cid}p)`} />}
       {kind === 'area' && cx != null && <path d={g.area} fill={fill ?? color} opacity={0.12} clipPath={`url(#${cid}f)`} />}
-      {g.line2 && <path d={g.line2} fill="none" stroke={color2} strokeWidth={1.4} strokeDasharray="4 3" />}
+      {g.line2 && <path d={g.line2} fill="none" stroke={color2} strokeWidth={1.4} strokeDasharray="4 3" clipPath={`url(#${cid}a)`} />}
       <path d={g.line} fill="none" stroke={color} strokeWidth={1.5} clipPath={`url(#${cid}p)`} />
       {cx != null && <path d={g.line} fill="none" stroke={color} strokeWidth={1.2} opacity={0.35} strokeDasharray={kind === 'line' ? '3 2' : undefined} clipPath={`url(#${cid}f)`} />}
       {marks.map((m, i) => <g key={'m' + i}><circle cx={g.X(m.x)} cy={T + h} r={3} fill={m.color} stroke="#fff" strokeWidth={1} /><text x={g.X(m.x)} y={T + 8} textAnchor={g.X(m.x) - L < 30 ? 'start' : L + w - g.X(m.x) < 30 ? 'end' : 'middle'} fill={m.color} style={{ fontWeight: 650 }}>{m.label}</text></g>)}

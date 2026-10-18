@@ -94,7 +94,7 @@ export function MapOverlays() {
         <div className="hovertip" style={{ left: hover.x, top: hover.y, transform: `translate(${hover.x > (document.querySelector('.map')?.clientWidth ?? 9999) - 290 ? 'calc(-100% - 14px)' : '14px'}, ${hover.y > (document.querySelector('.map')?.clientHeight ?? 9999) - 110 ? 'calc(-100% - 14px)' : '14px'})` }}>
           <div><b>{Math.round(hover.elevation).toLocaleString()} m</b> · {Math.round(hover.slope)}° slope · {aspectName(hover.aspect)}-facing</div>
           {hover.arrival !== undefined
-            ? <div><span className={'dot' + (hover.inBurned ? ' burn' : '')} />{hover.arrival == null ? 'Did not burn' : `${hover.inBurned ? 'Burned' : 'Burns'} ${fmtWhen(hover.arrival)} UTC${hover.severity ? ` · ${SEVERITY[hover.severity]} severity` : ''}`}</div>
+            ? <div><span className={'dot' + (hover.inBurned ? ' burn' : '')} />{hover.arrival == null ? 'Did not burn' : `${hover.inBurned ? 'Burned' : 'Burns'} ${fmtWhen(hover.arrival)} UTC${hover.severity ? ` · ${SEVERITY[hover.severity]} severity` : ''}`}{hover.cover ? <span className="muted"> · {hover.cover}</span> : null}</div>
             : <div><span className={'dot' + (hover.inBurned ? ' burn' : '')} />{hover.inBurned ? 'Inside observed burned area' : hover.inPerimeter ? 'Inside planned burn cell' : 'Outside burn cell'}</div>}
           <div className="c">{formatLat(hover.lat)} {formatLon(hover.lon)}</div>
         </div>

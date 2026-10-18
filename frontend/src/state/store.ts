@@ -24,6 +24,8 @@ interface State {
   weather: WeatherResponse | null;
 
   t0: number; t1: number; time: number; playing: boolean; speed: number;
+  /** visible time window of the timeline and charts; null = the whole incident (lib/timewin.ts) */
+  win: [number, number] | null;
   mode: ModeTab; panel: PanelTab; view: '3d' | '2d';
   layers: SceneLayers;
   exaggeration: number;
@@ -49,9 +51,9 @@ let toastTimer = 0;
 export const useStore = create<State>((set, get) => ({
   loaded: false, loadError: null, loadMsg: 'Connecting',
   incident: null, sources: [], timeline: null, features: [], hotspots: [], events: [], manifest: null, incidents: [], toast: null, weather: null,
-  t0: 0, t1: 1, time: 0, playing: false, speed: 8,
+  t0: 0, t1: 1, time: 0, playing: false, speed: 8, win: null,
   mode: 'incident', panel: 'layers', view: '3d',
-  layers: { terrain: true, imagery: 0.18, burned: 0.95, active: 1, change: 0.6, hotspots: true, groundTruth: false, perimeter: true, footprint: true, path: true, projection: false, trees: true, smoke: true, severity: 0, isochrones: false, ems: true },
+  layers: { terrain: true, imagery: 0.18, burned: 0.95, active: 1, change: 0.6, hotspots: true, groundTruth: false, perimeter: true, footprint: true, path: true, projection: false, trees: true, smoke: true, severity: 0, isochrones: false, ems: true, realSun: true },
   exaggeration: 1.8,
   selectedEventId: null, selectedSourceId: null, selectedUnitId: null, follow: null, feedOpen: false,
   compare: { on: false, before: null },

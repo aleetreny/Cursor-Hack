@@ -68,6 +68,8 @@ export interface Incident {
   scale?: 'site' | 'regional';
   /** Regional incidents: when each cell burned, reconstructed from satellite detections and dated perimeters. */
   progression?: Progression | null;
+  /** Regional: ESA WorldCover class codes on the progression grid (landcover.png, 8-bit grey). */
+  landcover?: { image: string; source: string; classes: Record<string, string> } | null;
   summary?: { burned_ha: number; first_detection: ISODate; growth_below_50ha_day: ISODate; high_severity_share: number } | null;
   /** Packaged terrain (Terrarium PNG) and imagery (JPEG) on lon/lat-aligned grids, relative to the package. When present
    *  the 3D view needs no tile server. */

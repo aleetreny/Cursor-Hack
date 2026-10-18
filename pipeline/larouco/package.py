@@ -103,6 +103,11 @@ def main():
     S = np.where(inside, sev[rr, cc], 0).astype("uint8")
     rgba = np.dstack([(A >> 8).astype("uint8"), (A & 255).astype("uint8"), (S * 40).astype("uint8"), np.full(A.shape, 255, "uint8")])
     Image.fromarray(rgba, "RGBA").save(OUT / "arrival.png", optimize=True)
+    # land cover (ESA WorldCover 2021 class codes, 0 = no data), same grid: vegetation and hover in the 3D view
+    wc_path = RAW / "worldcover.npy"
+    if wc_path.exists():
+        wc = np.load(wc_path)
+        Image.fromarray(np.where(inside, wc[rr, cc], 0).astype("uint8"), "L").save(OUT / "landcover.png", optimize=True)
     # retrospective spread scenario (scenario.py), same grid and encoding
     scen = None
     if (CACHE / "scenario.npz").exists():
@@ -307,6 +312,7 @@ def main():
         "summary": {"burned_ha": total_ha, "first_detection": t_of(det_t[i0]), "growth_below_50ha_day": t_of(lastg),
                     "high_severity_share": next(c["share"] for c in sev_stats["classes"] if c["id"] == 5)},
         "reference_perimeter": {"type": "Feature", "properties": {"name": "Final burnt area (Copernicus EMS EMSR837, 30 Aug 2025)"}, "geometry": r6(final, 5)},
+        "landcover": {"image": "landcover.png", "source": "ESA WorldCover 10 m 2021 v200 (CC BY 4.0), class codes", "classes": {"10": "Tree cover", "20": "Shrubland", "30": "Grassland", "40": "Cropland", "50": "Built-up", "60": "Bare / sparse", "80": "Water", "90": "Herbaceous wetland"}} if (OUT / "landcover.png").exists() else None,
         "progression": {"image": "arrival.png", "bbox": [round(v, 6) for v in bbox], "width": W, "height": H, "t0": iso(T0), "unit": "min",
                         "never": NEVER_MIN, "encoding": "R*256+G = minutes after t0; B = severity class*40", "severity_classes": [{"id": k, "label": SEV_LABELS[k]} for k in range(1, 6)],
                         "method": MODEL, "resolution_m": GRID.res},
@@ -319,6 +325,7 @@ def main():
             "NASA FIRMS (VIIRS S-NPP 375 m, MODIS) — LANCE/FIRMS",
             "Contains modified Copernicus Sentinel data (2025)",
             "ERA5 (Copernicus Climate Change Service) via Open-Meteo",
+            "Land cover: ESA WorldCover 10 m 2021 (CC BY 4.0)",
             *(["EUMETSAT LSA SAF [FRP-PIXEL, LSA-502] (CC BY 4.0)"] if msg_slot is not None else []),
             "Elevation: AWS Terrain Tiles (Terrarium)", "Imagery: Esri World Imagery",
         ],

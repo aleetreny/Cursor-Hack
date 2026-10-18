@@ -16,7 +16,7 @@ const OUT = join(PUBLIC, 'incidents');
  *  · drone (site scale): data/processed/<source>/ + media/<source>.mp4 + media/<source>/clip_*.jpg
  *  · regional: data/processed/<source>/, already in package form (pipeline/larouco/package.py) */
 const INCIDENTS = [{ source: 'larouco', regional: true, default: true }, { source: 'drone_replay_01' }];
-const REGIONAL_FILES = ['incident.json', 'sources.json', 'timeline.json', 'events.json', 'observations.json', 'weather.json', 'clips.json', 'eval.json', 'arrival.png', 'scenario.png'];
+const REGIONAL_FILES = ['incident.json', 'sources.json', 'timeline.json', 'events.json', 'observations.json', 'weather.json', 'clips.json', 'eval.json', 'arrival.png', 'scenario.png', 'landcover.png'];
 
 // Update files in place instead of wiping the folder: the repo may live in an iCloud-synced folder, where deleting and
 // recreating a directory makes iCloud keep "name 2" conflict copies.

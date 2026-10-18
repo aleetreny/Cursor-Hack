@@ -59,6 +59,7 @@ function PhoneMenu({ close }: { close: () => void }) {
       {item(view === '3d' ? 'Top-down 2D map' : 'Oblique 3D view', () => set({ view: view === '3d' ? '2d' : '3d' }))}
       {item('Reset camera', () => sceneRef.current?.flyHome())}
       {!regional && item('Go to the drone', () => sceneRef.current?.flyToDrone())}
+      {item('Real sun & night', () => useStore.getState().setLayer('realSun', !layers.realSun), layers.realSun ? 'on' : 'off')}
       {item('Vertical exaggeration', () => set({ exaggeration: exaggeration === 1 ? 1.8 : 1 }), `${exaggeration}×`)}
       {item('Full-screen map', toggleFullscreen)}
       <div className="pm-h">Analysis</div>

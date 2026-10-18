@@ -629,3 +629,19 @@ input[type=range].rng:focus-visible { outline-offset: 4px; }
 .chart-h > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .chart { container: chart / inline-size; }
 @container chart (max-width: 240px) { .chart-h small { display: none; } }
+
+/* time zoom (lib/timewin.ts): buttons beside the range, night bands on the track */
+.tl-head .range { display: inline-flex; align-items: center; gap: 8px; }
+.tl-zoom { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 6px; padding: 1px; background: var(--card); }
+.tl-zoom button { min-width: 22px; height: 20px; border-radius: 4px; font-size: 13px; line-height: 1; color: var(--ink-2); display: grid; place-items: center; padding: 0 4px; }
+.tl-zoom button:hover:not(:disabled) { background: var(--chip); }
+.tl-zoom button:disabled { opacity: .35; cursor: default; }
+
+.track { touch-action: pan-y; }
+.track .tl-night { position: absolute; top: 7px; height: 13px; background: rgba(52, 62, 96, .09); border-radius: 3px; pointer-events: none; }
+.tl-ctrl .tl-fit { border: 1px solid var(--line); }
+.tl-row.zoomable { grid-template-columns: 124px minmax(0, 1fr) auto; }
+.tl-row > .tl-zoom { flex-direction: column; gap: 1px; margin-top: 4px; padding: 1px; }
+.tl-row > .tl-zoom button { width: 22px; min-width: 22px; height: 18px; padding: 0; }
+.tl-row > .tl-zoom button.fit { visibility: hidden; }
+.tl-row > .tl-zoom button.fit.on { visibility: visible; }
