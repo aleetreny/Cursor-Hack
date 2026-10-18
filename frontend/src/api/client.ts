@@ -2,8 +2,6 @@ import type {
   AskRequest, AskResponse, EventsResponse, Incident, IncidentIndex, IncidentManifest,
   ObservationsResponse, SearchRequest, WeatherResponse, SearchResponse, TimelineResponse, VideoSource,
 } from './types';
-import { analystAsk } from '../agent/analyst';
-import { staticSearch } from '../agent/search';
 
 /**
  * API client. Two modes:
@@ -76,6 +74,7 @@ export const api = {
   observations: () => req<ObservationsResponse>('/api/fire/observations', 'observations.json'),
   weather: () => req<WeatherResponse>('/api/weather', 'weather.json'),
   events: (sourceId: string) => req<EventsResponse>(`/api/video/${encodeURIComponent(sourceId)}/events`, 'events.json'),
-  search: async (body: SearchRequest): Promise<SearchResponse> => (IS_STATIC ? staticSearch(body, await incidentBase()) : req<SearchResponse>('/api/search', '', post(body))),
-  ask: async (body: AskRequest): Promise<AskResponse> => (IS_STATIC ? analystAsk(body, await incidentBase()) : req<AskResponse>('/api/ask', '', post(body))),
+  // the analyst and search are loaded on first use (they are not needed to show the incident)
+  search: async (body: SearchRequest): Promise<SearchResponse> => (IS_STATIC ? (await import('../agent/search')).staticSearch(body, await incidentBase()) : req<SearchResponse>('/api/search', '', post(body))),
+  ask: async (body: AskRequest): Promise<AskResponse> => (IS_STATIC ? (await import('../agent/analyst')).analystAsk(body, await incidentBase()) : req<AskResponse>('/api/ask', '', post(body))),
 };

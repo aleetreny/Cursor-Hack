@@ -133,6 +133,7 @@ export class FireScene {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.autoUpdate = false;   // re-rendered only when a shadow caster moves (see shadowDirty)
     container.appendChild(renderer.domElement);
     renderer.domElement.style.display = 'block';
     this.renderer = renderer;
@@ -145,6 +146,7 @@ export class FireScene {
     this.camera.position.set(200, 220, 260);
     this.controls = new OrbitControls(this.camera, renderer.domElement);
     this.controls.enableDamping = true;
+    this.controls.addEventListener('change', this.markActive);
     this.controls.dampingFactor = 0.08;
     this.controls.maxPolarAngle = THREE.MathUtils.degToRad(84);
     this.controls.minDistance = 8;
@@ -209,6 +211,8 @@ export class FireScene {
   private resize() {
     const w = this.container.clientWidth, h = this.container.clientHeight;
     if (!w || !h) return;
+    this.vw = w; this.vh = h;   // cached: per-frame code must not force a layout read
+    this.markActive();
     this.renderer.setSize(w, h);
     this.composer.setSize(w, h);
     this.bloom.setSize(w, h);
@@ -240,32 +244,23 @@ export class FireScene {
     this.frame = makeFrame(cx, cy);
     this.innerBBox = incident.bbox;
 
-    this.cb.onProgress?.('Loading elevation tiles');
-    const innerDem = await loadMosaic(this.innerBBox, 15, TERRARIUM);
+    // Inner terrain first (what the overlay waits for); the outer LOD rings stream in afterwards.
+    // Zooms match the mesh resolution: the inner grid has ~6 m cells (Terrarium z14 ≈ 7 m px, the source is SRTM-class
+    // anyway); imagery is z16 over the whole inner box with a z17 patch around the fire, where the camera gets close.
+    this.cb.onProgress?.('Loading terrain');
+    const core: BBox = [cx - 0.0065, cy - 0.005, cx + 0.0065, cy + 0.005];   // ~1.1 × 1.1 km around the drone
+    const [innerDem, innerImg, coreImg] = await Promise.all([
+      loadMosaic(this.innerBBox, 14, TERRARIUM), loadMosaic(this.innerBBox, 16, ESRI_IMAGERY), loadMosaic(core, 17, ESRI_IMAGERY),
+    ]);
     const dec = decodeTerrarium(innerDem);
     const sampleInner = (lon: number, lat: number) => { const [px, py] = innerDem.px(lon, lat); return dec.sample(px, py); };
     this.h0 = sampleInner(cx, cy);
-
-    // Nested LOD rings (clipmap-style): fine DEM/imagery near the incident, coarser rings out to the horizon.
-    const RINGS = [
-      { half: [0.085, 0.065], demZ: 13, imgZ: 14, N: 240, img: 2048 },   // ~14 km
-      { half: [0.42, 0.32], demZ: 11, imgZ: 11, N: 200, img: 2048 },     // ~70 km horizon
-    ];
-    const ringData = await Promise.all(RINGS.map(async (r) => {
-      const bbox: BBox = [cx - r.half[0], cy - r.half[1], cx + r.half[0], cy + r.half[1]];
-      const [dem, img] = await Promise.all([loadMosaic(bbox, r.demZ, TERRARIUM), loadMosaic(bbox, r.imgZ, ESRI_IMAGERY)]);
-      const d = decodeTerrarium(dem);
-      return { ...r, bbox, sample: (lon: number, lat: number) => { const [px, py] = dem.px(lon, lat); return d.sample(px, py); }, canvas: cropToBBox(img, bbox, r.img) };
-    }));
-    this.ringSamplers = ringData.map((r) => ({ bbox: r.bbox, sample: r.sample }));
-    this.outerSampler = (lon, lat) => {
-      for (const r of this.ringSamplers) if (lon >= r.bbox[0] && lon <= r.bbox[2] && lat >= r.bbox[1] && lat <= r.bbox[3]) return r.sample(lon, lat);
-      return this.h0;
-    };
-
-    this.cb.onProgress?.('Loading aerial imagery');
-    const innerImg = await loadMosaic(this.innerBBox, 17, ESRI_IMAGERY);
     const innerCanvas = cropToBBox(innerImg, this.innerBBox, 4096);
+    {
+      const [w, s, e, n] = this.innerBBox, W = innerCanvas.width;
+      const x0 = ((core[0] - w) / (e - w)) * W, x1 = ((core[2] - w) / (e - w)) * W, y0 = ((n - core[3]) / (n - s)) * W, y1 = ((n - core[1]) / (n - s)) * W;
+      innerCanvas.getContext('2d')!.drawImage(cropToBBox(coreImg, core, 2048), x0, y0, x1 - x0, y1 - y0);
+    }
 
     this.cb.onProgress?.('Building terrain');
     const N = this.gridN;
@@ -275,22 +270,7 @@ export class FireScene {
 
     this.innerMesh = new THREE.Mesh(this.buildGrid(this.innerBBox, N, (i, j) => this.rawHeights[j * (N + 1) + i]), this.makeTerrainMaterial(innerCanvas, 1));
     this.innerMesh.receiveShadow = this.innerMesh.castShadow = true;
-    let finer: BBox = this.innerBBox;
-    this.rings = ringData.map((r, k) => {
-      const inner = finer, rN = r.N;
-      const cellLon = (r.bbox[2] - r.bbox[0]) / rN, cellLat = (r.bbox[3] - r.bbox[1]) / rN;
-      const hFn = (i: number, j: number) => {
-        const lon = r.bbox[0] + (r.bbox[2] - r.bbox[0]) * (i / rN), lat = r.bbox[3] - (r.bbox[3] - r.bbox[1]) * (j / rN);
-        const inside = lon > inner[0] + cellLon && lon < inner[2] - cellLon && lat > inner[1] + cellLat && lat < inner[3] - cellLat;
-        return r.sample(lon, lat) - (inside ? 30 + k * 60 : 0);   // tuck under the finer ring
-      };
-      const mesh = new THREE.Mesh(this.buildGrid(r.bbox, rN, hFn), this.makeTerrainMaterial(r.canvas, 0));
-      mesh.receiveShadow = k === 0;
-      (mesh.userData as { bbox: BBox }).bbox = r.bbox;
-      finer = r.bbox;
-      return mesh;
-    });
-    this.scene.add(this.innerMesh, ...this.rings);
+    this.scene.add(this.innerMesh);
     (this.innerMesh.userData as { bbox: BBox }).bbox = this.innerBBox;
 
     // sun from WSW, fairly low — long warm shadows like the reference
@@ -311,6 +291,43 @@ export class FireScene {
     if (!/[?&](nointro|cam)=?/.test(location.search)) this.intro();
     this.ready = true;
     this.cb.onReady?.();
+    this.ringsReady = this.loadRings(cx, cy);
+  }
+
+  /** Outer LOD rings (clipmap-style): ~14 km and ~70 km horizon, coarser the further out. Loaded after the inner terrain. */
+  ringsReady: Promise<void> = Promise.resolve();
+  private async loadRings(cx: number, cy: number) {
+    const RINGS = [
+      { half: [0.085, 0.065], demZ: 12, imgZ: 14, N: 240, img: 2048 },   // ~14 km: 58 m cells, z12 DEM ≈ 30 m px
+      { half: [0.42, 0.32], demZ: 9, imgZ: 11, N: 200, img: 2048 },      // ~70 km horizon: 350 m cells, z9 DEM ≈ 240 m px
+    ];
+    let finer: BBox = this.innerBBox;
+    for (const [k, r] of RINGS.entries()) {
+      const bbox: BBox = [cx - r.half[0], cy - r.half[1], cx + r.half[0], cy + r.half[1]];
+      const [dem, img] = await Promise.all([loadMosaic(bbox, r.demZ, TERRARIUM), loadMosaic(bbox, r.imgZ, ESRI_IMAGERY)]);
+      if (!this.frame) return;   // disposed meanwhile
+      const d = decodeTerrarium(dem);
+      const sample = (lon: number, lat: number) => { const [px, py] = dem.px(lon, lat); return d.sample(px, py); };
+      this.ringSamplers.push({ bbox, sample });
+      this.outerSampler = (lon, lat) => {
+        for (const q of this.ringSamplers) if (lon >= q.bbox[0] && lon <= q.bbox[2] && lat >= q.bbox[1] && lat <= q.bbox[3]) return q.sample(lon, lat);
+        return this.h0;
+      };
+      const inner = finer, rN = r.N;
+      const cellLon = (bbox[2] - bbox[0]) / rN, cellLat = (bbox[3] - bbox[1]) / rN;
+      const hFn = (i: number, j: number) => {
+        const lon = bbox[0] + (bbox[2] - bbox[0]) * (i / rN), lat = bbox[3] - (bbox[3] - bbox[1]) * (j / rN);
+        const inside = lon > inner[0] + cellLon && lon < inner[2] - cellLon && lat > inner[1] + cellLat && lat < inner[3] - cellLat;
+        return sample(lon, lat) - (inside ? 30 + k * 60 : 0);   // tuck under the finer ring
+      };
+      const mesh = new THREE.Mesh(this.buildGrid(bbox, rN, hFn), this.makeTerrainMaterial(cropToBBox(img, bbox, r.img), 0));
+      mesh.receiveShadow = k === 0;
+      (mesh.userData as { bbox: BBox }).bbox = bbox;
+      this.rings.push(mesh);
+      this.scene.add(mesh);
+      this.shadowDirty = 3;
+      finer = bbox;
+    }
   }
 
   private buildGrid(bbox: BBox, N: number, h: (i: number, j: number) => number) {
@@ -450,6 +467,7 @@ void main() {`)
 
   setExaggeration(v: number) {
     this.exaggeration = v;
+    this.shadowDirty = 3;
     for (const mesh of [this.innerMesh, ...this.rings]) {
       if (!mesh) continue;
       const g = mesh.geometry, { N, h } = g.userData as { N: number; h: (i: number, j: number) => number };
@@ -498,11 +516,12 @@ void main() {`)
     if (this.ready) this.rebuildEventLabels();
   }
 
-  setTime(ms: number) { this.time = ms; this.redrawOverlays(); this.updateScenario(); }
+  setTime(ms: number) { if (ms !== this.time) { this.markActive(); this.shadowDirty = 2; } this.time = ms; this.redrawOverlays(); this.updateScenario(); }
   setSelectedEvent(id: string | null) { this.selectedEvent = id; this.drawnKey = ''; this.redrawOverlays(); }
   setCompare(ms: number | null) { this.compareTime = ms; this.drawnKey = ''; this.redrawOverlays(); }
 
   setLayers(l: Partial<SceneLayers>) {
+    this.shadowDirty = 3;
     const prev = this.layers;
     this.layers = { ...this.layers, ...l };
     const u = this.uniforms;
@@ -747,6 +766,7 @@ varying float vL; varying float vSeed;
   }
 
   private placeTreesFromCache() {
+    this.shadowDirty = 3;
     if (this.trees) { this.scene.remove(this.trees); this.trees.geometry.dispose(); }
     const geo = new THREE.ConeGeometry(1, 1, 6, 1);
     geo.translate(0, 0.5, 0);
@@ -830,7 +850,10 @@ varying float vL; varying float vSeed;
   setScenario(on: boolean, opts: { windFromDeg?: number; windKmh?: number } = {}) {
     this.scenarioInfo.on = on;
     this.uniforms.uScenOn.value = on ? 1 : 0;
-    if (on && !this.scen) this.buildScenario(opts.windFromDeg ?? 225, opts.windKmh ?? 30);
+    if (on && !this.scen) {
+      if (this.rings.length < 2) { this.uniforms.uScenOn.value = 0; this.ringsReady.then(() => { if (this.scenarioInfo.on) this.setScenario(true, opts); }); return; }   // needs the outer terrain
+      this.buildScenario(opts.windFromDeg ?? 225, opts.windKmh ?? 30);
+    }
     if (this.sFlames) this.sFlames.visible = on;
     if (this.sSmoke) this.sSmoke.visible = on && this.layers.smoke;
     this.updateScenario(true);
@@ -961,6 +984,7 @@ varying float vL; varying float vSeed;
 
   setOpsMode(m: 'incident' | 'drones' | 'resources') {
     this.opsMode = m;
+    this.shadowDirty = 3;
     for (const { u, obj } of this.units.values()) {
       const vis = (m === 'drones' && u.group === 'drones') || (m === 'resources' && u.group !== 'drones');
       obj.visible = vis;
@@ -1015,8 +1039,9 @@ varying float vL; varying float vSeed;
     }
   }
 
-  /** Render the 3D twin from a simulated drone's camera (EO view) into pixels for its PiP. */
-  renderUnitView(id: string, w: number, h: number): ImageData | null {
+  /** Render the 3D twin from a simulated drone's camera (EO view) into pixels for its PiP. The GPU→CPU copy is
+   *  asynchronous (WebGL2 pixel buffer + fence), so it no longer stalls the main thread. */
+  async renderUnitView(id: string, w: number, h: number): Promise<ImageData | null> {
     const o = this.units.get(id)?.obj;
     if (!o || !this.ready) return null;
     if (!this.viewRT || this.viewRT.width !== w || this.viewRT.height !== h) { this.viewRT?.dispose(); this.viewRT = new THREE.WebGLRenderTarget(w, h, { samples: 4 }); }
@@ -1033,7 +1058,7 @@ varying float vL; varying float vSeed;
     this.renderer.setRenderTarget(null);
     o.visible = was;
     const buf = new Uint8Array(w * h * 4);
-    this.renderer.readRenderTargetPixels(this.viewRT, 0, 0, w, h, buf);
+    await this.renderer.readRenderTargetPixelsAsync(this.viewRT, 0, 0, w, h, buf);
     const img = new ImageData(w, h);
     for (let y = 0; y < h; y++) {
       const src = (h - 1 - y) * w * 4, dst = y * w * 4;
@@ -1101,7 +1126,7 @@ varying float vL; varying float vSeed;
       .map((r) => [r.left - c.left - 4, r.top - c.top - 4, r.right - c.left + 4, r.bottom - c.top + 4]);
   }
   private updateLabels() {
-    const w = this.container.clientWidth, h = this.container.clientHeight;
+    const w = this.vw, h = this.vh;
     this.refreshReserved();
     const hsPts: { el: HTMLElement; x: number; y: number }[] = [];
     const items: { el: HTMLElement; x: number; y: number; pri: number; kind: 'ev' | 'drone' | 'place' }[] = [];
@@ -1245,7 +1270,7 @@ varying float vL; varying float vSeed;
   /** Screen-space box (container px) of the observed fire zone, for UI that must not cover it. */
   fireScreenBox(): { x0: number; y0: number; x1: number; y1: number } | null {
     if (!this.frame) return null;
-    const b = this.maskBounds, w = this.container.clientWidth, h = this.container.clientHeight;
+    const b = this.maskBounds, w = this.vw, h = this.vh;
     const pts = [[b.x, b.y], [b.z, b.y], [b.x, b.w], [b.z, b.w], [(b.x + b.z) / 2, (b.y + b.w) / 2]];
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, n = 0;
     for (const [x, z] of pts) {
@@ -1272,6 +1297,7 @@ varying float vL; varying float vSeed;
   }
 
   set2D(on: boolean) {
+    this.shadowDirty = 3;
     this.mode2D = on;
     this.styleAnim = { from: this.uniforms.uMapStyle.value, to: on ? 1 : 0, t0: performance.now() };
     const t = this.controls.target.clone();
@@ -1292,6 +1318,7 @@ varying float vL; varying float vSeed;
   /* -------------------------------------------------------------- input */
 
   private onPointerMove = (e: PointerEvent) => {
+    this.markActive();
     const r = this.renderer.domElement.getBoundingClientRect();
     this.pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     const now = performance.now();
@@ -1372,16 +1399,42 @@ varying float vL; varying float vSeed;
   }
   /** Ground metres per screen pixel around the centre of the view (what the scale bar shows). */
   private groundMetersPerPx(): number | null {
-    const w = this.container.clientWidth || 1, dx = 120 / w;           // ±120/w in NDC = 120 px apart on screen
+    const w = this.vw || 1, dx = 120 / w;           // ±120/w in NDC = 120 px apart on screen
     const a = this.groundHit(-dx, 0), b = this.groundHit(dx, 0);
     return a && b ? a.distanceTo(b) / 120 : null;
   }
   /** Advance one frame without rAF (used when the tab is hidden, e.g. for automated screenshots). */
   renderOnce(dt = 1 / 30) { this.step(dt); }
+  /* Frame pacing: full rate while anything moves (camera, timeline, follow, fly-tos, pointer), 30 fps at rest — the
+   * flames still flicker, at half the GPU/CPU cost. Pixel ratio adapts if frames stay slow (weak GPUs, 4K screens). */
+  private vw = 1;
+  private vh = 1;
+  private lastActive = performance.now();
+  private lastFrame = 0;
+  private slowSince = 0;
+  private fastSince = 0;
+  private maxPR = Math.min(window.devicePixelRatio, 2);
+  markActive = () => { this.lastActive = performance.now(); };
+  /** frames left that must refresh the shadow map (casters moved: units, drone, terrain, trees) */
+  shadowDirty = 3;
   private loop = () => {
     this.raf = requestAnimationFrame(this.loop);
+    const now = performance.now();
+    const busy = !!(this.anim || this.styleAnim || this.follow || this.controls.autoRotate) || now - this.lastActive < 900;
+    if (!busy && now - this.lastFrame < 1000 / 30 - 3) return;
+    const gap = now - this.lastFrame;
+    this.lastFrame = now;
     this.step(Math.min(0.1, this.clock.getDelta()));
+    if (busy && gap < 100) this.adaptQuality(now, performance.now() - now, gap);
   };
+  private adaptQuality(now: number, work: number, gap: number) {
+    const pr = this.renderer.getPixelRatio(), slow = gap > 26 || work > 20, fast = gap < 18 && work < 8;
+    this.slowSince = slow ? this.slowSince || now : 0;
+    this.fastSince = fast ? this.fastSince || now : 0;
+    const setPR = (v: number) => { this.renderer.setPixelRatio(v); this.composer.setPixelRatio(v); this.resize(); this.slowSince = this.fastSince = 0; };
+    if (this.slowSince && now - this.slowSince > 2500 && pr > 1) setPR(Math.max(1, +(pr - 0.25).toFixed(2)));
+    else if (this.fastSince && now - this.fastSince > 8000 && pr < this.maxPR) setPR(Math.min(this.maxPR, +(pr + 0.25).toFixed(2)));
+  }
   private step(dt: number) {
     this.uniforms.uTime.value += dt;
     if (this.anim) {
@@ -1404,16 +1457,17 @@ varying float vL; varying float vSeed;
       const onScreen = this.v.z < 1 && Math.abs(this.v.x) < 1.05 && Math.abs(this.v.y) < 1.05;
       (this.frustum.material as THREE.LineBasicMaterial).opacity = onScreen ? 0.55 : 0.12;
     }
+    if (this.shadowDirty > 0 || this.follow) { this.renderer.shadowMap.needsUpdate = true; this.shadowDirty--; }
     this.composer.render();
     this.updateLabels();
     const now = performance.now();
     if (now - this.lastCam > 100) {
       this.lastCam = now;
-      const key = this.cameraState().join(',') + ':' + this.container.clientWidth + 'x' + this.container.clientHeight;
+      const key = this.cameraState().join(',') + ':' + this.vw + 'x' + this.vh;
       if (key !== this.lastCamKey) {
         this.lastCamKey = key;
         const dist = this.camera.position.distanceTo(this.controls.target);
-        const mpp = this.groundMetersPerPx() ?? (2 * dist * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) / (this.container.clientHeight || 1);
+        const mpp = this.groundMetersPerPx() ?? (2 * dist * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) / (this.vh || 1);
         this.cb.onCamera?.({ azimuth: THREE.MathUtils.radToDeg(this.controls.getAzimuthalAngle()), zoom: this.defaultDist / dist, metersPerPx: mpp, polar: THREE.MathUtils.radToDeg(this.controls.getPolarAngle()) });
       }
     }

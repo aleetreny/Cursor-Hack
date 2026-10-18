@@ -63,5 +63,8 @@ export const useStore = create<State>((set, get) => ({
   setLayer: (k, v) => set({ layers: { ...get().layers, [k]: v } }),
 }));
 
+/** Timeline time quantised to `ms`: panels that don't need every frame subscribe to this instead of the raw clock. */
+export const qt = (t: number, ms: number) => Math.floor(t / ms) * ms;
+
 /** Map wall-clock ms to a source's video seconds. */
 export const videoSecondsAt = (src: VideoSource | undefined, t: number) => (src ? (t - Date.parse(src.recorded_start)) / 1000 : 0);

@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { SpreadWindCard } from './SpreadWindCard';
-import { useStore, type PanelTab } from '../state/store';
+import { useShallow } from 'zustand/react/shallow';
+import { useStore, type PanelTab, qt } from '../state/store';
 import type { SceneLayers } from '../scene/FireScene';
 import { fmtArea, fmtClock, fmtDayClock, fmtNum } from '../lib/format';
 import { Icon } from './Icon';
@@ -27,7 +28,7 @@ const LAYERS: LayerRow[] = [
 ];
 
 export function RightPanel() {
-  const { mode, panel, set } = useStore();
+  const { mode, panel, set } = useStore(useShallow((s) => ({ mode: s.mode, panel: s.panel, set: s.set })));
   if (mode === 'drones') return <aside className="right"><DronePanel /></aside>;
   if (mode === 'resources') return <aside className="right"><ResourcesPanel /></aside>;
   const tab = (id: PanelTab, label: string) => <button className={panel === id ? 'on' : ''} onClick={() => set({ panel: id })}>{label}</button>;
@@ -69,7 +70,7 @@ function LayersTab() {
 }
 
 function LayersSection() {
-  const { layers, setLayer, features } = useStore();
+  const { layers, setLayer, features } = useStore(useShallow((s) => ({ layers: s.layers, setLayer: s.setLayer, features: s.features })));
   const hasGT = features.some((f) => f.properties.classification === 'ground_truth_burned');
   return (
     <div className="section" style={{ paddingTop: 8 }}>
@@ -94,7 +95,7 @@ function LayersSection() {
 }
 
 function IncidentOverview() {
-  const { incident, t0, t1, timeline, events } = useStore();
+  const { incident, t0, t1, timeline, events } = useStore(useShallow((s) => ({ incident: s.incident, t0: s.t0, t1: s.t1, timeline: s.timeline, events: s.events })));
   const last = timeline?.frames[timeline.frames.length - 1];
   const total = fmtArea(last?.burned_area_m2.value);
   return (
@@ -116,7 +117,7 @@ function IncidentOverview() {
 
 const PROV_LABEL: Record<string, string> = { real: 'real', model: 'model', derived: 'derived', external: 'external', simulated: 'sim' };
 function NotesSection() {
-  const { manifest, incident } = useStore();
+  const { manifest, incident } = useStore(useShallow((s) => ({ manifest: s.manifest, incident: s.incident })));
   const [note, setNote] = useState(() => { try { return localStorage.getItem('fs-notes') ?? ''; } catch { return ''; } });
   return (
     <>
@@ -156,7 +157,7 @@ function NotesSection() {
 
 const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 function WeatherCard() {
-  const { weather, time } = useStore();
+  const { weather, time } = useStore(useShallow((s) => ({ weather: s.weather, time: qt(s.time, 10000) })));
   const at = useMemo(() => {
     const h = weather?.hourly ?? [];
     return h.length ? h.reduce((a, b) => (Math.abs(Date.parse(b.timestamp) - time) < Math.abs(Date.parse(a.timestamp) - time) ? b : a)) : null;

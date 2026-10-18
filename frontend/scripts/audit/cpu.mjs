@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 const b = await chromium.launch({ channel: 'chrome', args: ['--use-angle=metal', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
-const ctx = await b.newContext({ viewport: { width: 1600, height: 900 } });
+const ctx = await b.newContext({ viewport: { width: 1600, height: 900 }, serviceWorkers: 'block' });
 const p = await ctx.newPage(); const cdp = await ctx.newCDPSession(p);
 await cdp.send('Performance.enable');
 await p.goto('http://localhost:8000/?nointro');

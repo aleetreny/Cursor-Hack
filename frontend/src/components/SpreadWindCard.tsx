@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { useStore } from '../state/store';
+import { useShallow } from 'zustand/react/shallow';
+import { useStore, qt } from '../state/store';
 import { fmtNum } from '../lib/format';
 
 const DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
@@ -11,7 +12,7 @@ const diff = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
  * ERA5 wind blows, at the timeline cursor. Sized by the parent to the space left in the Layers tab.
  */
 export function SpreadWindCard({ height }: { height: number }) {
-  const { timeline, time, weather } = useStore();
+  const { timeline, time, weather } = useStore(useShallow((s) => ({ timeline: s.timeline, time: qt(s.time, 2000), weather: s.weather })));
   const frames = timeline?.frames ?? [];
   const now = useMemo(() => {
     let best = frames[0];

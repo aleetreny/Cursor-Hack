@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { useStore } from '../state/store';
+import { useShallow } from 'zustand/react/shallow';
+import { useStore, qt } from '../state/store';
 import { SIM_UNITS, opsTotals, unitState, type SimUnit } from '../sim/ops';
 import { useSimCtx } from '../sim/useSim';
 import { formatLat, formatLon } from '../scene/geo';
@@ -9,7 +10,7 @@ const ICON: Record<string, string> = { air_tanker: '✈', helicopter: '🚁', ai
 const GROUPS: [SimUnit['group'], string][] = [['aircraft', 'Aircraft'], ['engines', 'Engines & Tenders'], ['crews', 'Crews & Dozers']];
 
 export function ResourcesPanel() {
-  const { time, selectedUnitId, set, follow } = useStore();
+  const { time, selectedUnitId, set, follow } = useStore(useShallow((s) => ({ time: qt(s.time, 1000), selectedUnitId: s.selectedUnitId, set: s.set, follow: s.follow })));
   const ctx = useSimCtx();
   const scroll = useRef<HTMLDivElement>(null);
   // the selected unit's card sits above the list: bring it into view when the selection changes

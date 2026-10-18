@@ -7,7 +7,7 @@ mkdirSync(out, { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome', args: ['--use-angle=metal', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required', '--enable-precise-memory-info'] });
 const report = {};
 for (const [tag, u, net] of [['cold-nointro', url + '?nointro', null], ['cold-intro', url, null], ['slow4g-nointro', url + '?nointro', { latency: 150, down: 1.6e6 / 8, up: 750e3 / 8 }]]) {
-  const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 } });
+  const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 }, serviceWorkers: 'block' });
   const page = await ctx.newPage();
   const cdp = await ctx.newCDPSession(page);
   await cdp.send('Network.enable');

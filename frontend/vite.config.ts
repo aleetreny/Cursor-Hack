@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 // VITE_BASE=/app/ for the workshop deployment (Ingress strips /app); default './' (relative) works anywhere.
 export default defineConfig({
   base: process.env.VITE_BASE ?? './',
+  define: { __BUILD__: JSON.stringify(Date.now().toString(36)) },   // versions the service-worker cache
   plugins: [react()],
   build: {
     chunkSizeWarningLimit: 700,

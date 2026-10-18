@@ -13,7 +13,8 @@
 | 0 · Repositorio y publicación | ✅ 17 oct 2026: `main` publica en https://aleetreny.github.io/FireScope-3D/ |
 | 1 · Autocontenido y honestidad | ✅ 17 oct 2026: paquetes de incidente con manifest, analista bilingüe en el navegador, búsqueda ES/EN, sin integraciones muertas en la interfaz, README y PITCH reescritos |
 | 2 · Arreglos funcionales y visuales | ✅ 18 oct 2026: 0 solapes en 25 estados × 5 tamaños de escritorio (1280–2560), 0 controles sin efecto, estado en la URL y enlaces profundos, menús accesibles, ROS real en m/min y perfil del terreno útil |
-| 3 – 8 | Pendientes |
+| 4 · Rendimiento y carga | ✅ 18 oct 2026: 3D listo en 0,9 s (antes 3,1 s), 5,8 MB por carga completa (antes 13,4 MB), 4G lenta 13 s (antes 72 s); terreno exterior en segundo plano; 30 fps en reposo y resolución adaptativa; selectores y reloj cuantizado en React; lectura de GPU asíncrona; sombras solo cuando algo se mueve; tour y analista bajo demanda; funciona sin conexión tras la primera visita |
+| 3, 5 – 8 | Pendientes |
 
 ## 0. Resumen ejecutivo
 

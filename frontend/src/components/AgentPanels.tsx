@@ -1,7 +1,8 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { api, mediaUrl, IS_STATIC } from '../api/client';
 import type { AskResponse, Citation, SearchResponse } from '../api/types';
-import { useStore } from '../state/store';
+import { useShallow } from 'zustand/react/shallow';
+import { useStore, qt } from '../state/store';
 import { seekCitation, selectEvent } from '../scene/SceneView';
 import { fmtClock, fmtVideo } from '../lib/format';
 import { Icon } from './Icon';
@@ -76,7 +77,7 @@ export function AgentPanel() {
 }
 
 export function EvidencePanel() {
-  const { events, time, selectedEventId, sources } = useStore();
+  const { events, time, selectedEventId, sources } = useStore(useShallow((s) => ({ events: s.events, time: qt(s.time, 1000), selectedEventId: s.selectedEventId, sources: s.sources })));
   const [q, setQ] = useState('');
   const [res, setRes] = useState<SearchResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);

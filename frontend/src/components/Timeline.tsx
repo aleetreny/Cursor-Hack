@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { useStore } from '../state/store';
+import { useShallow } from 'zustand/react/shallow';
+import { useStore, qt } from '../state/store';
 import { profileRef, selectEvent } from '../scene/SceneView';
 import { fmtClock, fmtDay, fmtDayClock } from '../lib/format';
 import { downloadCsv, useDismiss } from '../lib/ui';
@@ -45,7 +46,7 @@ function useProfile() {
 }
 
 export function Timeline() {
-  const { t0, t1, time, playing, speed, set, setTime, events, timeline, selectedEventId, mode, compare } = useStore();
+  const { t0, t1, time, playing, speed, set, setTime, events, timeline, selectedEventId, mode, compare } = useStore(useShallow((s) => ({ t0: s.t0, t1: s.t1, time: s.time, playing: s.playing, speed: s.speed, set: s.set, setTime: s.setTime, events: s.events, timeline: s.timeline, selectedEventId: s.selectedEventId, mode: s.mode, compare: s.compare })));
   const track = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<'time' | 'before' | null>(null);
   const [speedOpen, setSpeedOpen] = useState(false);
@@ -95,11 +96,12 @@ export function Timeline() {
   for (let t = Math.ceil(t0 / stepMs) * stepMs; t <= t1; t += stepMs) ticks.push({ t, label: fmtClock(t, false) });
   if (ticks.length) ticks[0].day = fmtDay(t0);
 
-  const frames = timeline?.frames ?? [];
+  const frames = useMemo(() => timeline?.frames ?? [], [timeline]);
   const xLab = (n = 4) => Array.from({ length: n + 1 }, (_, i) => { const t = t0 + (span * i) / n; return { x: t, label: fmtClock(t, false) }; });
   const ser = (fn: (f: (typeof frames)[number]) => number | null | undefined): Pt[] => frames.map((f) => ({ x: Date.parse(f.timestamp), y: fn(f) ?? null }));
   const stepS = frames.length > 1 ? (Date.parse(frames[1].timestamp) - Date.parse(frames[0].timestamp)) / 1000 : 4;
   const profile = useProfile();
+  const profilePts = useMemo(() => profile.map((p) => ({ x: p.d, y: p.elev })), [profile]);
 
   const simCtx = useSimCtx();
   const selUnit = useStore((st) => st.selectedUnitId);
@@ -115,7 +117,8 @@ export function Timeline() {
     const xs = Array.from({ length: 121 }, (_, i) => t0 + (span * i) / 120);
     return { alt: xs.map((x) => ({ x, y: unitState(u, x, simCtx).agl * 3.281 })), bat: xs.map((x) => ({ x, y: unitState(u, x, simCtx).battery ?? null })) };
   }, [simCtx, selUnit, t0, span]);
-  const charts = mode === 'resources' && opsSeries
+  // series are rebuilt only when the data or the mode change, not on every timeline tick
+  const charts = useMemo(() => mode === 'resources' && opsSeries
     ? [
       { title: 'Retardant / Water Dropped', unit: 'gal', pts: opsSeries.gal, color: '#c0392b', kind: 'area' as const, prov: 'demo_parameter' },
       { title: 'Fire Line Built', unit: 'chains', pts: opsSeries.chains, color: '#7c5a3a', kind: 'area' as const, prov: 'demo_parameter' },
@@ -138,7 +141,9 @@ export function Timeline() {
       frames[0]?.front_advance_m_min
         ? { title: 'Rate of Spread', unit: 'm/min', pts: ser((f) => f.front_advance_m_min?.value), color: '#cf3b2a', kind: 'line' as const, prov: frames[0].front_advance_m_min.provenance }
         : { title: 'Area Growth', unit: 'm²/min · 40 s avg', pts: smooth(ser((f) => (f.area_change_m2.value == null ? null : Math.max(0, (f.area_change_m2.value / stepS) * 60))), 10), color: '#cf3b2a', kind: 'line' as const, prov: frames[0]?.area_change_m2.provenance },
-    ];
+    ],
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [mode, frames, opsSeries, droneSeries, selUnit, stepS]);
 
   return (
     <div className="bottom">
@@ -196,7 +201,7 @@ export function Timeline() {
               <div className="chart-h" title="Elevation along the planned burn cell's long axis, through the observed fire. Shaded: inside the cell · red: burned in the drone's view · dot: drone.">
                 <span>Terrain Profile <small>(along the burn cell)</small><span className="prov external">DEM</span></span>
                 <button className="chart-dl" title="Download CSV" aria-label="Download the terrain profile as CSV" onClick={() => downloadCsv('terrain-profile.csv', ['distance_m', 'elevation_m', 'inside_cell', 'burned_in_view'], profile.map((p) => [Math.round(p.d), +p.elev.toFixed(1), p.inCell ? 1 : 0, p.burned ? 1 : 0]))}><Icon name="download" size={12} /></button></div>
-              <MiniChart pts={profile.map((p) => ({ x: p.d, y: p.elev }))} cursor={profile.fireD ?? null} color="#5f7a4c" fill="#7f9a68" kind="area" zero={false}
+              <MiniChart pts={profilePts} cursor={profile.fireD ?? null} color="#5f7a4c" fill="#7f9a68" kind="area" zero={false}
                 bands={[...spans(profile, (p) => p.inCell, 'rgba(120,110,95,.13)'), ...spans(profile, (p) => p.burned, 'rgba(201,80,58,.45)')]}
                 marks={profile.droneD != null ? [{ x: profile.droneD, label: 'UAV-01', color: '#d2402a' }] : []}
                 xTicks={profileTicks(profile[profile.length - 1].d)} label="Terrain elevation along the burn cell, with the burned area and the drone marked" />
@@ -210,7 +215,7 @@ export function Timeline() {
 }
 
 function AirOpsLog() {
-  const { time, set, setTime } = useStore();
+  const { time, set, setTime } = useStore(useShallow((s) => ({ time: qt(s.time, 1000), set: s.set, setTime: s.setTime })));
   const ctx = useSimCtx();
   if (!ctx) return null;
   const drops = opsTotals(time, ctx).drops.slice().reverse();
@@ -232,7 +237,7 @@ function AirOpsLog() {
 }
 
 function KeyEvents() {
-  const { events, time, selectedEventId, mode, set } = useStore();
+  const { events, time, selectedEventId, mode, set } = useStore(useShallow((s) => ({ events: s.events, time: qt(s.time, 1000), selectedEventId: s.selectedEventId, mode: s.mode, set: s.set })));
   const list = mode === 'drones' ? events.filter((e) => e.severity !== 'info') : events;
   return (
     <div className="events">

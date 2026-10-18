@@ -1,4 +1,5 @@
-import { useStore, videoSecondsAt } from '../state/store';
+import { useShallow } from 'zustand/react/shallow';
+import { useStore, videoSecondsAt, qt } from '../state/store';
 import { sceneRef } from '../scene/SceneView';
 import { formatLat, formatLon } from '../scene/geo';
 import { fmtNum, fmtVideo } from '../lib/format';
@@ -8,7 +9,7 @@ import { Icon } from './Icon';
 
 
 export function DronePanel() {
-  const { sources, selectedSourceId, selectedUnitId, set, time, feedOpen, follow } = useStore();
+  const { sources, selectedSourceId, selectedUnitId, set, time, feedOpen, follow } = useStore(useShallow((s) => ({ sources: s.sources, selectedSourceId: s.selectedSourceId, selectedUnitId: s.selectedUnitId, set: s.set, time: qt(s.time, 1000), feedOpen: s.feedOpen, follow: s.follow })));
   const ctx = useSimCtx();
   const src = sources.find((s) => s.id === selectedSourceId) ?? sources[0];
   const simSel = selectedUnitId?.startsWith('FT-') ? SIM_UNITS.find((u) => u.id === selectedUnitId) : undefined;

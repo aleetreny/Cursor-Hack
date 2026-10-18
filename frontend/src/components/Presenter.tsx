@@ -278,7 +278,8 @@ export function Presenter() {
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT') return;
+      const typing = ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName);
+      if (typing && e.key !== 'Escape') return;   // Esc always leaves the tour
       const map: Record<string, () => void> = { ' ': () => go(i + 1), Enter: () => go(i + 1), PageDown: () => go(i + 1), PageUp: () => go(i - 1), ArrowRight: () => go(i + 1), ArrowLeft: () => go(i - 1), Escape: exit, h: () => setHideBar((h) => !h), H: () => setHideBar((h) => !h) };
       if (map[e.key]) { e.preventDefault(); e.stopPropagation(); map[e.key](); }
     };

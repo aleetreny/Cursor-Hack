@@ -1,15 +1,16 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { TopBar } from './components/TopBar';
 import { RightPanel } from './components/RightPanel';
 import { Timeline } from './components/Timeline';
 import { MapOverlays } from './components/MapOverlays';
 import { DroneFeed } from './components/DroneFeed';
-import { Presenter } from './components/Presenter';
 import { SceneView, sceneRef, selectEvent } from './scene/SceneView';
 import { useStore } from './state/store';
 import { loadAll } from './state/load';
 
 (window as unknown as { __store: typeof useStore }).__store = useStore;
+const loadPresenter = () => import('./components/Presenter');
+const Presenter = lazy(() => loadPresenter().then((m) => ({ default: m.Presenter })));   // not part of the first load
 
 export default function App() {
   const feedOpen = useStore((s) => s.feedOpen);
@@ -18,6 +19,8 @@ export default function App() {
   const toast = useStore((s) => s.toast);
 
   useEffect(() => { loadAll(); }, []);
+  // fetch the tour in the background once the incident is up, so the Tour button opens instantly
+  useEffect(() => { if (loaded) { const t = setTimeout(() => { loadPresenter().catch(() => {}); }, 2500); return () => clearTimeout(t); } }, [loaded]);
 
   // playback clock: the timeline is the single source of truth for map + video + panels
   useEffect(() => {
@@ -66,7 +69,7 @@ export default function App() {
         </div>
         <RightPanel />
       </div>
-      {loaded && presenting && <Presenter />}
+      {loaded && presenting && <Suspense fallback={null}><Presenter /></Suspense>}
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   );

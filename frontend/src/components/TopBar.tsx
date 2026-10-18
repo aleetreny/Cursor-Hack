@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { IS_STATIC, API_BASE } from '../api/client';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore, type ModeTab } from '../state/store';
 import { buildUrl } from '../state/url';
 import { sceneRef } from '../scene/SceneView';
@@ -12,7 +13,7 @@ const SIM_DRONES = SIM_UNITS.filter((u) => u.group === 'drones').length;
 const SIM_RESOURCES = SIM_UNITS.length - SIM_DRONES;
 
 export function TopBar() {
-  const { incident, incidents, mode, set, sources, t0, t1, view, compare, layers, time, exaggeration, notify } = useStore();
+  const { incident, incidents, mode, set, sources, t0, t1, view, compare, layers, exaggeration, notify } = useStore(useShallow((s) => ({ incident: s.incident, incidents: s.incidents, mode: s.mode, set: s.set, sources: s.sources, t0: s.t0, t1: s.t1, view: s.view, compare: s.compare, layers: s.layers, exaggeration: s.exaggeration, notify: s.notify })));
   const [menu, setMenu] = useState<string | null>(null);
   const [at, setAt] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
   const bar = useRef<HTMLElement>(null);
@@ -75,7 +76,7 @@ export function TopBar() {
         <button className="tb-menu" onClick={(e) => toggle('an', e)} aria-haspopup="menu" aria-expanded={menu === 'an'}><Icon name="chart" size={13} />Analysis<Icon name="chev" size={11} /></button>
         {menu === 'an' && (
           <div className="menu-pop fixed" role="menu" style={at}>
-            <button role="menuitemcheckbox" aria-checked={compare.on} onClick={() => { set({ compare: compare.on ? { on: false, before: null } : { on: true, before: Math.max(t0, time - 180000) } }); close(); }}>Compare before / current<span className="muted">{compare.on ? 'on' : 'off'}</span></button>
+            <button role="menuitemcheckbox" aria-checked={compare.on} onClick={() => { set({ compare: compare.on ? { on: false, before: null } : { on: true, before: Math.max(t0, useStore.getState().time - 180000) } }); close(); }}>Compare before / current<span className="muted">{compare.on ? 'on' : 'off'}</span></button>
             <button role="menuitemcheckbox" aria-checked={layers.groundTruth} onClick={() => { useStore.getState().setLayer('groundTruth', !layers.groundTruth); close(); }}>Ground-truth masks<span className="muted">{layers.groundTruth ? 'on' : 'off'}</span></button>
             <button role="menuitemcheckbox" aria-checked={layers.projection} onClick={() => { useStore.getState().setLayer('projection', !layers.projection); close(); }}>Large-fire scenario (sim)<span className="muted">{layers.projection ? 'on' : 'off'}</span></button>
             <button role="menuitem" onClick={() => { set({ panel: 'analysis', mode: 'incident' }); close(); }}>Ask the incident analyst</button>

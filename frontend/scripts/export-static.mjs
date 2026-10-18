@@ -47,7 +47,8 @@ for (const { source, default: isDefault } of INCIDENTS) {
   write('sources.json', sources);
   write('timeline.json', timeline);
   write('events.json', events);
-  write('observations.json', observations);
+  // coordinates to 6 decimals (~0.1 m, far below the georeferencing error) — a third less to download
+  write('observations.json', JSON.parse(JSON.stringify(observations, (k, v) => (typeof v === 'number' && !Number.isInteger(v) && (k === '' || /^\d+$/.test(k)) ? Math.round(v * 1e6) / 1e6 : v))));
   write('weather.json', read('weather.json'));
   write('clips.json', read('clips.json').map((c) => ({ ...c, thumbnail_url: media(c.thumbnail_url) })));
   write('eval.json', { model: ev.model, frames_evaluated: ev.frames_evaluated, mean: ev.mean, notes: ev.notes });

@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../state/store';
 import { sceneRef } from '../scene/SceneView';
 import { aspectName, formatLat, formatLon } from '../scene/geo';
@@ -24,7 +25,7 @@ function toggleFullscreen() {
 }
 
 export function MapOverlays() {
-  const { cam, view, set, hover, loadMsg, loadError, loaded, compare, time, features, layers, incident, scenario, feedOpen } = useStore();
+  const { cam, view, set, hover, loadMsg, loadError, loaded, compare, time, features, layers, incident, scenario, feedOpen } = useStore(useShallow((s) => ({ cam: s.cam, view: s.view, set: s.set, hover: s.hover, loadMsg: s.loadMsg, loadError: s.loadError, loaded: s.loaded, compare: s.compare, time: s.compare.on ? s.time : 0, features: s.features, layers: s.layers, incident: s.incident, scenario: s.scenario, feedOpen: s.feedOpen })));
   const sc = niceScale(cam.metersPerPx || 1);
   const burnedAt = (t: number) => {
     let best: number | null = null, bt = -Infinity;

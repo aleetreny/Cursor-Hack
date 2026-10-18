@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useStore, videoSecondsAt } from '../state/store';
+import { useShallow } from 'zustand/react/shallow';
+import { useStore, videoSecondsAt, qt } from '../state/store';
 import { mediaUrl } from '../api/client';
 import { formatLat, formatLon } from '../scene/geo';
 import { fmtClock, fmtVideo } from '../lib/format';
@@ -42,7 +43,7 @@ export function DroneFeed() {
 
 /** Simulated drone camera: a second camera rendering the 3D twin from the drone's pose (spatially coherent, labelled). */
 function SimFeed({ id }: { id: string }) {
-  const { time, set } = useStore();
+  const { time, set } = useStore(useShallow((s) => ({ time: qt(s.time, 1000), set: s.set })));
   const ctx = useSimCtx();
   const cv = useRef<HTMLCanvasElement>(null);
   const { full, setFull, box, startDrag, style, barStyle } = useFeedWindow();
@@ -52,12 +53,12 @@ function SimFeed({ id }: { id: string }) {
   const u = SIM_UNITS.find((x) => x.id === id)!;
   useEffect(() => {
     let on = true;
-    const tick = () => {
+    const tick = async () => {
       if (!on) return;
-      const img = sceneRef.current?.renderUnitView(id, 480, 270);
+      const img = await sceneRef.current?.renderUnitView(id, 480, 270).catch(() => null);
       const c = cv.current;
-      if (img && c) c.getContext('2d')!.putImageData(img, 0, 0);
-      setTimeout(tick, 100);
+      if (on && img && c) c.getContext('2d')!.putImageData(img, 0, 0);
+      if (on) setTimeout(tick, 100);
     };
     tick();
     return () => { on = false; };
@@ -99,7 +100,7 @@ function SimFeed({ id }: { id: string }) {
 }
 
 function RealFeed() {
-  const { sources, selectedSourceId, time, playing, speed, events, set } = useStore();
+  const { sources, selectedSourceId, time, playing, speed, events, set } = useStore(useShallow((s) => ({ sources: s.sources, selectedSourceId: s.selectedSourceId, time: s.time, playing: s.playing, speed: s.speed, events: s.events, set: s.set })));
   const src = sources.find((s) => s.id === selectedSourceId) ?? sources[0];
   const v = useRef<HTMLVideoElement>(null);
   const { full, setFull, box, startDrag, style, barStyle } = useFeedWindow();
