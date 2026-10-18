@@ -14,7 +14,7 @@ const EXPECT = { twin: 'incident', layers: 'incident', observed: 'incident', are
 const fails = []; const ok = (c, m) => { if (!c) fails.push(m); };
 const R = (sel) => p.evaluate((s) => { const r = document.querySelector(s)?.getBoundingClientRect(); return r && r.width ? { l: r.left, t: r.top, r: r.right, b: r.bottom } : null; }, sel);
 const inter = (a, c) => a && c && Math.max(0, Math.min(a.r, c.r) - Math.max(a.l, c.l)) * Math.max(0, Math.min(a.b, c.b) - Math.max(a.t, c.t));
-await p.locator('.tb-present').click();
+await p.locator('.tb-tour').click();
 const N = await p.evaluate(() => document.querySelectorAll('.pz-dots i').length);
 console.log('chapters:', N);
 for (let k = 0; k < N; k++) {
@@ -39,7 +39,7 @@ for (let k = 0; k < N; k++) {
 }
 // stale-action check: jump to 'alert' then immediately to 'agent' and beyond; alert's delayed switch to drones must not fire
 await p.keyboard.press('Escape'); await p.waitForTimeout(500);
-await p.locator('.tb-present').click(); await p.waitForTimeout(600);
+await p.locator('.tb-tour').click(); await p.waitForTimeout(600);
 const idx = await p.evaluate(() => [...document.querySelectorAll('.pz-dots i')].findIndex((e) => e.getAttribute('title') === 'Live drone video'));
 await p.locator('.pz-dots i').nth(idx).click(); await p.waitForTimeout(300);
 await p.keyboard.press('ArrowRight'); await p.keyboard.press('ArrowRight'); await p.keyboard.press('ArrowRight');   // → scenario

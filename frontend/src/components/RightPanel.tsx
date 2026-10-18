@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useStore, videoSecondsAt, type PanelTab } from '../state/store';
+import { useStore, type PanelTab } from '../state/store';
 import type { SceneLayers } from '../scene/FireScene';
-import { fmtArea, fmtClock, fmtDayClock, fmtNum, fmtVideo } from '../lib/format';
+import { fmtArea, fmtClock, fmtDayClock, fmtNum } from '../lib/format';
 import { Icon } from './Icon';
 import { AgentPanel, EvidencePanel } from './AgentPanels';
 import { DronePanel } from './DronePanel';
@@ -33,7 +33,7 @@ export function RightPanel() {
   return (
     <aside className="right">
       <div className="tabs">{tab('layers', 'Layers')}{tab('analysis', 'Analysis')}{tab('evidence', 'Evidence')}{tab('notes', 'About')}</div>
-      {panel === 'layers' && <div className="scroll"><LayersSection /><IncidentOverview /><WeatherCard /><ObservationCard /></div>}
+      {panel === 'layers' && <div className="scroll fit"><LayersSection /><IncidentOverview /><WeatherCard /></div>}
       {panel === 'analysis' && <AgentPanel />}
       {panel === 'evidence' && <EvidencePanel />}
       {panel === 'notes' && <div className="scroll"><NotesSection /></div>}
@@ -76,41 +76,15 @@ function IncidentOverview() {
       <div className="section-h">Incident Overview</div>
       <dl className="kv">
         <dt>Incident</dt><dd>{incident?.name}</dd>
-        <dt>Incident ID</dt><dd className="mono" style={{ fontSize: 11.5 }}>{incident?.id}</dd>
+        <dt className="opt">Incident ID</dt><dd className="mono opt" style={{ fontSize: 11.5 }}>{incident?.id}</dd>
         <dt>Location</dt><dd>{incident?.location}</dd>
         <dt>Type</dt><dd>{incident?.kind === 'prescribed_burn' ? 'Prescribed burn' : 'Wildfire'}</dd>
         <dt>First obs.</dt><dd>{t0 ? fmtDayClock(t0) : '—'} UTC</dd>
         <dt>Last obs.</dt><dd>{t1 ? fmtDayClock(t1) : '—'} UTC</dd>
         <dt>Burned (view)</dt><dd>{total.v} {total.u}{last && <span className={'prov ' + last.burned_area_m2.provenance}>{last.burned_area_m2.provenance}</span>}</dd>
         <dt>Events</dt><dd>{events.length} detected · {events.filter((e) => e.review_required).length} to review</dd>
-        <dt>Georeferencing</dt><dd>{src?.georeferencing.method.replace(/_/g, ' ')} · {src?.georeferencing.accuracy}</dd>
-        <dt>Analysis</dt><dd><span className={'status-dot ' + (incident?.status === 'analyzed' ? 'ok' : 'warn')} />{incident?.status === 'analyzed' ? 'Analyzed' : incident?.status === 'live' ? 'Live' : 'Processing'}</dd>
+        <dt className="opt">Georeferencing</dt><dd className="opt">{src?.georeferencing.method.replace(/_/g, ' ')} · {src?.georeferencing.accuracy}</dd>
       </dl>
-    </div>
-  );
-}
-
-function ObservationCard() {
-  const { timeline, time, sources } = useStore();
-  const frame = useMemo(() => {
-    const fr = timeline?.frames ?? [];
-    let best = fr[0];
-    for (const f of fr) if (Date.parse(f.timestamp) <= time) best = f; else break;
-    return best;
-  }, [timeline, time]);
-  const src = sources[0];
-  const b = fmtArea(frame?.burned_area_m2.value), a = fmtArea(frame?.active_fire_area_m2.value), c = fmtArea(frame?.area_change_m2.value);
-  return (
-    <div className="section">
-      <div className="section-h"><span>Fire Observation <small>(at cursor)</small></span>{frame && <span className={'prov ' + frame.burned_area_m2.provenance}>{frame.burned_area_m2.provenance}</span>}</div>
-      <div className="metrics">
-        <div className="metric"><span className="ic"><Icon name="area" /></span><span className="lab">Burned</span><span className="val">{b.v} <small>{b.u}</small></span></div>
-        <div className="metric"><span className="ic"><Icon name="flame" color="#d2402a" /></span><span className="lab">Active fire</span><span className="val hot">{a.v} <small>{a.u}</small></span></div>
-        <div className="metric"><span className="ic"><Icon name="delta" /></span><span className="lab">Δ last frame</span><span className="val">{c.v === '—' ? '—' : `+${c.v}`} <small>{c.u}</small></span></div>
-        <div className="metric"><span className="ic"><Icon name="target" /></span><span className="lab">Hotspots</span><span className="val">{fmtNum(frame?.hotspot_count.value)}</span><span className="sub">RGB flame, no temp.</span></div>
-        <div className="metric"><span className="ic"><Icon name="video" /></span><span className="lab">Video time</span><span className="val mono" style={{ fontSize: 12.5 }}>{fmtVideo(videoSecondsAt(src, time))}</span><span className="sub">frame {fmtNum(frame?.source_frame)}</span></div>
-        <div className="metric"><span className="ic"><Icon name="pin" /></span><span className="lab">Registration</span><span className="val" style={{ fontSize: 12 }}>{src?.georeferencing.accuracy ?? '—'}</span><span className="sub">{frame?.has_ground_truth ? 'GT frame' : fmtClock(time)}</span></div>
-      </div>
     </div>
   );
 }
@@ -122,7 +96,7 @@ function NotesSection() {
   return (
     <>
       <div className="section">
-        <div className="section-h">How this works <span className={'mode-chip ' + (IS_STATIC ? 'static' : 'live')}>{IS_STATIC ? 'STATIC DEMO' : 'BACKEND'}</span></div>
+        <div className="section-h">How this works</div>
         {IS_STATIC && !manifest && <div className="muted">Loading…</div>}
         {manifest?.methods.map((m) => (
           <div className="integr" key={m.id}>
@@ -174,7 +148,7 @@ function WeatherCard() {
         <div className="metric"><span className="ic"><Icon name="db" /></span><span className="lab">Soil moist.</span><span className="val">{at?.soil_moisture_m3m3 != null ? fmtNum(at.soil_moisture_m3m3 * 100) : '—'} <small>%vol</small></span><span className="sub">0–7 cm</span></div>
         <div className="metric"><span className="ic"><Icon name="area" /></span><span className="lab">VPD</span><span className="val">{fmtNum(at?.vpd_kpa, 2)} <small>kPa</small></span></div>
       </div>
-      <div className="muted" style={{ fontSize: 10.5, marginTop: 8 }}>{weather?.source ? `${weather.source} · ${weather.grid}. Reanalysis, not an on-site sensor.` : 'No weather source connected.'}</div>
+      <div className="muted wx-note" style={{ fontSize: 10.5, marginTop: 8 }}>{weather?.source ? `${weather.source} · ${weather.grid}. Reanalysis, not an on-site sensor.` : 'No weather source connected.'}</div>
     </div>
   );
 }

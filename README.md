@@ -1,6 +1,6 @@
 # FireScope 3D
 
-> 🌐 **Demo:** https://aleetreny.github.io/Cursor-Hack/ — runs entirely in your browser: no server, no keys.
+> 🌐 **Demo:** https://aleetreny.github.io/FireScope-3D/ — runs entirely in your browser: no server, no keys.
 >
 > 📘 Pitch y explicación completa (ES): [docs/PITCH_Y_FUNCIONAMIENTO.md](docs/PITCH_Y_FUNCIONAMIENTO.md) · 🗺️ Plan de mejora: [docs/PLAN_DE_MEJORA.md](docs/PLAN_DE_MEJORA.md)
 
@@ -76,7 +76,7 @@ The ground-truth masks can be toggled on the map (Layers → Ground Truth), show
 ```bash
 cd frontend && npm install
 npm run dev                  # static demo on the exported incident → http://localhost:5173
-npm run build                # → dist/ (what GitHub Pages serves); VITE_BASE=/<repo>/ for a sub-path
+npm run build                # → dist/ (what GitHub Pages serves; relative paths, works under any sub-path)
 ```
 
 `npm run dev` and `npm run build` first run `scripts/export-static.mjs`, which packages `data/processed/drone_replay_01/` and `media/` into `public/incidents/`.
@@ -108,7 +108,7 @@ cd ../backend && python -m pytest -q                                            
 
 ## Publish (GitHub Pages)
 
-Every push to `main` runs [`.github/workflows/pages.yml`](.github/workflows/pages.yml): it exports the incident package, builds the dashboard with the repository name as base path and deploys it to GitHub Pages. Terrain and imagery tiles stream from public tile servers in the browser.
+Every push to `main` runs [`.github/workflows/pages.yml`](.github/workflows/pages.yml): it exports the incident package, builds the dashboard with relative paths (so it works under any repository name) and deploys it to GitHub Pages. Terrain and imagery tiles stream from public tile servers in the browser.
 
 ## Limitations (honest)
 

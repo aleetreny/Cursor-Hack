@@ -49,6 +49,7 @@ export function Timeline() {
   const track = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<'time' | 'before' | null>(null);
   const [speedOpen, setSpeedOpen] = useState(false);
+  const [speedAt, setSpeedAt] = useState({ left: 0, bottom: 0 });
   const speedRef = useRef<HTMLDivElement>(null);
   useDismiss(speedOpen, () => setSpeedOpen(false), speedRef);
   const span = t1 - t0 || 1;
@@ -135,7 +136,7 @@ export function Timeline() {
     : [
       { title: 'Burned Area', unit: 'm²', pts: ser((f) => f.burned_area_m2.value), color: '#c9503a', kind: 'area' as const, prov: frames[0]?.burned_area_m2.provenance },
       frames[0]?.front_advance_m_min
-        ? { title: 'Rate of Spread', unit: 'm/min · visible front', pts: ser((f) => f.front_advance_m_min?.value), color: '#cf3b2a', kind: 'line' as const, prov: frames[0].front_advance_m_min.provenance }
+        ? { title: 'Rate of Spread', unit: 'm/min', pts: ser((f) => f.front_advance_m_min?.value), color: '#cf3b2a', kind: 'line' as const, prov: frames[0].front_advance_m_min.provenance }
         : { title: 'Area Growth', unit: 'm²/min · 40 s avg', pts: smooth(ser((f) => (f.area_change_m2.value == null ? null : Math.max(0, (f.area_change_m2.value / stepS) * 60))), 10), color: '#cf3b2a', kind: 'line' as const, prov: frames[0]?.area_change_m2.provenance },
     ];
 
@@ -151,8 +152,8 @@ export function Timeline() {
               <button onClick={() => stepEvent(-1)} title="Previous event ([)" aria-label="Previous event" disabled={!events.some((e) => Date.parse(e.timestamp) < time - 1000)}><Icon name="prev" size={12} /></button>
               <button onClick={() => stepEvent(1)} title="Next event (])" aria-label="Next event" disabled={!events.some((e) => Date.parse(e.timestamp) > time + 1000)}><Icon name="step" size={12} /></button>
               <div style={{ position: 'relative' }} ref={speedRef}>
-                <button className="speed" onClick={() => setSpeedOpen(!speedOpen)} aria-haspopup="menu" aria-expanded={speedOpen} title="Playback speed">{speed}× <Icon name="chev" size={10} /></button>
-                {speedOpen && <div className="menu-pop" role="menu" style={{ top: 'auto', bottom: 28, left: 0, minWidth: 70 }}>{SPEEDS.map((s) => <button key={s} role="menuitemradio" aria-checked={s === speed} onClick={() => { set({ speed: s }); setSpeedOpen(false); }}>{s}×</button>)}</div>}
+                <button className="speed" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setSpeedAt({ left: r.left, bottom: innerHeight - r.top + 4 }); setSpeedOpen(!speedOpen); }} aria-haspopup="menu" aria-expanded={speedOpen} title="Playback speed">{speed}× <Icon name="chev" size={10} /></button>
+                {speedOpen && <div className="menu-pop fixed" role="menu" style={{ ...speedAt, top: 'auto', minWidth: 70 }}>{SPEEDS.map((s) => <button key={s} role="menuitemradio" aria-checked={s === speed} onClick={() => { set({ speed: s }); setSpeedOpen(false); }}>{s}×</button>)}</div>}
               </div>
             </div>
             <div className="track" ref={track} onPointerDown={(e) => { const r = track.current!.getBoundingClientRect(); setTime(t0 + ((e.clientX - r.left) / r.width) * span); set({ playing: false }); setDrag('time'); }}>
@@ -164,7 +165,7 @@ export function Timeline() {
                   <div key={lead.event_id} className={'mk' + (sel ? ' sel' : '')} style={{ left: c.x }}
                     title={c.items.map((e) => `${fmtClock(Date.parse(e.timestamp), false)}  ${e.title}`).join('\n')}
                     onPointerDown={(ev) => { ev.stopPropagation(); selectEvent(lead.event_id); }}>
-                    {eventIcon(lead.event_type, lead.severity, 11)}{c.items.length > 1 && <span className="mk-n">{c.items.length}</span>}
+                    {eventIcon(lead.event_type, lead.severity, 11)}
                   </div>
                 );
               })}

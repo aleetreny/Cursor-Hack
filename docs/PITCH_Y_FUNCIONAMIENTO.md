@@ -2,7 +2,7 @@
 
 > **Una frase:** convertimos el vídeo de dron de un incendio en un mapa 3D georreferenciado y navegable en el tiempo, que detecta eventos, responde preguntas en español o inglés y lleva a la prueba exacta en el vídeo.
 >
-> **Demo pública:** https://aleetreny.github.io/Cursor-Hack/ — funciona entera en el navegador, sin servidor ni claves.
+> **Demo pública:** https://aleetreny.github.io/FireScope-3D/ — funciona entera en el navegador, sin servidor ni claves.
 
 ---
 
@@ -84,10 +84,10 @@ Navegador                    ─── React + Three.js: terreno 3D, máscaras s
 
 ## 6. Recorrido de la interfaz (qué hace cada cosa)
 
-* **Barra superior:** incidente, fecha, modos **Incident / Drones / Resources**, menús View (2D/3D, reset, seguir dron, exageración), Analysis (comparar antes/después, verdad de campo, escenario, analista) y Share. **Present** abre el modo presentación: 18 capítulos (portada, problema, respuesta, 14 capítulos por la app y cierre) con tarjetas explicativas y foco sobre la zona de la interfaz. Solo avanza cuando pulsas → (o Espacio); ← vuelve, H oculta la barra y Esc sale. A la derecha, el chip **STATIC DEMO** y el botón **ⓘ**, que abre About.
+* **Barra superior:** incidente, fecha, modos **Incident / Drones / Resources**, menús View (2D/3D, reset, seguir dron, exageración), Analysis (comparar antes/después, verdad de campo, escenario, analista) y Share. **Tour** abre la visita guiada: 18 capítulos (portada, problema, respuesta, 14 capítulos por la app y cierre) con tarjetas explicativas y foco sobre la zona de la interfaz. Solo avanza cuando pulsas → (o Espacio); ← vuelve, H oculta la barra y Esc sale. A la derecha, el botón **ⓘ**, que abre About. Los menús se cierran con Esc o al pulsar fuera.
 * **Mapa 3D:** pasa el ratón por el terreno para ver elevación, pendiente, orientación, si está dentro de la zona quemada y las coordenadas. Haz clic en un evento o en el dron.
 * **Layers:** cada capa cambia el render de verdad (opacidad incluida). Ground Truth muestra la máscara manual en azul.
-* **Incident Overview / Weather / Fire Observation:** datos del incidente, meteo ERA5 a la hora del cursor y métricas del instante (área quemada, llama activa, Δ y hotspots), cada una con su chip de procedencia.
+* **Incident Overview / Weather:** datos del incidente y meteo ERA5 a la hora del cursor, con su chip de procedencia. La pestaña Layers cabe entera sin desplazarse.
 * **Timeline:** play (al final vuelve a empezar), pausa, evento anterior y siguiente (también con `[` y `]`), velocidad 1–32×, arrastrar y marcadores de evento agrupados. Gráficas: área quemada, **velocidad de propagación del frente visible (m/min)** y **perfil del terreno a lo largo de la parcela** (zona quemada y posición del dron marcadas); cada una se descarga en CSV.
 * **Compartir:** copia un enlace con el instante, el modo, el panel y la cámara; quien lo abre ve exactamente lo mismo. Los botones atrás/adelante del navegador recorren los cambios de modo.
 * **Key Events:** clic → el tiempo salta, la cámara vuela y se resalta.
@@ -118,13 +118,13 @@ Ese clúster ya no existe y aquellos resultados no se guardaron, así que **la v
 * **Diseño:** réplica del lenguaje visual de FireTrace, con la procedencia de cada dato visible.
 * **Honestidad:** cada dato dice si es real, medido, derivado, externo o simulado, y nada se presenta como algo que no es.
 * **Accesible:** es una web estática; cualquiera la abre con un enlace, sin instalar nada.
-* **Presentación:** botón **Present**, un modo presentación por capítulos que solo avanza a mano, para usarlo de fondo mientras se habla.
+* **Presentación:** botón **Tour**, una visita guiada por capítulos que solo avanza a mano, para usarlo de fondo mientras se habla.
 
 ## 9. Guion del pitch (2 minutos, en inglés)
 
 **0:00 — Problem (15 s).** *"During a wildfire, drones record hours of video. But video is stuck in the camera's point of view: nobody can ask it where the fire grew, or when flames jumped the line."*
 
-**0:15 — Solution (15 s).** Pulsa **Present** (o hazlo a mano). *"FireScope 3D turns drone footage into a time-aware 3D map. This is real terrain, the real drone position, and real footage from a prescribed burn in Portugal."*
+**0:15 — Solution (15 s).** Pulsa **Tour** (o hazlo a mano). *"FireScope 3D turns drone footage into a time-aware 3D map. This is real terrain, the real drone position, and real footage from a prescribed burn in Portugal."*
 
 **0:30 — Progression (20 s).** Se reproduce el timeline. *"Every 4 seconds we segment the burned ground and the flames, then cast each pixel onto the elevation model, so you see the burn scar grow on the actual ground. Our segmentation scores an IoU of 0.71 against the dataset's manual annotations."*
 

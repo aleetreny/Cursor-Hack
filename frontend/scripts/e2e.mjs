@@ -210,7 +210,7 @@ for (const [w, h] of [[1874, 1080], [1920, 1080], [1600, 900], [1440, 900], [136
   await page.locator('.menu-pop button', { hasText: 'Reset camera' }).click();
 
   // presentation mode: opens, pauses, steps, exits
-  await page.locator('.tb-present').click(); await page.waitForTimeout(1200);
+  await page.locator('.tb-tour').click(); await page.waitForTimeout(1200);
   const s0 = await page.evaluate(() => document.querySelector('.pz')?.getAttribute('data-step'));
   await page.waitForTimeout(4000);
   const stay = await page.evaluate(() => document.querySelector('.pz')?.getAttribute('data-step'));

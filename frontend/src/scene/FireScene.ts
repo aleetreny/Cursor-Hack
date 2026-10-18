@@ -1160,10 +1160,6 @@ varying float vL; varying float vSeed;
         if (!hit) boxes.push(box);
       }
     }
-    for (const p of pins) {
-      const pin = p.el.firstElementChild as HTMLElement | null, n = p.n > 1 ? String(p.n) : '';
-      if (pin && (pin.dataset.count ?? '') !== n) { if (n) pin.dataset.count = n; else delete pin.dataset.count; }
-    }
     const dots: { x: number; y: number }[] = [];
     for (const d of hsPts) {
       const inside = (r: number[]) => d.x > r[0] - 4 && d.x < r[2] + 4 && d.y > r[1] - 4 && d.y < r[3] + 4;

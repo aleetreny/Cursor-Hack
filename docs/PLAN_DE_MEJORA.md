@@ -10,7 +10,7 @@
 
 | Fase | Estado |
 |---|---|
-| 0 · Repositorio y publicación | ✅ 17 oct 2026: `main` publica en https://aleetreny.github.io/Cursor-Hack/ |
+| 0 · Repositorio y publicación | ✅ 17 oct 2026: `main` publica en https://aleetreny.github.io/FireScope-3D/ |
 | 1 · Autocontenido y honestidad | ✅ 17 oct 2026: paquetes de incidente con manifest, analista bilingüe en el navegador, búsqueda ES/EN, sin integraciones muertas en la interfaz, README y PITCH reescritos |
 | 2 · Arreglos funcionales y visuales | ✅ 18 oct 2026: 0 solapes en 25 estados × 5 tamaños de escritorio (1280–2560), 0 controles sin efecto, estado en la URL y enlaces profundos, menús accesibles, ROS real en m/min y perfil del terreno útil |
 | 3 – 8 | Pendientes |
@@ -393,7 +393,7 @@ Tamaños: S (≤ 1 día), M (2–4 días), L (1–2 semanas).
 
 ## 8. Decisiones que necesito de ti
 
-1. **Nombre del repo / URL:** ¿lo renombramos a `firescope-3d` (`aleetreny.github.io/firescope-3d`) o lo dejamos como `cursor-hack`? GitHub redirige el repo antiguo, y como Pages aún no existe no se rompe ningún enlace.
+1. ~~**Nombre del repo / URL**~~ — resuelto: el repo es `FireScope-3D` → https://aleetreny.github.io/FireScope-3D/ (la web usa rutas relativas, así que un cambio de nombre ya no la rompe).
 2. **Incendio grande:** ¿Larouco (recomendado), Tres Cantos (Madrid), Jarilla, un incendio de GOFER en California, o Larouco más uno de GOFER como validación?
 3. **IA en el navegador:** ¿aceptamos una descarga opcional de unos 50–100 MB para la búsqueda semántica? ¿Y un LLM local opcional de 1–2 GB?
 4. **Idioma por defecto:** ¿español con selector a inglés?

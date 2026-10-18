@@ -31,9 +31,8 @@ jobs:
       - run: npm ci
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'   # Playwright is only used by the local test scripts
-      - run: npm run build                       # prebuild exports data/processed + media/ → public/data/
-        env:
-          VITE_BASE: /${{ github.event.repository.name }}/
+      - run: npm run build                       # prebuild exports data/processed + media/ → public/incidents/
+                                                 # relative base ('./'): the site works under any repository name
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:

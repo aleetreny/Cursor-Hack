@@ -49,7 +49,7 @@ for (const [base, setup] of BASES) {
   console.log(base, cands.length, 'candidates');
   const baseline = await page.evaluate((KEYS) => { const s = window.__store.getState(); return Object.fromEntries(KEYS.map((k) => [k, s[k]])); }, KEYS);
   for (const c of cands) {
-    if (/Present/.test(c.text) && base !== 'incident-layers') continue;
+    if (/^Tour$/.test(c.text) && base !== 'incident-layers') continue;
     // restore
     await page.evaluate((b) => { const s = window.__store.getState(); s.set({ ...b, presenting: false }); }, baseline);
     await page.keyboard.press('Escape').catch(() => {});

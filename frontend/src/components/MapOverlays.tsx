@@ -12,6 +12,17 @@ function niceScale(mpp: number) {
 }
 const fmtM = (m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`);
 
+/** Full-screen the map pane (its overlays and the drone camera come along); Safari needs the webkit prefix. */
+function toggleFullscreen() {
+  const d = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void };
+  const map = document.querySelector('.map') as (HTMLElement & { webkitRequestFullscreen?: () => void }) | null;
+  if (d.fullscreenElement || d.webkitFullscreenElement) { (d.exitFullscreen ?? d.webkitExitFullscreen)?.call(d); return; }
+  if (!map) return;
+  const req = map.requestFullscreen?.bind(map) ?? map.webkitRequestFullscreen?.bind(map);
+  if (!req) { useStore.getState().notify('Full screen is not available in this browser'); return; }
+  Promise.resolve(req()).catch(() => useStore.getState().notify('Full screen was blocked by the browser'));
+}
+
 export function MapOverlays() {
   const { cam, view, set, hover, loadMsg, loadError, loaded, compare, time, features, layers, incident, scenario, feedOpen } = useStore();
   const sc = niceScale(cam.metersPerPx || 1);
@@ -69,7 +80,7 @@ export function MapOverlays() {
           <button onClick={() => sceneRef.current?.zoomBy(1 / 1.4)} title="Zoom in" aria-label="Zoom in">+</button>
         </div>
         <div className="ctlgrp">
-          <button onClick={() => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()} title="Fullscreen" aria-label="Fullscreen"><Icon name="full" size={13} /></button>
+          <button onClick={toggleFullscreen} title="Full-screen map (Esc to leave)" aria-label="Full-screen map"><Icon name="full" size={13} /></button>
         </div>
       </div>
       <div className="attribution">{incident?.attribution.join(' · ')} · DEM ×{useStore.getState().exaggeration} vertical</div>
