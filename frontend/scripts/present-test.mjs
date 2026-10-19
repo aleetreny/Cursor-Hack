@@ -10,7 +10,7 @@ const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('console',
 await p.goto(process.env.URL ?? 'http://localhost:5173/?incident=pinhao-2019-03-01&nointro');
 await p.waitForFunction(() => window.__scene?.ready && window.__store?.getState().loaded, null, { timeout: 90000 });
 await p.waitForTimeout(1200);
-const EXPECT = { twin: 'incident', layers: 'incident', observed: 'incident', area: 'incident', ros: 'incident', elev: 'incident', weather: 'incident', truth: 'incident', events: 'incident', live: 'drones', agent: 'incident', search: 'incident', scenario: 'incident', resources: 'resources' };
+const EXPECT = { 'l-scale': 'incident', 'l-progress': 'incident', 'l-satellite': 'incident', 'l-perimeters': 'incident', 'l-charts': 'incident', 'l-night': 'incident', 'l-severity': 'incident', 'l-events': 'incident', 'l-agent': 'incident', 'l-search': 'incident', 'l-scenario': 'incident', 'l-ops': 'drones', liveai: 'drones', twin: 'incident', layers: 'incident', observed: 'incident', area: 'incident', ros: 'incident', elev: 'incident', weather: 'incident', truth: 'incident', events: 'incident', live: 'drones', agent: 'incident', search: 'incident', scenario: 'incident', resources: 'resources' };
 const fails = []; const ok = (c, m) => { if (!c) fails.push(m); };
 const R = (sel) => p.evaluate((s) => { const r = document.querySelector(s)?.getBoundingClientRect(); return r && r.width ? { l: r.left, t: r.top, r: r.right, b: r.bottom } : null; }, sel);
 const inter = (a, c) => a && c && Math.max(0, Math.min(a.r, c.r) - Math.max(a.l, c.l)) * Math.max(0, Math.min(a.b, c.b) - Math.max(a.t, c.t));
@@ -33,6 +33,13 @@ for (let k = 0; k < N; k++) {
     ok(!v.paused && v.b - v.a > 1.0 && v.b - v.a < 2.2, `live video not playing in real time: ${JSON.stringify(v)}`);
     console.log('   live video advanced', (v.b - v.a).toFixed(2), 's in 1.5 s');
   }
+  if (info.id === 'liveai') {
+    await p.waitForSelector('.live-hud .m', { timeout: 60000 }).catch(() => {});
+    const hud = await p.evaluate(() => document.querySelector('.live-hud')?.textContent ?? '');
+    ok(/fps|ms/.test(hud), `live AI not running in the tour: "${hud}"`);
+    console.log('   live AI:', hud);
+  }
+  if (info.id === 'l-satellite') ok(await p.evaluate(() => window.__store.getState().layers.satellite), 'l-satellite: Sentinel-2 layer not on');
   if (cap) ok(cap.l >= 0 && cap.r <= vw && cap.t >= 0 && cap.b <= vh, `ch${k + 1} caption off-screen`);
   await p.screenshot({ path: `${out}/${String(k + 1).padStart(2, '0')}_${info.id}.png` });
   console.log(`${k + 1}/${N} ${info.id} mode=${info.mode} cap=${info.cap ?? '-'}`);
@@ -41,12 +48,16 @@ for (let k = 0; k < N; k++) {
 // stale-action check: jump to 'alert' then immediately to 'agent' and beyond; alert's delayed switch to drones must not fire
 await p.keyboard.press('Escape'); await p.waitForTimeout(500);
 await p.locator('.tb-tour').click(); await p.waitForSelector('.pz-dots i'); await p.waitForTimeout(600);
-const idx = await p.evaluate(() => [...document.querySelectorAll('.pz-dots i')].findIndex((e) => e.getAttribute('title') === 'Live drone video'));
+// a chapter with delayed actions, then quickly on to the scenario chapter (Pinhão: from the live video; Larouco: from
+// Key Events, which clicks an event after a delay)
+const [from, steps, land] = (await p.evaluate(() => [...document.querySelectorAll('.pz-dots i')].some((e) => e.getAttribute('title') === 'Live drone video')))
+  ? ['Live drone video', 4, 'scenario'] : ['Key Events', 3, 'l-scenario'];
+const idx = await p.evaluate((t) => [...document.querySelectorAll('.pz-dots i')].findIndex((e) => e.getAttribute('title') === t), from);
 await p.locator('.pz-dots i').nth(idx).click(); await p.waitForTimeout(300);
-await p.keyboard.press('ArrowRight'); await p.keyboard.press('ArrowRight'); await p.keyboard.press('ArrowRight');   // → scenario
+for (let k = 0; k < steps; k++) await p.keyboard.press('ArrowRight');
 await p.waitForTimeout(4500);
 const after = await p.evaluate(() => ({ id: document.querySelector('.pz')?.getAttribute('data-step'), mode: window.__store.getState().mode, panel: window.__store.getState().panel }));
-ok(after.id === 'scenario' && after.mode === 'incident' && after.panel === 'layers', `stale action leaked: ${JSON.stringify(after)}`);
+ok(after.id === land && after.mode === 'incident' && after.panel === 'layers', `stale action leaked: ${JSON.stringify(after)}`);
 await p.keyboard.press('Escape'); await p.waitForTimeout(400);
 ok((await p.locator('.pz').count()) === 0, 'Esc did not exit');
 ok(errs.length === 0, 'console errors: ' + errs.slice(0, 3).join(' | '));

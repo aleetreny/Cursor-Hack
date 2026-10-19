@@ -1,6 +1,6 @@
 # Auditoría reproducible
 
-Scripts usados para la auditoría de `docs/PLAN_DE_MEJORA.md`. Requieren la app servida (por ejemplo `localhost:8000`) y Chrome.
+Scripts usados para la auditoría de `docs/PLAN_DE_MEJORA.md`. Requieren la web servida (`npm run build && npx vite preview --port 4173`) y Google Chrome (el Chromium de Playwright no decodifica H.264).
 
 | Script | Qué mide |
 |---|---|
@@ -14,4 +14,4 @@ Scripts usados para la auditoría de `docs/PLAN_DE_MEJORA.md`. Requieren la app 
 | `ai.mjs [base] [out]` | Búsqueda visual en los dos incidentes: 14 consultas (ES/EN) con la fuerza de coincidencia esperada, incluidas las que no deben coincidir («helicopter», «a person»), y el salto a una pasada de Sentinel-2 |
 | `live.mjs [base] [out]` | Análisis en vivo: fps reproduciendo e IoU de la máscara del navegador frente a Python en el mismo fichero y frente al pipeline grabado (necesita `python -m pipeline.pinhao.live_ref`) |
 
-Ejemplo: `node scripts/audit/states.mjs 'http://localhost:8000/?nointro' audit-out 1920x1080,390x844`
+Ejemplo: `node scripts/audit/states.mjs 'http://localhost:4173/?nointro' audit-out 1920x1080,390x844`

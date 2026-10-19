@@ -19,4 +19,4 @@ Ese clúster ya no existe y el dominio público no resuelve. **Este documento su
 
 - Los **resultados de Cosmos** se generaban en el pod y no se guardaron fuera. No se pueden recuperar, y **no se van a inventar**.
 - Todo lo medible es reproducible desde este repo: la segmentación, la georreferenciación, los eventos, la evaluación (IoU 0,68 / 0,71) y la meteorología. Ahora se publica como **demo estática** en GitHub Pages.
-- Los adaptadores NVIDIA (`backend/firescope/nvidia.py`, `cosmos_job.py`) y su doble de pruebas (`tests/mock_gpu.py`) siguen en el repo hasta que se decida qué hacer con el backend (fase 1 del [plan](PLAN_DE_MEJORA.md)).
+- En la fase 8 del [plan](PLAN_DE_MEJORA.md) se eliminó el backend FastAPI con sus adaptadores NVIDIA (`nvidia.py`, `cosmos_job.py`, `tests/mock_gpu.py`). El pipeline de Pinhão pasó a `pipeline/pinhao/` (`replay.py`). Siguen en el historial de git.

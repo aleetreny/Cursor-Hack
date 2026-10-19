@@ -1,7 +1,7 @@
 // FireScope 3D service worker: after one visit the demo opens without a connection (handy for presenting).
 //  · hashed build assets (assets/*)         cache first (their names change when they change)
 //  · terrain + imagery tiles                cache first, kept across versions
-//  · page, config, incident data            network first, cache as fallback
+//  · page and incident data                 network first, cache as fallback
 //  · video (range requests)                 always network — never cached
 //  · in-browser models and WebAssembly      left to the page (transformers.js keeps its own cache: no second copy)
 const VERSION = new URL(self.location.href).searchParams.get('v') || 'dev';

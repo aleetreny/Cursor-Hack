@@ -1,7 +1,7 @@
 /**
  * Live analysis of a playing <video>, in the browser: each frame (as fast as the device allows) is segmented into
  * burned ground (the learned model, in seg.worker.ts) and visible flames and smoke (the colour rules of the offline
- * pipeline, backend/firescope/segment.py, ported here), and drawn over the video. Nothing is uploaded.
+ * pipeline, pipeline/pinhao/segment.py, ported here), and drawn over the video. Nothing is uploaded.
  */
 export const W = 512, H = 288;               // the model's input size (16:9)
 const MEAN = [0.485, 0.456, 0.406], STD = [0.229, 0.224, 0.225];

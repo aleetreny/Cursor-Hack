@@ -1,9 +1,9 @@
 // End-to-end UI test: layout geometry at 6 viewports + full functional walk. Uses real Chrome (H.264 video).
-// Usage: node scripts/e2e.mjs [url] [outDir]     (default http://localhost:5174/?nointro)
+// Usage: node scripts/e2e.mjs [url] [outDir]     (default: the Pinhão incident on the local preview, port 4173)
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 
-const url = process.argv[2] ?? 'http://localhost:5174/?incident=pinhao-2019-03-01&nointro';   // these checks are about the drone incident
+const url = process.argv[2] ?? 'http://localhost:4173/?incident=pinhao-2019-03-01&nointro';   // these checks are about the drone incident
 const out = process.argv[3] ?? 'e2e-out';
 mkdirSync(out, { recursive: true });
 const browser = await chromium.launch({ channel: process.env.CHANNEL ?? 'chrome', args: ['--use-angle=metal', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });

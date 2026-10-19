@@ -85,7 +85,7 @@ Navegador                    ─── React + Three.js: terreno 3D, máscaras s
 
 ## 6. Recorrido de la interfaz (qué hace cada cosa)
 
-* **Barra superior:** incidente, fecha, modos **Incident / Drones / Resources**, menús View (2D/3D, reset, seguir dron, exageración), Analysis (comparar antes/después, verdad de campo, escenario, analista) y Share. **Tour** abre la visita guiada: 18 capítulos (portada, problema, respuesta, 14 capítulos por la app y cierre) con tarjetas explicativas y foco sobre la zona de la interfaz. Solo avanza cuando pulsas → (o Espacio); ← vuelve, H oculta la barra y Esc sale. A la derecha, el botón **ⓘ**, que abre About. Los menús se cierran con Esc o al pulsar fuera.
+* **Barra superior:** incidente, fecha, modos **Incident / Drones / Resources**, menús View (2D/3D, reset, seguir dron, exageración), Analysis (comparar antes/después, verdad de campo, escenario, analista) y Share. **Tour** abre la visita guiada del incidente abierto (Larouco, 16 capítulos; Pinhão, 20): portada, problema, capítulos por la app, límites honestos y cierre, que enlaza con el tour del otro incidente. Tarjetas explicativas y foco sobre la zona de la interfaz. Solo avanza cuando pulsas → (o Espacio); ← vuelve, H oculta la barra y Esc sale. A la derecha, el botón **ⓘ**, que abre About. Los menús se cierran con Esc o al pulsar fuera.
 * **Mapa 3D:** pasa el ratón por el terreno para ver elevación, pendiente, orientación, si está dentro de la zona quemada y las coordenadas. Haz clic en un evento o en el dron.
 * **Layers:** cada capa cambia el render de verdad (opacidad incluida). Ground Truth muestra la máscara manual en azul.
 * **Incident Overview / Weather:** datos del incidente y meteo ERA5 a la hora del cursor, con su chip de procedencia. La pestaña Layers cabe entera sin desplazarse.
@@ -116,7 +116,7 @@ Ese clúster ya no existe y aquellos resultados no se guardaron, así que **la v
 ## 8. Puntos fuertes
 
 * **Idea:** convertir vídeo en un mapa operativo consultable, con impacto social claro.
-* **Implementación técnica:** pipeline reproducible (`python -m firescope.pipeline` en 12 s), **evaluación cuantitativa (IoU)**, tests de backend y 76 comprobaciones E2E en 6 resoluciones (incluidos los 3 modos y 60 fps medidos).
+* **Implementación técnica:** pipelines reproducibles (`python -m pipeline.pinhao.replay` en 14 s; `pipeline/larouco/`), **evaluación cuantitativa (IoU)**, tests de los pipelines y 87 comprobaciones E2E (incluidos los 3 modos y 60 fps medidos).
 * **Diseño:** réplica del lenguaje visual de FireTrace, con la procedencia de cada dato visible.
 * **Honestidad:** cada dato dice si es real, medido, derivado, externo o simulado, y nada se presenta como algo que no es.
 * **Accesible:** es una web estática; cualquiera la abre con un enlace, sin instalar nada.
@@ -151,13 +151,13 @@ Ese clúster ya no existe y aquellos resultados no se guardaron, así que **la v
 * **Funciona en cualquier pantalla:** escritorio, tablet (panel deslizante) y móvil (hoja inferior; en horizontal, panel lateral). Carga en menos de un segundo y sigue funcionando sin conexión tras la primera visita.
 * **El incendio grande ya está:** Larouco (Ourense, agosto de 2025, 33.132 ha), reconstruido hora a hora con datos abiertos de satélite (NASA FIRMS, Copernicus EMS y Sentinel-2) y validado contra los perímetros de EMS. Se abre con el menú de incidentes o con `?incident=larouco-2025-08`.
 * **IA en el navegador, sin servidor:** la segmentación aprendida (IoU 0,92) y la búsqueda visual corren en el dispositivo del visitante, con los pesos servidos desde la propia web.
-* **Lo pendiente** (presentación nueva, vídeo y página de métodos) está en el [plan de mejora](PLAN_DE_MEJORA.md).
+* **Métodos y fuentes**, con todas las tablas de validación y licencias: [página de métodos](https://aleetreny.github.io/FireScope-3D/methods.html). El recorrido de mejora completo está en el [plan](PLAN_DE_MEJORA.md).
 
 ## 12. Cómo ejecutarlo
 
 ```bash
 cd frontend && npm install && npm run dev            # demo estática → http://localhost:5173
 npm run build                                        # web estática en dist/ (lo que publica GitHub Pages)
-node scripts/e2e.mjs '<url>/?nointro'                # 76 comprobaciones E2E (3 modos, 6 resoluciones, FPS)
-cd ../backend && python -m pytest -q                 # tests del pipeline y la API
+node scripts/e2e.mjs '<url>/?incident=pinhao-2019-03-01&nointro'   # 87 comprobaciones E2E
+cd .. && python -m pytest pipeline/tests -q          # tests de los pipelines
 ```

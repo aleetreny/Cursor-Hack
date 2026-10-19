@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react';
-import { api, mediaUrl, IS_STATIC } from '../api/client';
+import { api, mediaUrl } from '../api/client';
 import type { AskResponse, Citation, SearchResponse } from '../api/types';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore, qt } from '../state/store';
@@ -71,7 +71,7 @@ export function AgentPanel() {
           <b>Incident analyst</b>: ask about this incident in plain English. {regional
             ? 'Answers are computed from the satellite reconstruction and its events, with clickable evidence that moves the timeline and the map to that moment.'
             : 'Answers are computed from the recorded measurements and events, with clickable evidence that moves the video and the map to that moment.'}
-          <div className="meta"><span className="tag">{IS_STATIC ? 'Rule-based · in your browser · no language model' : 'Backend agent'}</span></div>
+          <div className="meta"><span className="tag">Rule-based · in your browser · no language model</span></div>
         </div>
         {!msgs.length && <div className="suggest">{(regional ? REGIONAL_SUGGESTIONS : SUGGESTIONS).map((s) => <button key={s} onClick={() => ask(s)}>{s}</button>)}</div>}
         {msgs.map((m, i) => m.role === 'user'
@@ -139,7 +139,7 @@ export function EvidencePanel() {
                 {regional
                   ? <div className="thumb date"><b>{fmtDay(Date.parse(r.timestamp))}</b><span>{fmtClock(Date.parse(r.timestamp), false)}</span></div>
                   : <div className="thumb" style={{ backgroundImage: `url(${mediaUrl(r.thumbnail_url ?? thumb)})` }}><span>{fmtVideo(r.start_seconds)}</span></div>}
-                <div><div className="cap">{r.caption ?? 'Clip'}</div><div className="rm">{regional ? `${fmtWhen(Date.parse(r.timestamp))} UTC` : `${fmtVideo(r.start_seconds)}–${fmtVideo(r.end_seconds)}`}{IS_STATIC ? '' : ` · similarity ${r.similarity.toFixed(2)}`}</div></div>
+                <div><div className="cap">{r.caption ?? 'Clip'}</div><div className="rm">{regional ? `${fmtWhen(Date.parse(r.timestamp))} UTC` : `${fmtVideo(r.start_seconds)}–${fmtVideo(r.end_seconds)}`}</div></div>
               </div>
             ))}
           </div>

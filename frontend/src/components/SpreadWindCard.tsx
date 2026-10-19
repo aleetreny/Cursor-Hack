@@ -13,7 +13,7 @@ const diff = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
  */
 export function SpreadWindCard({ height }: { height: number }) {
   const { timeline, time, weather, regional } = useStore(useShallow((s) => ({ timeline: s.timeline, time: qt(s.time, 2000), weather: s.weather, regional: s.incident?.scale === 'regional' })));
-  const frames = timeline?.frames ?? [];
+  const frames = useMemo(() => timeline?.frames ?? [], [timeline]);
   const now = useMemo(() => {
     let best = frames[0];
     for (const f of frames) if (Date.parse(f.timestamp) <= time) best = f; else break;
@@ -43,6 +43,8 @@ export function SpreadWindCard({ height }: { height: number }) {
   });
   const key = `${now?.front_bearing_deg?.value}|${now?.front_advance_m_min?.value}|${wx?.wind_dir_deg}|${wx?.wind_kmh}|${overall}|${height}`;
   useLayoutEffect(() => { setLevel(0); }, [key]);
+  // after every render on purpose (the wording changes with the time); it stops at level 3, so it cannot loop
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     const t = text.current, b = body.current;
     if (!t || !b || level >= 3) return;

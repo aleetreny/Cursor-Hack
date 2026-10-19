@@ -689,3 +689,16 @@ input[type=range].rng:focus-visible { outline-offset: 4px; }
 /* a narrow camera window (phones): the button keeps a short label, and the unit name goes (the HUD shows it) */
 @container fbar (max-width: 300px) { .feed-ai .l-long { display: none; } .feed-ai .l-short { display: inline; } }
 @container fbar (max-width: 250px) { .feed-bar > b { display: none; } }
+/* tour: satellite background, limits slide, close-slide actions */
+.pz-bgimg { position: absolute; inset: 0; background: center / cover no-repeat; opacity: .6; animation: pzDrift 30s ease-out both; }
+@keyframes pzDrift { from { transform: scale(1.12); } to { transform: scale(1); } }
+.pz-limits { background: radial-gradient(1200px 600px at 80% 50%, rgba(210,64,42,.12), transparent 60%); }
+.pz-limits::after { background: none; }
+.pz-actions { margin-top: 34px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; animation: pzIn 1s .7s both; }
+.pz-go { font: 650 16px var(--sans, inherit); padding: 11px 20px; border-radius: 999px; background: #d2402a; color: #fff; border: 1px solid #d2402a; cursor: pointer; }
+.pz-go:hover { background: #e14b33; }
+.pz-go.ghost { background: transparent; color: #f1d9c7; border-color: rgba(241,217,199,.4); }
+.pz-go.ghost:hover { background: rgba(255,255,255,.06); }
+@media (max-width: 700px) { .pz-go { font-size: 14px; padding: 9px 14px; } }
+.methods-link { display: inline-block; margin-top: 10px; font-size: 12px; font-weight: 600; color: var(--red); text-decoration: none; }
+.methods-link:hover { text-decoration: underline; }

@@ -8,7 +8,6 @@ import { Icon } from './Icon';
 import { AgentPanel, EvidencePanel } from './AgentPanels';
 import { DronePanel } from './DronePanel';
 import { ResourcesPanel } from './ResourcesPanel';
-import { IS_STATIC, API_BASE } from '../api/client';
 
 type LayerRow = { id: keyof SceneLayers; label: string; sw: string; kind: 'toggle' | 'opacity'; prov?: string; def?: number };
 const LAYERS: LayerRow[] = [
@@ -154,7 +153,7 @@ export function NotesSection() {
     <>
       <div className="section">
         <div className="section-h">How this works</div>
-        {IS_STATIC && !manifest && <div className="muted">Loading…</div>}
+        {!manifest && <div className="muted">Loading…</div>}
         {manifest?.methods.map((m) => (
           <div className="integr" key={m.id}>
             <span>{m.name}</span>
@@ -162,14 +161,21 @@ export function NotesSection() {
             <span className="s">{m.detail}</span>
           </div>
         ))}
-        <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>{IS_STATIC ? `Everything runs in your browser from a precomputed data package${manifest ? ` (packaged ${manifest.packaged.slice(0, 10)})` : ''}. No server, no keys.` : `Backend ${API_BASE}`}</div>
+        <a className="methods-link" href="./methods.html" target="_blank" rel="noopener">Methods and sources, in full →</a>
+        <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>{`Everything runs in your browser from a precomputed data package${manifest ? ` (packaged ${manifest.packaged.slice(0, 10)})` : ''}. No server, no keys.`}</div>
       </div>
       <div className="section">
         <div className="section-h">Limits</div>
         <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--ink-2)' }}>
-          <p style={{ margin: '0 0 6px' }}><b>No temperatures:</b> the camera is RGB only, so hotspots are visible-flame locations and IR* is a false-colour look.</p>
-          <p style={{ margin: '0 0 6px' }}><b>Approximate positions:</b> georeferencing uses a pinhole camera and the elevation model; its error in metres is not measured yet.</p>
-          <p style={{ margin: '0 0 6px' }}><b>Only the camera's view:</b> burned area is what the drone saw, a small part of the planned burn cell.</p>
+          {incident?.scale === 'regional' ? <>
+            <p style={{ margin: '0 0 6px' }}><b>Interpolated timing:</b> satellites pass about six times a day; the hours in between are filled in, and the first detection is not the ignition.</p>
+            <p style={{ margin: '0 0 6px' }}><b>Slightly optimistic validation:</b> the method was tuned on the same EMS perimeters it is scored against.</p>
+            <p style={{ margin: '0 0 6px' }}><b>No people or houses:</b> the app describes the fire, not the emergency; the fleet around it is an exercise.</p>
+          </> : <>
+            <p style={{ margin: '0 0 6px' }}><b>No temperatures:</b> the camera is RGB only, so hotspots are visible-flame locations and IR* is a false-colour look.</p>
+            <p style={{ margin: '0 0 6px' }}><b>Approximate positions:</b> georeferencing uses a pinhole camera and the elevation model; its error in metres could not be measured with this footage.</p>
+            <p style={{ margin: '0 0 6px' }}><b>Only the camera's view:</b> burned area is what the drone saw, a small part of the planned burn cell.</p>
+          </>}
           <p style={{ margin: 0 }}><b>Stylized:</b> trees and smoke are drawn for readability, and the terrain uses {useStore.getState().exaggeration}× vertical exaggeration.</p>
         </div>
       </div>

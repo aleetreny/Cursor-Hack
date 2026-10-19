@@ -5,7 +5,7 @@ Offline steps for the Pinhão drone incident (phase 7). The app never runs them;
 | Step | Command | Output |
 |---|---|---|
 | Fine-tune the burned-area segmenter | `python -m pipeline.pinhao.segmenter train` | `data/processed/models/burned-lraspp-mnv3.onnx` (13 MB) |
-| Re-run the recorded pipeline with it | `cd backend && python -m firescope.pipeline` | `data/processed/drone_replay_01/*.json` |
+| Re-run the recorded pipeline with it | `python -m pipeline.pinhao.replay` | `data/processed/drone_replay_01/*.json` |
 | Frames for visual search | `python -m pipeline.pinhao.frames` | `data/cache/pinhao/frames/`, `visual_sprite.jpg` |
 | Image vectors (both incidents) | `cd frontend && node scripts/ai/embed.mjs` | `visual_index.bin` + `.json` per incident |
 | References for the live check | `python -m pipeline.pinhao.live_ref` | `data/cache/pinhao/live_ref*.npy` |

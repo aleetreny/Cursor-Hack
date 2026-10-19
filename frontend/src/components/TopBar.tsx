@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { IS_STATIC, API_BASE } from '../api/client';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore, type ModeTab } from '../state/store';
 import { buildUrl } from '../state/url';
@@ -102,8 +101,7 @@ export function TopBar() {
         <button className="tb-menu" onClick={share} title="Copy a link to this exact view"><Icon name="share" size={13} /><span className="lbl">Share</span></button>
       </div>
       <div className="tb-right">
-        {!regional && <button className="tb-tour" onClick={() => set({ presenting: true })} title="Guided tour — → / Space next · ← back · Esc exit">Tour</button>}
-        {!IS_STATIC && <span className="mode-chip live" title={`Backend: ${API_BASE}`}>BACKEND</span>}
+        <button className="tb-tour" onClick={() => set({ presenting: true })} title="Guided tour — → / Space next · ← back · Esc exit">Tour</button>
         <button className="tb-menu" onClick={() => set({ panel: 'notes', mode: 'incident', drawer: true })} title="About this demo" aria-label="About this demo"><Icon name="info" size={15} /></button>
         {layout === 'tablet' && <button className={'tb-menu tb-drawer' + (drawer ? ' on' : '')} onClick={() => set({ drawer: !drawer })} aria-pressed={drawer} title={drawer ? 'Hide the side panel' : 'Show the side panel'} aria-label="Side panel"><Icon name="sidebar" size={16} /></button>}
       </div>

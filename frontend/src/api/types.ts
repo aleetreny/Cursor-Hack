@@ -1,6 +1,6 @@
 /**
- * FireScope 3D — frontend ⇄ backend API contract (source of truth for the UI).
- * Human-readable spec: docs/api-contract.md. Keep both in sync.
+ * FireScope 3D — the incident package format (source of truth for the UI): what the pipelines write to
+ * data/processed/<source>/ and scripts/export-static.mjs publishes to incidents/<id>/.
  *
  * Conventions
  *  - Coordinates: GeoJSON (RFC 7946), WGS84 / EPSG:4326, [lon, lat] order. A 3rd
@@ -173,7 +173,7 @@ export interface TimelineFrame {
   active_fire_area_m2: Metric;      // currently visibly burning
   area_change_m2: Metric;           // vs previous frame
   hotspot_count: Metric;
-  /** Rate of spread of the visible front (static export; absent from the backend API). */
+  /** Rate of spread of the visible front (added by scripts/export-static.mjs). */
   front_advance_m_min?: Metric;
   /** Direction the visible front moved toward, degrees from true north (static export). */
   front_bearing_deg?: Metric;

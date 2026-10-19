@@ -13,6 +13,7 @@ import { loadAll } from './state/load';
 
 (window as unknown as { __store: typeof useStore }).__store = useStore;
 const loadPresenter = () => import('./components/Presenter');
+let START_TOUR = new URLSearchParams(location.search).has('tour');
 const Presenter = lazy(() => loadPresenter().then((m) => ({ default: m.Presenter })));   // not part of the first load
 
 /** Text version of what the map shows, for screen readers. */
@@ -34,7 +35,6 @@ export default function App() {
   const feedOpen = useStore((s) => s.feedOpen);
   const loaded = useStore((s) => s.loaded);
   const presenting = useStore((s) => s.presenting);
-  const regional = useStore((s) => s.incident?.scale === 'regional');
   const toast = useStore((s) => s.toast);
   const drawer = useStore((s) => s.drawer);
   const layout = useLayout();
@@ -47,6 +47,8 @@ export default function App() {
   }), [layout]);
   // fetch the tour in the background once the incident is up, so the Tour button opens instantly
   useEffect(() => { if (loaded) { const t = setTimeout(() => { loadPresenter().catch(() => {}); }, 2500); return () => clearTimeout(t); } }, [loaded]);
+  // ?tour: open the guided tour once the incident is up (the other incident's tour links here)
+  useEffect(() => { if (loaded && START_TOUR) { START_TOUR = false; const t = setTimeout(() => useStore.getState().set({ presenting: true }), 1200); return () => clearTimeout(t); } }, [loaded]);
   // in-browser AI the visitor turned on before (model from the browser cache), once the incident is up
   useEffect(() => { if (loaded) { const t = setTimeout(() => { import('./ai/visual').then((m) => m.restoreVisual()).catch(() => {}); }, 3000); return () => clearTimeout(t); } }, [loaded]);
 
@@ -100,7 +102,7 @@ export default function App() {
         </div>
         {layout === 'desktop' && <RightPanel />}
       </div>
-      {loaded && presenting && !regional && <Suspense fallback={null}><Presenter /></Suspense>}
+      {loaded && presenting && <Suspense fallback={null}><Presenter /></Suspense>}
       {toast && <div className="toast" role="status">{toast}</div>}
       <IncidentSummary />
     </div>

@@ -11,7 +11,7 @@ data/processed/media/
 data/processed/clips/
 data/cache/
 data/uploads/
-backend/.venv/
+backend/
 __pycache__/
 demo/*.mp4
 frontend/public/incidents/

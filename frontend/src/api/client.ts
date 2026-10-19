@@ -4,19 +4,10 @@ import type {
 } from './types';
 
 /**
- * API client. Two modes:
- *  - STATIC (default): reads a precomputed incident package from <base>/incidents/<id>/ (scripts/export-static.mjs),
- *    chosen with ?incident=<id> or the index default. Search and Ask run in the browser. This is what GitHub Pages serves.
- *  - API: VITE_API_BASE (or runtime config.js apiBase) set → calls the FastAPI backend (docs/api-contract.md).
- * Failures surface as errors — they are never silently replaced with other data.
+ * Data client: reads a precomputed incident package from <base>/incidents/<id>/ (scripts/export-static.mjs), chosen
+ * with ?incident=<id> or the index default. Search and Ask run in the browser. This is all GitHub Pages serves: no
+ * server, no keys. Failures surface as errors — they are never silently replaced with other data.
  */
-// Runtime config (public/config.js, editable after build) wins over build-time env.
-const RUNTIME = (window as unknown as { __FIRESCOPE__?: { apiBase?: string; dataMode?: string } }).__FIRESCOPE__ ?? {};
-const BASE = (RUNTIME.apiBase ?? (import.meta.env.VITE_API_BASE as string | undefined) ?? '').replace(/\/$/, '');
-const MODE = RUNTIME.dataMode ?? (import.meta.env.VITE_DATA_MODE as string | undefined);
-export const IS_STATIC = !BASE || MODE === 'static';
-export const API_BASE = BASE === '.' ? 'same origin' : BASE;
-
 export class ApiError extends Error {
   status: number;
   path: string;
@@ -43,38 +34,32 @@ export function incidentBase(): Promise<string> {
   return pkg;
 }
 
-async function req<T>(path: string, file: string, init?: RequestInit): Promise<T> {
-  const url = IS_STATIC ? `${await incidentBase()}${file}` : `${BASE}${path}`;
-  const res = await fetch(url, IS_STATIC ? undefined : init);
-  if (!res.ok) {
-    let msg = res.statusText;
-    try { const j = await res.json(); msg = j.error ?? j.detail ?? msg; } catch { /* not json */ }
-    throw new ApiError(res.status, msg, path);
-  }
+async function req<T>(file: string): Promise<T> {
+  const res = await fetch(`${await incidentBase()}${file}`);
+  if (!res.ok) throw new ApiError(res.status, res.statusText || 'Not found', file);
   return res.json() as Promise<T>;
 }
-const post = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
 /** Resolve a media URL (may be relative) to something <video>/<img> can load. */
 export function mediaUrl(u: string | null | undefined): string | undefined {
   if (!u) return undefined;
   if (/^(https?:|blob:|data:)/.test(u)) return u;
   const rel = u.startsWith('/') ? u.slice(1) : u;
-  return IS_STATIC ? `${import.meta.env.BASE_URL}${rel}` : `${BASE}/${rel}`;
+  return `${import.meta.env.BASE_URL}${rel}`;
 }
 
 export const api = {
-  /** Static mode only: the incidents published in this build. */
-  incidents: async (): Promise<IncidentIndex['incidents']> => (IS_STATIC ? (await loadIndex()).incidents : []),
-  /** Static mode only: what the incident package contains and how each part was made. */
-  manifest: (): Promise<IncidentManifest | null> => (IS_STATIC ? req<IncidentManifest>('', 'manifest.json') : Promise.resolve(null)),
-  incident: () => req<Incident>('/api/incident', 'incident.json'),
-  sources: () => req<VideoSource[]>('/api/sources', 'sources.json'),
-  timeline: () => req<TimelineResponse>('/api/fire/timeline', 'timeline.json'),
-  observations: () => req<ObservationsResponse>('/api/fire/observations', 'observations.json'),
-  weather: () => req<WeatherResponse>('/api/weather', 'weather.json'),
-  events: (sourceId: string) => req<EventsResponse>(`/api/video/${encodeURIComponent(sourceId)}/events`, 'events.json'),
+  /** The incidents published in this build. */
+  incidents: async (): Promise<IncidentIndex['incidents']> => (await loadIndex()).incidents,
+  /** What the incident package contains and how each part was made. */
+  manifest: (): Promise<IncidentManifest | null> => req<IncidentManifest>('manifest.json'),
+  incident: () => req<Incident>('incident.json'),
+  sources: () => req<VideoSource[]>('sources.json'),
+  timeline: () => req<TimelineResponse>('timeline.json'),
+  observations: () => req<ObservationsResponse>('observations.json'),
+  weather: () => req<WeatherResponse>('weather.json'),
+  events: () => req<EventsResponse>('events.json'),
   // the analyst and search are loaded on first use (they are not needed to show the incident)
-  search: async (body: SearchRequest): Promise<SearchResponse> => (IS_STATIC ? (await import('../agent/search')).staticSearch(body, await incidentBase()) : req<SearchResponse>('/api/search', '', post(body))),
-  ask: async (body: AskRequest): Promise<AskResponse> => (IS_STATIC ? (await import('../agent/analyst')).analystAsk(body, await incidentBase()) : req<AskResponse>('/api/ask', '', post(body))),
+  search: async (body: SearchRequest): Promise<SearchResponse> => (await import('../agent/search')).staticSearch(body, await incidentBase()),
+  ask: async (body: AskRequest): Promise<AskResponse> => (await import('../agent/analyst')).analystAsk(body, await incidentBase()),
 };

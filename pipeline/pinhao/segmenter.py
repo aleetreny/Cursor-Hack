@@ -9,7 +9,7 @@ Split, by time so no test frame is near a training frame:
     train  frames 0 – 17 900   (180 annotated frames)
     val    frames 18 000 – 22 500 of the train/valid set (early stopping only)
     test   frames 20 250 – 22 450, the dataset's own test split (23 frames), never seen during training
-The HSV baseline it replaces scored IoU 0.68 on the same masks (backend/firescope/segment.py).
+The HSV baseline it replaces scored IoU 0.68 on the same masks (segment.py).
 """
 from __future__ import annotations
 

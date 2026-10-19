@@ -79,7 +79,7 @@ function PhoneMenu({ close }: { close: () => void }) {
       )}
       {item('Analyse a video file…', pickVideoFile)}
       <div className="pm-h">FireScope</div>
-      {!regional && item('Guided tour', () => set({ presenting: true }))}
+      {item('Guided tour', () => set({ presenting: true }))}
       {item('Share this view', share)}
       {item('About this demo', () => set({ mode: 'incident', panel: 'notes' }))}
     </div>

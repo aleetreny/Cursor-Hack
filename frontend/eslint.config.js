@@ -19,10 +19,9 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
+      // components here deliberately export small helpers next to them (scene actions, chart utilities);
+      // the only cost is a full reload instead of a hot swap in development
+      'react-refresh/only-export-components': 'off',
     },
   },
 )

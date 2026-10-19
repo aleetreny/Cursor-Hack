@@ -1,4 +1,4 @@
-"""Historical weather at the burn site: ERA5 reanalysis via Open-Meteo archive (free, no key). Run: python -m firescope.weather"""
+"""Historical weather at the burn site: ERA5 reanalysis via Open-Meteo archive (free, no key). Run: python -m pipeline.pinhao.weather"""
 from __future__ import annotations
 
 import json

@@ -1,7 +1,7 @@
 """Offline/replay pipeline: drone video → masks → georeferenced polygons → timeline, events, clips.
 
-Run:  python -m firescope.pipeline            (writes data/processed/drone_replay_01/*.json)
-The output files are exactly the API responses described in docs/api-contract.md.
+Run:  python -m pipeline.pinhao.replay       (writes data/processed/drone_replay_01/*.json)
+The output files are the incident package the app reads (frontend/src/api/types.ts), before scripts/export-static.mjs.
 """
 from __future__ import annotations
 
@@ -237,7 +237,7 @@ def run(limit_seconds: float | None = None) -> dict:
 
 
 def derive_events(samples: list[dict], proj: Projector, fps: float) -> list[dict]:
-    """Measurement-driven events (provenance 'derived'). Cosmos Reason later adds grounded descriptions."""
+    """Measurement-driven events (provenance 'derived')."""
     ev: list[dict] = []
     H, W = samples[0]["cum"].shape
 

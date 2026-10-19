@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FireScope 3D · Methods and sources</title>
+  <meta name="description" content="How every layer, number and model in FireScope 3D is produced, how it was validated, its limits and the open data it comes from." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 16'><path d='M1 15L9 4l4 5 3-4 9 10z' fill='%23d2402a'/></svg>" />
+  <script type="module" src="/src/methods.ts"></script>
+</head>
+<body>
+  <header class="mh">
+    <a class="back" href="./">← Back to the app</a>
+    <div class="brand"><span class="logo" aria-hidden="true"></span>FireScope 3D</div>
+    <h1>Methods and sources</h1>
+    <p class="lede">How every layer, number and model in the app is produced, how it was checked, what it cannot tell you, and the open data it comes from. Everything below is reproducible from the repository.</p>
+    <nav class="toc" aria-label="Contents">
+      <a href="#provenance">Provenance</a><a href="#larouco">Larouco wildfire</a><a href="#pinhao">Pinhão drone burn</a><a href="#ai">AI in the browser</a><a href="#reproduce">Reproduce</a><a href="#sources">Sources and licences</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="provenance">
+      <h2>Provenance: what each label means</h2>
+      <p>Every metric and layer carries one of these labels, in the app and on this page.</p>
+      <dl class="prov-list">
+        <div><dt><span class="p real">real</span></dt><dd>Recorded by a sensor or published by an agency, shown as it is (drone video, camera pose, Sentinel-2 images).</dd></div>
+        <div><dt><span class="p derived">derived</span></dt><dd>Computed from real data by a fixed, documented method (when each place burned, rate of spread, events).</dd></div>
+        <div><dt><span class="p external">external</span></dt><dd>Another organisation's product, used as published (EMS perimeters, FIRMS detections, ERA5 weather).</dd></div>
+        <div><dt><span class="p model">model</span></dt><dd>Output of a trained or physical model, with its measured accuracy (segmentation, spread scenario, visual search).</dd></div>
+        <div><dt><span class="p sim">simulated</span></dt><dd>An illustrative exercise around the real incident (extra drones, aircraft, crews). Never an observation, never a forecast.</dd></div>
+      </dl>
+    </section>
+
+    <section id="larouco">
+      <h2>Larouco wildfire <small>Ourense, Spain · 13–27 Aug 2025 · 33,132 ha</small></h2>
+      <p>The default incident: a two-week wildfire reconstructed hour by hour from open satellite data, on a 30 m grid of 42 × 41 km (ETRS89 / UTM 29N). Pipeline: <code>pipeline/larouco/</code>.</p>
+
+      <h3>When each place burned <span class="p derived">derived</span></h3>
+      <ol>
+        <li><b>First detection.</b> Each 30 m cell takes the time of the first NASA FIRMS detection whose footprint covers it: VIIRS S-NPP (375 m) and MODIS Terra/Aqua (1 km), 1,914 detections on 159 passes.</li>
+        <li><b>Bounded by the perimeters.</b> The twelve dated Copernicus EMS delineations (EMSR837) give a window for every cell: burned before an image that shows it burnt, after one that does not. A detection outside its window is moved to the window's middle.</li>
+        <li><b>Between passes.</b> EUMETSAT Meteosat fire pixels (LSA SAF FRP-PIXEL, every 15 min, ~3–4 km) re-time cells inside the gaps between polar passes.</li>
+        <li><b>Gaps.</b> Cells inside the final scar with no detection are interpolated (inverse-distance), and the field is smoothed (σ 150 m).</li>
+      </ol>
+      <p>Validation: each intermediate EMS perimeter is held out in turn and predicted from everything else.</p>
+      <table>
+        <thead><tr><th>Held-out perimeter</th><th>Sensor</th><th>Image covers</th><th>IoU</th><th>IoU, FIRMS only</th></tr></thead>
+        <tbody>
+          <tr><td>16 Aug, 11:21 UTC</td><td>Sentinel-2</td><td>89% of the scar</td><td><b>0.78</b></td><td>0.75</td></tr>
+          <tr><td>20 Aug, 11:24 UTC</td><td>SPOT 6/7</td><td>53%</td><td><b>0.85</b></td><td>0.84</td></tr>
+          <tr><td>21 Aug, 11:21 UTC</td><td>Sentinel-2</td><td>98%</td><td><b>0.94</b></td><td>0.94</td></tr>
+          <tr class="sum"><td colspan="3">Mean</td><td><b>0.86</b></td><td>0.85</td></tr>
+        </tbody>
+      </table>
+      <p class="note">The method's parameters were chosen among 18 combinations on these same scores, so they are slightly optimistic. Meteosat does not change them: the perimeters are all taken around 11:00 UTC and cannot score the hour.</p>
+
+      <h3>Derived from it</h3>
+      <ul>
+        <li><b>Burned area and expansion rate</b> <span class="p derived">derived</span>: hourly frames; the expansion rate is the growth of the equivalent radius √(area/π) over 6 h, the speed of the scar as a whole, lower than the head-fire speed.</li>
+        <li><b>Active front</b> <span class="p derived">derived</span>: cells that burned in the last 3 h. Satellite passes are hours apart, so no instantaneous front line is drawn.</li>
+        <li><b>Events</b> <span class="p derived">derived</span>: 19, computed from the reconstruction, the perimeters, FIRMS and ERA5 (fast runs, area milestones, driest hour, strongest gusts, each new perimeter). All need human review.</li>
+        <li><b>Fire power</b> <span class="p external">external</span>: Meteosat FRP every 15 min, peak 14 GW on 16 Aug at 19:00 UTC; the most intense polar pass was 33 GW (MODIS, 17 Aug).</li>
+      </ul>
+
+      <h3>Burn severity <span class="p derived">derived</span></h3>
+      <p>Sentinel-2 dNBR (NIR B8A, SWIR B12), 1 Aug before and 5 Sep after, clouds masked with the scene classification, Key &amp; Benson classes. Mean dNBR in the scar 0.76.</p>
+      <table class="compact">
+        <thead><tr><th>Class</th><th>Area</th><th>Share</th></tr></thead>
+        <tbody>
+          <tr><td>High</td><td>23,030 ha</td><td><b>69.6%</b></td></tr>
+          <tr><td>Moderate-high</td><td>7,411 ha</td><td>22.4%</td></tr>
+          <tr><td>Moderate-low</td><td>2,053 ha</td><td>6.2%</td></tr>
+          <tr><td>Low</td><td>479 ha</td><td>1.4%</td></tr>
+          <tr><td>Unburned / regrowth</td><td>116 ha</td><td>0.3%</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Sentinel-2 on the day <span class="p real">real</span></h3>
+      <p>The true-colour L2A product (TCI) of every pass from 11 to 26 Aug (11, 13, 16, 21, 23, 26 Aug, ~11:30 UTC), read from its 20 m overview and warped to the same lon/lat box as the basemap. The layer shows the latest pass before the timeline cursor. Tile seams are the product's own (per-tile atmospheric correction).</p>
+
+      <h3>Spread scenario (hindcast) <span class="p model">model</span></h3>
+      <p>Least travel time on 90 m cells, re-evaluated every hour: a base rate R0 times fuel (ESA WorldCover), wind (ERA5), slope (IGN MDT25) and dryness (ERA5 vapour-pressure deficit). R0 = 34.3 m/h was calibrated <em>only</em> on the 16 Aug perimeter (5,219 ha); the model then ran freely. No suppression, no spotting.</p>
+      <table>
+        <thead><tr><th>Against the perimeter of</th><th>IoU</th><th>Recall</th><th>Precision</th><th>Scenario</th><th>Real</th></tr></thead>
+        <tbody>
+          <tr><td>20 Aug</td><td>0.25</td><td>0.49</td><td>0.33</td><td>21,979 ha</td><td>14,682 ha</td></tr>
+          <tr><td>21 Aug</td><td>0.24</td><td>0.36</td><td>0.43</td><td>25,646 ha</td><td>30,621 ha</td></tr>
+          <tr><td>22 Aug</td><td>0.24</td><td>0.38</td><td>0.41</td><td>30,778 ha</td><td>32,769 ha</td></tr>
+          <tr><td>26 Aug</td><td>0.27</td><td>0.61</td><td>0.32</td><td>63,094 ha</td><td>33,124 ha</td></tr>
+        </tbody>
+      </table>
+      <p class="note">It spreads almost evenly in every direction, misses the run north, and burns 74,000 ha with nothing to stop it; the median timing error is 76 h. The app labels it "not what happened".</p>
+
+      <h3>Terrain, imagery and weather</h3>
+      <ul>
+        <li><b>Terrain</b> <span class="p real">real</span>: IGN/CNIG MDT25 over the scar; AWS Terrain Tiles for the horizon. Packaged with the incident, no tile server. Shown with 1.8× vertical exaggeration.</li>
+        <li><b>Imagery</b> <span class="p real">real</span>: IGN PNOA orthophoto (≈10 m, ≈7 m over the scar); Sentinel-2 cloudless 2016 by EOX for the horizon, colour-matched to PNOA. The real sun and night follow the timeline.</li>
+        <li><b>Vegetation</b> <span class="p real">real</span>: tree and shrub cover from ESA WorldCover 10 m, drawn as instanced trees that char when the fire reaches them (stylised).</li>
+        <li><b>Weather</b> <span class="p external">external</span>: ERA5 reanalysis via Open-Meteo, hourly, at the scar's centre (~25 km grid). Not an on-site sensor.</li>
+      </ul>
+
+      <h3>Limits</h3>
+      <ul class="limits">
+        <li>Timing between satellite passes is interpolated, and the first detection is not the ignition.</li>
+        <li>Smoke columns, spot fires and the instantaneous front are not measured.</li>
+        <li>The app has no data on people, houses or the real operation; the fleet around it is an exercise.</li>
+      </ul>
+    </section>
+
+    <section id="pinhao">
+      <h2>Pinhão drone burn <small>Torre do Pinhão, Portugal · 1 Mar 2019 · 15 min</small></h2>
+      <p>A prescribed burn filmed by a hovering DJI Phantom 4 Pro (BurnedAreaUAV v1.1, Zenodo 7944963), with hand-drawn burned-area masks every 4 s. Pipeline: <code>pipeline/pinhao/</code>.</p>
+
+      <h3>Burned area, flames, smoke <span class="p model">model</span></h3>
+      <p>One frame every 4 s. <b>Burned ground</b> comes from a small neural network, LR-ASPP with a MobileNetV3-Large backbone (3.2 M parameters, torchvision, pretrained on COCO), fine-tuned on the dataset's masks at 512 × 288, with a majority vote over three frames. <b>Flames and smoke</b> come from colour rules (saturated orange-yellow; bright, grey, untextured); the dataset has no masks for them, and RGB cannot measure temperature.</p>
+      <p>Split by time, so no test frame is near a training frame: training 0–17,900 (180 frames), validation 18,000–22,500 (46), the dataset's own test split 20,250–22,450 (23).</p>
+      <table>
+        <thead><tr><th>Against the hand-drawn masks</th><th>Colour rules (before)</th><th>Learned segmenter</th></tr></thead>
+        <tbody>
+          <tr><td>Per-frame mask, test split (23 frames)</td><td>—</td><td><b>IoU 0.94</b> · P 0.96 · R 0.99</td></tr>
+          <tr><td>Recorded pipeline, held-out frames, image</td><td>0.68 (all 226 frames)</td><td><b>IoU 0.92</b> · P 0.96 · R 0.95</td></tr>
+          <tr><td>Recorded pipeline, both projected onto the ground</td><td>0.71</td><td><b>IoU 0.90</b></td></tr>
+        </tbody>
+      </table>
+
+      <h3>From the image to the ground <span class="p derived">derived</span></h3>
+      <p>A pinhole camera at the drone's pose from the DJI XMP metadata (24.9 m above the take-off point, gimbal yaw −46.7°, pitch −28.9°, calibrated focal length); every outline pixel is cast as a ray onto the elevation model (AWS Terrain Tiles), which turns masks into map polygons in m². Rows above 21% of the frame (the far field) are excluded.</p>
+      <p class="note"><b>Error in metres: not measured.</b> Matching the frames against the DGT Ortos 2018 orthophoto (25 cm), automatically (SIFT + RANSAC, both orthorectified and rendered into the camera view) and by hand, found nothing sharp in both: an oblique 25 m view, smoke, a year of vegetation change. Bearings to the far track agree within about 2°, but the camera model puts the far field at about half its distance, so the pose's pitch or height likely differs during the video. No RMSE is claimed.</p>
+
+      <h3>Derived from it</h3>
+      <ul>
+        <li><b>Rate of spread</b> <span class="p derived">derived</span>: the leading edge of the burned outline against one minute earlier (90th percentile of the displacement), m/min; the visible front only.</li>
+        <li><b>Events</b> <span class="p derived">derived</span>: first flames, fastest growth, flames outside the burned area, dense smoke, peak flame extent; all flagged for review.</li>
+        <li><b>Weather</b> <span class="p external">external</span>: ERA5 via Open-Meteo for the site and hour.</li>
+        <li><b>Drones FT-02…06, aircraft, crews, large-fire scenario</b> <span class="p sim">simulated</span>: a deterministic exercise on the real terrain, tagged SIM.</li>
+      </ul>
+    </section>
+
+    <section id="ai">
+      <h2>AI in the browser</h2>
+      <p>Optional, and on the visitor's device: nothing is uploaded. Each tool says what it downloads, from this site, and is remembered on that device once turned on. The incident analyst (Ask) is rule-based: no language model, nothing generated.</p>
+      <h3>Visual search <span class="p model">model</span></h3>
+      <p>MobileCLIP-S0 (Apple). The image vectors are computed offline (<code>frontend/scripts/ai/embed.mjs</code>): for Pinhão, one frame every 2 s, whole and in three squares; for Larouco, the six Sentinel-2 passes cut into 2.7 km and 5.4 km squares. In the browser only the text encoder runs (about 50 MB once, int8, ONNX Runtime WebAssembly), ~0.1 s per query. Spanish queries are translated with a small wildfire vocabulary, and the English query searched is shown.</p>
+      <p>CLIP similarities are relative, and a fire scene pulls every fire-related word up. So the match strength also asks whether, in its best image, the query beats the ordinary contents of that kind of scene (flames, smoke, grass… / forest, clouds, farmland…). Calibrated on 58 queries for things that are and are not in the imagery (<code>scripts/ai/calibrate.mjs</code>): all on the right side. People, vehicles and aircraft are flagged as too small to see from orbit.</p>
+      <h3>Live analysis <span class="p model">model</span></h3>
+      <p>The Pinhão segmenter (13 MB) runs on the playing video in a worker, with WebGPU when available (≈40 fps on a laptop) or WebAssembly; flames and smoke use the same colour rules. Its burned mask agrees with the recorded pipeline at <b>IoU 0.98</b> over 22 frames (<code>scripts/audit/live.mjs</code>). It also runs on a video file of your own, which never leaves the browser; trained on one flight, it is a rough guide on other footage.</p>
+    </section>
+
+    <section id="reproduce">
+      <h2>Reproduce</h2>
+      <p>The app is a static site: every number above is in a precomputed incident package, rebuilt by the pipelines below (Python 3.13, <code>pipeline/requirements.txt</code>; Node 22 for the site).</p>
+<pre><code># Larouco (no accounts needed, except Meteosat: a free EUMETSAT LSA SAF account)
+python -m pipeline.larouco.download          # FIRMS, EMS, Sentinel-2, ERA5
+python -m pipeline.larouco.meteosat download # optional, then: process
+python -m pipeline.larouco.progression       # when each place burned + validation
+python -m pipeline.larouco.severity          # dNBR
+python -m pipeline.larouco.scenario          # spread hindcast
+python -m pipeline.larouco.basemap           # packaged terrain and imagery
+python -m pipeline.larouco.s2series          # Sentinel-2 on each pass
+python -m pipeline.larouco.package           # → data/processed/larouco/
+
+# Pinhão (BurnedAreaUAV from Zenodo 7944963)
+python -m pipeline.pinhao.segmenter train    # fine-tune and evaluate the segmenter
+python -m pipeline.pinhao.replay             # masks → ground → timeline, events, eval
+python -m pipeline.pinhao.frames             # frames for visual search
+
+# the site
+cd frontend && node scripts/ai/embed.mjs && npm run build</code></pre>
+      <p>Checks: <code>python -m pytest pipeline/tests</code>, <code>scripts/e2e.mjs</code> (87 functional checks), <code>scripts/present-test.mjs</code> (both tours), <code>scripts/audit/devices.mjs</code> and <code>states.mjs</code> (8 phones and tablets, 5 desktop sizes), <code>ai.mjs</code>, <code>live.mjs</code>.</p>
+    </section>
+
+    <section id="sources">
+      <h2>Sources and licences</h2>
+      <table class="src">
+        <thead><tr><th>Data</th><th>Used for</th><th>Licence</th></tr></thead>
+        <tbody>
+          <tr><td><a href="https://zenodo.org/records/7944963">BurnedAreaUAV v1.1</a>, Ribeiro et al. 2023</td><td>Pinhão video, pose, masks</td><td>CC BY 4.0</td></tr>
+          <tr><td><a href="https://firms.modaps.eosdis.nasa.gov/">NASA FIRMS</a> (LANCE) VIIRS S-NPP, MODIS</td><td>Fire detections, timing</td><td>Free and open, with attribution</td></tr>
+          <tr><td><a href="https://rapidmapping.emergency.copernicus.eu/EMSR837">Copernicus EMS EMSR837</a></td><td>Dated perimeters, final scar</td><td>© European Union, free with attribution</td></tr>
+          <tr><td>Copernicus Sentinel-2 L2A, via <a href="https://element84.com/earth-search/">Earth Search</a> on AWS</td><td>Passes during the fire, dNBR</td><td>Free, full and open</td></tr>
+          <tr><td><a href="https://landsaf.ipma.pt/">EUMETSAT LSA SAF</a> FRP-PIXEL (LSA-502)</td><td>Fire power every 15 min</td><td>CC BY 4.0</td></tr>
+          <tr><td>ERA5 (Copernicus C3S), via <a href="https://open-meteo.com/">Open-Meteo</a></td><td>Hourly weather</td><td>Copernicus licence · CC BY 4.0</td></tr>
+          <tr><td><a href="https://centrodedescargas.cnig.es/">IGN/CNIG</a> MDT25 and PNOA</td><td>Larouco terrain and imagery</td><td>CC BY 4.0</td></tr>
+          <tr><td><a href="https://esa-worldcover.org/">ESA WorldCover</a> 2021</td><td>Fuels, vegetation</td><td>CC BY 4.0</td></tr>
+          <tr><td>Sentinel-2 cloudless 2016 by <a href="https://s2maps.eu/">EOX</a></td><td>Larouco horizon imagery</td><td>CC BY 4.0</td></tr>
+          <tr><td>AWS Terrain Tiles (Terrarium)</td><td>Elevation</td><td>Per source, with attribution</td></tr>
+          <tr><td>Esri World Imagery</td><td>Pinhão imagery (streamed)</td><td>Esri terms, with attribution</td></tr>
+          <tr><td>MobileCLIP-S0 (Apple), ONNX by Xenova</td><td>Visual search</td><td>Apple sample-code licence</td></tr>
+          <tr><td>LR-ASPP MobileNetV3 (torchvision)</td><td>Segmenter backbone</td><td>BSD 3-Clause</td></tr>
+        </tbody>
+      </table>
+      <p class="note">FireScope 3D's code is MIT-licensed. Born at the VAST Builders Challenge (17 Oct 2026); the interface recreates the "FireTrace" prototype by Dilum Sanjaya. Exploratory decision-support prototype, not a certified emergency-management or fire-spread prediction system.</p>
+    </section>
+  </main>
+  <footer class="mf"><a href="./">← Back to the app</a> · <a href="https://github.com/aleetreny/FireScope-3D">Source on GitHub</a></footer>
+</body>
+</html>

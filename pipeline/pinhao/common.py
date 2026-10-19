@@ -1,4 +1,4 @@
-"""Lightweight helpers shared by the API and the pipeline (no OpenCV / numpy imports)."""
+"""Lightweight helpers shared by the Pinhão pipeline modules (no OpenCV / numpy imports)."""
 from __future__ import annotations
 
 import math

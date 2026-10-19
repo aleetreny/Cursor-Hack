@@ -9,16 +9,13 @@ the same ONNX file on the same frames; the audit reports the IoU against both.
 from __future__ import annotations
 
 import json
-import sys
 
 import cv2
 import numpy as np
 
+from .config import VIDEO
+from .segment import LearnedBurned
 from .segmenter import CACHE, ROOT
-
-sys.path.insert(0, str(ROOT / "backend"))
-from firescope.config import VIDEO  # noqa: E402
-from firescope.segment import LearnedBurned  # noqa: E402
 
 WEB = ROOT / "media" / "drone_replay_01.mp4"
 

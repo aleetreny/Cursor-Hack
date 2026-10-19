@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { FireScene } from './FireScene';
 import { useStore } from '../state/store';
-import { IS_STATIC, incidentBase, mediaUrl } from '../api/client';
+import { incidentBase } from '../api/client';
 import type { WeatherResponse } from '../api/types';
 import { simCtxFor } from '../sim/useSim';
 
@@ -39,11 +39,11 @@ export function SceneView() {
     scene.setObservations(s.features, s.hotspots);
     scene.setLayers(s.layers);
     scene.setTime(s.time);
-    (IS_STATIC ? incidentBase() : Promise.resolve('')).then((base) => scene.load(s.incident!, src, base)).then(async () => {
+    incidentBase().then((base) => scene.load(s.incident!, src, base)).then(async () => {
       const st = useStore.getState(), inc = st.incident!;
       if (inc.progression) {
         // the reconstructed arrival-time field lives next to the incident files
-        const url = IS_STATIC ? `${await incidentBase()}${inc.progression.image}` : mediaUrl(inc.progression.image)!;
+        const url = `${await incidentBase()}${inc.progression.image}`;
         await scene.setProgression(inc.progression, url).catch((e) => console.warn(e));
       }
       const ctx = simCtxFor(inc, st.timeline, st.t0, st.t1);

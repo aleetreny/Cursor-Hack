@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useStore } from '../state/store';
 import { sceneRef } from '../scene/SceneView';
-import { mediaUrl } from '../api/client';
+import { incidentBase, mediaUrl } from '../api/client';
 import { Logo } from './Icon';
 
 /**
@@ -48,14 +48,14 @@ const click = async (sel: string, text?: string, wait = 450) => {
 // held-out accuracy of the burned-area segmentation (data/processed/drone_replay_01/eval.json)
 const GT = { ground: '0.90', image: '0.92', frames: 46 };
 
-const STEPS: Step[] = [
+const PINHAO_STEPS: Step[] = [
   {
     id: 'title', title: 'FireScope 3D', dur: 9, kind: 'slide',
     enter: () => { const s = st(); base({ mode: 'incident', panel: 'layers', view: '3d', feedOpen: false, selectedUnitId: null, speed: 30, playing: true }); s.setLayer('projection', true); s.setTime(s.t0 + (s.t1 - s.t0) * 0.35); shot(-3400, 1700, 2900, 100, 0.35); },
     slide: () => (
       <div className="pz-title">
         <div className="pz-logo"><Logo /> FireScope 3D</div>
-        <div className="pz-sub">Turning wildfire drone footage into a time-aware 3D picture of the fire.</div>
+        <div className="pz-sub">Up close: a drone over a prescribed burn, measured and checked against human annotators.</div>
         <div className="pz-hint">→ or Space next · ← back · H hide bar · Esc exit</div>
       </div>
     ),
@@ -158,6 +158,19 @@ const STEPS: Step[] = [
     },
   },
   {
+    id: 'liveai', title: 'Live AI', spot: '.feed', at: 'bl', dur: 0,
+    kicker: 'Live AI, in your browser', head: 'The same model, running on the video', tags: ['MODEL'],
+    body: <>The segmenter that made the recorded masks now runs on the playing video, on this device (13 MB, WebGPU): burned ground in red, flames in yellow, smoke in blue. It agrees with the recorded pipeline at IoU 0.98. Your own video files work too, and are never uploaded.</>,
+    enter: async () => {
+      const s = st(); base({ view: '3d', panel: 'layers', mode: 'drones', feedOpen: true, selectedUnitId: null, playing: false, speed: 1 });
+      s.setTime(s.t0 + 330000);
+      await sleep(900);
+      const b = [...document.querySelectorAll<HTMLButtonElement>('.feed .feed-ai')][0];
+      if (b && !b.classList.contains('on')) b.click();
+      await sleep(600); st().set({ playing: true, speed: 1 });
+    },
+  },
+  {
     id: 'agent', title: 'Ask the incident', dur: 13, spot: '.right', at: 'bl',
     kicker: 'Incident analyst', head: 'Ask in plain English', tags: ['MEASURED'],
     body: <>Where was it, when did it grow fastest, what was the wind? Answers are computed from the recorded measurements, right in the browser, with nothing invented. Every citation jumps the video and the map.</>,
@@ -166,7 +179,7 @@ const STEPS: Step[] = [
   {
     id: 'search', title: 'Semantic search', dur: 10, spot: '.right', at: 'bl',
     kicker: 'Search the footage', head: 'Find the moment, not the timestamp', tags: ['MEASURED'],
-    body: <>Type “dense smoke” or “flames ahead of the front” and get the clips where it was measured, with a thumbnail and a jump to that second.</>,
+    body: <>Type “flames ahead of the front” and get the clips where it was measured. Turn on visual search (about 50 MB, once) to search the pixels themselves, in English or Spanish: “dense smoke”, “llamas altas”.</>,
     enter: async () => { st().set({ panel: 'evidence', feedOpen: false }); sc().flyFrame(300, 34, 0.3, 2400); await click('.btn-sm', 'dense smoke', 700); },
   },
   {
@@ -182,19 +195,205 @@ const STEPS: Step[] = [
     enter: async () => { const s = st(); s.setLayer('projection', false); s.set({ mode: 'resources', feedOpen: false, playing: false }); s.setTime(s.t0 + 7.2 * 60000); s.set({ selectedUnitId: 'T-910' }); await sleep(1100); st().set({ follow: { id: 'T-910', mode: 'chase' }, playing: true, speed: 3 }); },
   },
   {
+    id: 'limits', title: 'Honest limits', dur: 0, kind: 'slide',
+    enter: () => { st().set({ playing: false, mode: 'incident', feedOpen: false }); },
+    slide: () => <LimitsSlide items={[
+      ['RGB, not thermal', 'No temperatures: flames and smoke are what the camera can see. Smoke can hide burned ground.'],
+      ['Approximate position', 'Rays from the drone\'s pose onto the terrain. The error in metres could not be measured with this footage.'],
+      ['One flight', 'The segmenter was trained on this burn; on other footage it is a rough guide.'],
+      ['Exercise, not operations', 'The extra drones, aircraft, crews and the large-fire scenario are simulated, and labelled so.'],
+    ]} />,
+  },
+  {
     id: 'close', title: 'FireScope 3D', dur: 0, kind: 'slide',
     enter: () => { const s = st(); base({ mode: 'incident', panel: 'layers', feedOpen: false, selectedUnitId: null, speed: 30, playing: true }); s.setLayer('projection', true); s.setTime(s.t0 + (s.t1 - s.t0) * 0.5); shot(3000, 1500, 3000, 2500, -0.35); },
+    slide: () => <CloseSlide line="Real footage: BurnedAreaUAV (CC-BY-4.0) · the large fire, fleet and resources shown here are simulated" next={{ id: LAROUCO_ID, label: 'Next: a whole wildfire, from satellites' }} />,
+  },
+];
+
+// ---------------------------------------------------------------------------------------------------------------
+// Larouco (Ourense, Aug 2025): a two-week, 33,000 ha wildfire reconstructed from open satellite data
+const LAROUCO_ID = 'larouco-2025-08', PINHAO_ID = 'pinhao-2019-03-01';
+const at = (iso: string) => Date.parse(iso);
+/** Fly to a place (lon, lat) from a distance in km. */
+const geo = (lon: number, lat: number, km: number) => sc().flyToLonLat(lon, lat, km * 9);
+const reset = () => { const s = st(); for (const [k, v] of [['satellite', false], ['projection', false], ['severity', 0], ['isochrones', false], ['ems', true], ['hotspots', true]] as const) if (s.layers[k] !== v) s.setLayer(k, v as never); };
+
+const LAROUCO_STEPS: Step[] = [
+  {
+    id: 'l-title', title: 'FireScope 3D', dur: 9, kind: 'slide',
+    enter: () => { const s = st(); reset(); base({ mode: 'incident', panel: 'layers', view: '3d', feedOpen: false, selectedUnitId: null, speed: 7200, playing: true }); s.setTime(at('2025-08-16T14:00:00Z')); sc().flyHome(); later(1500, () => { const c = sceneRef.current; if (c) { c.controls.autoRotate = true; c.controls.autoRotateSpeed = 0.25; } }); },
     slide: () => (
       <div className="pz-title">
-        <div className="pz-kicker" style={{ textAlign: 'center' }}>From raw drone video to spatial intelligence</div>
         <div className="pz-logo"><Logo /> FireScope 3D</div>
-        <div className="pz-sub">Map it · Understand it · Act on it</div>
-        <div className="pz-sponsors">Born at the VAST Builders Challenge 2026 · runs entirely in your browser</div>
-        <div className="pz-hint">Real footage: BurnedAreaUAV (CC-BY-4.0) · Large fire, fleet and resources shown are simulated</div>
+        <div className="pz-sub">A whole wildfire, hour by hour, rebuilt from open satellite data.</div>
+        <div className="pz-hint">→ or Space next · ← back · H hide bar · Esc exit</div>
       </div>
     ),
   },
+  {
+    id: 'l-problem', title: 'The problem', dur: 16, kind: 'slide',
+    enter: () => { st().set({ playing: false }); },
+    slide: () => <LaroucoProblem />,
+  },
+  {
+    id: 'l-scale', title: 'The fire', dur: 11, spot: '.map', at: 'tl',
+    kicker: 'Larouco, Ourense · 13–27 Aug 2025', head: '33,132 ha in two weeks, on real terrain', tags: ['REAL', 'EXTERNAL'],
+    body: <>42 × 41 km of terrain and aerial imagery packaged with the incident (IGN MDT25 and PNOA), and the final scar Copernicus EMS mapped. Nothing streams from a tile server.</>,
+    enter: () => { const s = st(); reset(); base({ mode: 'incident', panel: 'layers', view: '3d', feedOpen: false, playing: false }); s.setTime(s.t1); sc().flyHome(); },
+  },
+  {
+    id: 'l-progress', title: 'Hour by hour', dur: 14, spot: '.map', at: 'tl',
+    kicker: 'When each place burned', head: 'The fire grows on the map as it did', tags: ['MEASURED', 'EXTERNAL'],
+    body: <>Each 30 m cell is timed by the first NASA FIRMS satellite detection over it and bounded by twelve dated EMS perimeters. Holding each perimeter out and predicting it from the rest scores IoU 0.78, 0.85 and 0.94.</>,
+    enter: () => { const s = st(); reset(); s.setTime(at('2025-08-15T12:00:00Z')); s.set({ playing: true, speed: 7200 }); geo(-7.07, 42.43, 28); },
+  },
+  {
+    id: 'l-satellite', title: 'What the satellite saw', dur: 13, spot: '.map', at: 'tl',
+    kicker: 'Sentinel-2 on the day', head: 'The real image of 16 August, draped on the terrain', tags: ['REAL'],
+    body: <>Six Sentinel-2 passes during the fire, each shown when the timeline reaches it. On 16 August at 11:29 the plume and its pyrocumulus cloud stretch tens of kilometres north-east.</>,
+    enter: () => { const s = st(); reset(); s.set({ playing: false }); s.setLayer('satellite', true); s.setTime(at('2025-08-16T12:00:00Z')); geo(-7.02, 42.47, 40); },
+  },
+  {
+    id: 'l-perimeters', title: 'Perimeters and detections', dur: 12, spot: '.right .scroll > .section:nth-child(1)', at: 'bl',
+    kicker: 'The evidence, dated', head: 'Satellite detections and mapped perimeters', tags: ['EXTERNAL'],
+    body: <>Copernicus EMS perimeters appear on the day they were mapped; VIIRS and MODIS fire detections for twelve hours after each pass. Every layer has its source and can be turned off.</>,
+    enter: () => { const s = st(); reset(); s.setTime(at('2025-08-20T13:00:00Z')); geo(-7.05, 42.43, 30); },
+  },
+  {
+    id: 'l-charts', title: 'Charts', dur: 12, spot: '.charts', at: 'tl',
+    kicker: 'How much, how fast, how hot', head: 'Area, speed and fire power on one clock', tags: ['MEASURED', 'EXTERNAL'],
+    body: <>Burned area, the expansion rate of the scar and the fire's radiative power from Meteosat every 15 minutes, which peaks at 14 GW on 16 August. The cursor is the same instant as the map.</>,
+    enter: () => { const s = st(); s.setTime(at('2025-08-16T19:00:00Z')); s.set({ playing: false }); },
+  },
+  {
+    id: 'l-night', title: 'The night run', dur: 13, spot: '.map', at: 'tl',
+    kicker: 'Real sun, real night', head: 'The run of 16 August, after dark', tags: ['MEASURED', 'REVIEW REQUIRED'],
+    body: <>The light follows the real sun for that place and hour. From 22:00 the fire added 5,429 ha in six hours: its fastest run, at night. The timeline shades the nights and zooms into any hour.</>,
+    enter: () => { const s = st(); reset(); s.setTime(at('2025-08-16T23:30:00Z')); s.set({ playing: true, speed: 1800 }); geo(-7.05, 42.47, 18); },
+  },
+  {
+    id: 'l-severity', title: 'Burn severity', dur: 12, spot: '.map', at: 'tl',
+    kicker: 'How badly it burned', head: 'Severity and the daily fronts', tags: ['MEASURED'],
+    body: <>Sentinel-2 dNBR, before and after: 70% of the scar burned at high severity. The lines are where the fire was at the end of each day.</>,
+    enter: () => { const s = st(); reset(); s.setLayer('severity', 0.85); s.setLayer('isochrones', true); s.setTime(s.t1); s.set({ playing: false }); sc().flyHome(); },
+  },
+  {
+    id: 'l-events', title: 'Key Events', dur: 12, spot: '.events', at: 'tl',
+    kicker: 'Already indexed', head: 'The moments that matter, computed', tags: ['MEASURED', 'REVIEW REQUIRED'],
+    body: <>Fast runs, the driest hour, the strongest gusts, each new EMS perimeter. One click moves the clock and the camera there. Each event waits for a person to confirm it.</>,
+    enter: async () => { reset(); st().set({ mode: 'incident', panel: 'layers', feedOpen: false, playing: false }); await click('.events .ev', 'Fast run: +1,945', 900); await sleep(1600); geo(-7.04, 42.46, 26); },
+  },
+  {
+    id: 'l-agent', title: 'Ask the incident', dur: 13, spot: '.right', at: 'tl',
+    kicker: 'Incident analyst', head: 'Ask in English or Spanish', tags: ['MEASURED'],
+    body: <>When did it grow fastest? How badly did it burn? Could it have been predicted? The answers are computed from the reconstruction, in the browser, and cite the moments they use.</>,
+    enter: async () => { st().set({ mode: 'incident', panel: 'analysis', feedOpen: false }); await click('.suggest button', 'grow fastest', 700); await sleep(1600); geo(-7.06, 42.45, 30); },
+  },
+  {
+    id: 'l-search', title: 'Search', dur: 11, spot: '.right', at: 'tl',
+    kicker: 'Search the fire', head: 'Find the moment, or the image', tags: ['MEASURED', 'MODEL'],
+    body: <>Search the events and the daily summaries. Turn on visual search (about 50 MB, once) and search what Sentinel-2 saw: “smoke plume”, “burn scar”, “embalse”. A result drapes that pass and outlines the place.</>,
+    enter: async () => { st().set({ panel: 'evidence', feedOpen: false }); await click('.btn-sm', 'fast run', 700); await sleep(400); geo(-7.06, 42.44, 32); },
+  },
+  {
+    id: 'l-scenario', title: 'Spread scenario', dur: 13, spot: '.map', at: 'tl',
+    kicker: 'Could it have been foreseen?', head: 'A spread model, scored against reality', tags: ['MODEL'],
+    body: <>Fuels, slope and the hourly weather, calibrated only on the 16 August perimeter, then run freely. It scores IoU 0.25 against the later perimeters: it spreads too evenly and misses the run north. Shown as what it is: not what happened.</>,
+    enter: () => { const s = st(); reset(); base({ mode: 'incident', panel: 'layers', feedOpen: false }); s.setLayer('projection', true); s.setTime(at('2025-08-21T12:00:00Z')); s.set({ playing: false }); sc().flyHome(); },
+  },
+  {
+    id: 'l-ops', title: 'Response exercise', dur: 13, at: 'tl',
+    kicker: 'Rehearse the response', head: 'Aircraft and drones that follow the real front', tags: ['SIMULATED'],
+    body: <>A simulated fleet works the reconstructed front: water bombers fly only by day, and a drone camera renders the 3D scene from where it would be. All of it is tagged SIM.</>,
+    enter: async () => { const s = st(); reset(); s.setTime(at('2025-08-17T12:00:00Z')); s.set({ mode: 'drones', feedOpen: true, selectedUnitId: 'FT-02', playing: true, speed: 900 }); await sleep(800); },
+  },
+  {
+    id: 'l-limits', title: 'Honest limits', dur: 0, kind: 'slide',
+    enter: () => { st().set({ playing: false, mode: 'incident', feedOpen: false, selectedUnitId: null }); },
+    slide: () => <LimitsSlide items={[
+      ['Timing is interpolated', 'Satellites pass about six times a day; the hours in between are filled in. The first detection is not the ignition.'],
+      ['Validated, slightly optimistic', 'The method was tuned on the same EMS perimeters it is scored against.'],
+      ['No people, no houses', 'The app has no data on who was at risk; it describes the fire, not the emergency.'],
+      ['Exercise, not the real operation', 'The fleet and drones are a simulation. The spread scenario has no suppression.'],
+    ]} />,
+  },
+  {
+    id: 'l-close', title: 'FireScope 3D', dur: 0, kind: 'slide',
+    enter: () => { const s = st(); reset(); base({ mode: 'incident', panel: 'layers', feedOpen: false, selectedUnitId: null, speed: 7200, playing: true }); s.setTime(at('2025-08-16T00:00:00Z')); sc().flyHome(); },
+    slide: () => <CloseSlide line="NASA FIRMS · Copernicus EMS and Sentinel-2 · EUMETSAT · ERA5 · IGN/CNIG · ESA WorldCover" next={{ id: PINHAO_ID, label: 'Next: up close, a drone over a burn' }} />,
+  },
 ];
+
+/** Leave the tour with the app in its plain state (the tour's own layers off). */
+function leaveTour() {
+  const s = st(), scene = sceneRef.current;
+  if (scene) scene.controls.autoRotate = false;
+  s.set({ presenting: false, follow: null, playing: false, mode: 'incident', panel: 'layers', view: '3d', feedOpen: false, selectedUnitId: null });
+  s.setLayer('projection', false); s.setLayer('groundTruth', false); s.setLayer('satellite', false);
+  if (s.incident?.scale === 'regional') { s.setLayer('severity', 0); s.setLayer('isochrones', false); }
+}
+
+/** The tour of the incident on screen. */
+const stepsFor = (regional: boolean) => (regional ? LAROUCO_STEPS : PINHAO_STEPS);
+
+function LaroucoProblem() {
+  const inc = useStore((s) => s.incident);
+  const [bg, setBg] = useState<string | null>(null);
+  useEffect(() => { const p = inc?.satellite?.passes.find((x) => x.date === '20250816'); if (p) incidentBase().then((b) => setBg(b + p.image)).catch(() => {}); }, [inc]);
+  const items = [
+    ['Days, not minutes', 'A fire like this burns for two weeks across forty kilometres.'],
+    ['Evidence in pieces', 'A satellite pass every few hours, a mapped perimeter every few days, weather from a model.'],
+    ['Nobody sees it spread', 'Where was the front at 3 a.m.? The data exists, scattered across agencies and formats.'],
+    ['Hard to learn from', 'Afterwards, what could have been foreseen? Without a timeline, it is guesswork.'],
+  ];
+  return (
+    <div className="pz-problem">
+      {bg && <div className="pz-bgimg" style={{ backgroundImage: `url(${bg})` }} />}
+      <div className="pz-problem-in">
+        <div className="pz-kicker">The problem</div>
+        <div className="pz-h1">Satellites see every big fire.<br />Nobody sees it unfold.</div>
+        <div className="pz-list">
+          {items.map(([h, b], i) => <div key={h} className="pz-li" style={{ animationDelay: `${0.6 + i * 0.9}s` }}><span className="pz-num">{i + 1}</span><div><b>{h}</b><span>{b}</span></div></div>)}
+        </div>
+        <div className="pz-foot">Sentinel-2, 16 Aug 2025, 11:29 UTC · the Larouco fire and its pyrocumulus cloud</div>
+      </div>
+    </div>
+  );
+}
+
+function LimitsSlide({ items }: { items: [string, string][] }) {
+  return (
+    <div className="pz-problem pz-limits">
+      <div className="pz-problem-in">
+        <div className="pz-kicker">Honest limits</div>
+        <div className="pz-h1">What this does not tell you.</div>
+        <div className="pz-list">
+          {items.map(([h, b], i) => <div key={h} className="pz-li" style={{ animationDelay: `${0.4 + i * 0.5}s` }}><span className="pz-num">{i + 1}</span><div><b>{h}</b><span>{b}</span></div></div>)}
+        </div>
+        <div className="pz-foot">Every number on screen carries its source: real, measured, external, model or simulated.</div>
+      </div>
+    </div>
+  );
+}
+
+/** The last slide: the other incident's tour, or the app. */
+function CloseSlide({ line, next }: { line: string; next: { id: string; label: string } }) {
+  const goNext = () => { location.href = `${location.pathname}?incident=${next.id}&nointro&tour=1`; };
+  return (
+    <div className="pz-title">
+      <div className="pz-kicker" style={{ textAlign: 'center' }}>Drone and satellite imagery, on one map and one clock</div>
+      <div className="pz-logo"><Logo /> FireScope 3D</div>
+      <div className="pz-sub">Map it · Understand it · Act on it</div>
+      <div className="pz-actions">
+        <button className="pz-go" onClick={goNext}>{next.label} →</button>
+        <button className="pz-go ghost" onClick={leaveTour}>Explore on your own</button>
+      </div>
+      <div className="pz-sponsors">Open data · runs entirely in your browser · born at the VAST Builders Challenge 2026</div>
+      <div className="pz-hint">{line}</div>
+    </div>
+  );
+}
 
 function ProblemSlide() {
   const src = useStore((s) => s.sources[0]);
@@ -223,6 +422,7 @@ function ProblemSlide() {
 
 export function Presenter() {
   const set = useStore((s) => s.set);
+  const STEPS = stepsFor(useStore((s) => s.incident?.scale === 'regional'));
   const [i, setI] = useState(0);
   const [hideBar, setHideBar] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
@@ -230,13 +430,8 @@ export function Presenter() {
   const card = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ x: number; y: number; k: string } | null>(null);
 
-  const go = useCallback((n: number) => { const k = Math.max(0, Math.min(STEPS.length - 1, n)); setI(k); }, []);
-  const exit = useCallback(() => {
-    const s = st(), scene = sceneRef.current;
-    if (scene) scene.controls.autoRotate = false;
-    s.set({ presenting: false, follow: null, playing: false, mode: 'incident', panel: 'layers', view: '3d', feedOpen: false, selectedUnitId: null });
-    s.setLayer('projection', false); s.setLayer('groundTruth', false);
-  }, []);
+  const go = useCallback((n: number) => { const k = Math.max(0, Math.min(STEPS.length - 1, n)); setI(k); }, [STEPS]);
+  const exit = useCallback(leaveTour, []);
 
   useEffect(() => {
     epoch++;
@@ -297,7 +492,7 @@ export function Presenter() {
   return (
     <div className="pz" data-step={step.id}>
       {step.kind === 'slide' ? (
-        <div className={'pz-slide' + (step.id === 'problem' ? ' dark' : '')} key={step.id}>{step.slide?.()}</div>
+        <div className={'pz-slide' + (/problem|limits/.test(step.id) ? ' dark' : '')} key={step.id}>{step.slide?.()}</div>
       ) : (
         <>
           {rect && <div className="pz-spot" style={{ left: rect.left - pad, top: rect.top - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 }} />}

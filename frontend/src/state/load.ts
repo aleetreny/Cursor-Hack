@@ -9,7 +9,7 @@ export async function loadAll() {
   try {
     set({ loadMsg: 'Fetching incident' });
     const [incident, sources, timeline, obs] = await Promise.all([api.incident(), api.sources(), api.timeline(), api.observations()]);
-    const events = sources[0] ? (await api.events(sources[0].id).catch(() => ({ events: timeline.events }))).events : timeline.events;
+    const events = sources[0] ? (await api.events().catch(() => ({ events: timeline.events }))).events : timeline.events;
     const t0 = Date.parse(timeline.start), t1 = Date.parse(timeline.end);
     // open on an instant where the front is clearly active
     // (a regional fire opens on its most intense satellite pass, mid-growth, when the whole front is alight)
